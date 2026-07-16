@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir --requirement requirements.txt
 
 COPY src ./src
 COPY tests ./tests
+COPY data ./data
 
 # Container'ı root olmayan kullanıcıyla çalıştır.
 RUN useradd --create-home --uid 10001 chatbot \

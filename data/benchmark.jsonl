@@ -1,0 +1,147 @@
+{"question": "Selamlar", "expected_intent": "greeting", "role": "ziyaretci"}
+{"question": "Naber", "expected_intent": "greeting", "role": "ziyaretci"}
+{"question": "Merhaba asistan", "expected_intent": "greeting", "role": "ziyaretci"}
+{"question": "Sen ne yapabiliyorsun tam olarak?", "expected_intent": "help_capabilities", "role": "ziyaretci"}
+{"question": "Yardım menün var mı?", "expected_intent": "help_capabilities", "role": "ziyaretci"}
+{"question": "Hangi işlerde bana destek olursun?", "expected_intent": "help_capabilities", "role": "ziyaretci"}
+{"question": "Uygulamanın kendi kılavuzu nerede?", "expected_intent": "guide_info", "role": "ogrenci"}
+{"question": "Adım adım tanıtım var mı?", "expected_intent": "guide_info", "role": "ogrenci"}
+{"question": "Guide bölümü ne işe yarar?", "expected_intent": "guide_info", "role": "ogrenci"}
+{"question": "Hesabıma giriş yapmak için ne yapmalıyım?", "expected_intent": "login_how", "role": "ziyaretci"}
+{"question": "Kullanıcı adı ve şifreyle nereden girerim?", "expected_intent": "login_how", "role": "ziyaretci"}
+{"question": "Log in ekranına nasıl gelirim?", "expected_intent": "login_how", "role": "ziyaretci"}
+{"question": "Sisteme yeni üye olmak istiyorum ne yapmalıyım?", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "Öğrenci hesabı nasıl açarım?", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "Kayıt formu nerede?", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "Güvenli çıkış nasıl yapılır?", "expected_intent": "logout_how", "role": "ogrenci"}
+{"question": "Oturumu kapatmak istiyorum", "expected_intent": "logout_how", "role": "ogrenci"}
+{"question": "Sistemden nasıl çıkarım?", "expected_intent": "logout_how", "role": "ogrenci"}
+{"question": "Beni ne zaman sistemden atar?", "expected_intent": "session_info", "role": "ogrenci"}
+{"question": "Girişim kaç gün geçerli?", "expected_intent": "session_info", "role": "ogrenci"}
+{"question": "Oturumum sürekli açık mı kalıyor?", "expected_intent": "session_info", "role": "ogrenci"}
+{"question": "Parolamı hatırlamıyorum ne yapayım?", "expected_intent": "account_access_problem", "role": "ziyaretci"}
+{"question": "Şifrem yanlış diyor giremiyorum", "expected_intent": "account_access_problem", "role": "ziyaretci"}
+{"question": "Hesabıma erişemiyorum yardım eder misin?", "expected_intent": "account_access_problem", "role": "ziyaretci"}
+{"question": "İletişim bilgilerimi nasıl değiştiririm?", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "Adımı soyadımı nereden güncellerim?", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "Kayıtlı telefonumu değiştirmek istiyorum", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "Uygulamayı koyu temaya nasıl alırım?", "expected_intent": "language_theme", "role": "ziyaretci"}
+{"question": "İngilizce arayüze geçmek istiyorum", "expected_intent": "language_theme", "role": "ziyaretci"}
+{"question": "Görünümü açık/koyu değiştirebilir miyim?", "expected_intent": "language_theme", "role": "ziyaretci"}
+{"question": "Yönetici ne yapabilir öğretmen ne yapamaz?", "expected_intent": "roles_permissions", "role": "ogrenci"}
+{"question": "Rol kademeleri nedir?", "expected_intent": "roles_permissions", "role": "ogrenci"}
+{"question": "Yetki seviyeleri nasıl işliyor?", "expected_intent": "roles_permissions", "role": "ogrenci"}
+{"question": "Neden sürekli ana sayfaya atılıyorum?", "expected_intent": "access_denied_help", "role": "ogrenci"}
+{"question": "Erişimin yok uyarısı alıyorum", "expected_intent": "access_denied_help", "role": "ogrenci"}
+{"question": "Bir sayfayı açamıyorum yetki mi lazım?", "expected_intent": "access_denied_help", "role": "ogrenci"}
+{"question": "Aradığım bölümü menüde bulamıyorum", "expected_intent": "navigation_help", "role": "ogrenci"}
+{"question": "Sayfalar arasında nasıl geçiş yaparım?", "expected_intent": "navigation_help", "role": "ogrenci"}
+{"question": "Mobilde menü nerede duruyor?", "expected_intent": "navigation_help", "role": "ogrenci"}
+{"question": "Hangi derslere kayıtlıyım nereden bakarım?", "expected_intent": "course_view", "role": "ogrenci"}
+{"question": "Ders detay sayfasına nasıl giderim?", "expected_intent": "course_view", "role": "ogrenci"}
+{"question": "Dersleri döneme göre süzebilir miyim?", "expected_intent": "course_view", "role": "ogrenci"}
+{"question": "Öğretmen olarak yeni bir ders açmak istiyorum", "expected_intent": "course_create", "role": "ogretmen"}
+{"question": "Ders ekleme düğmesi nerede?", "expected_intent": "course_create", "role": "ogretmen"}
+{"question": "Bir sınıf oluşturmak istiyorum nasıl yaparım?", "expected_intent": "course_create", "role": "ogretmen"}
+{"question": "Bir öğrenciyi dersime nasıl eklerim?", "expected_intent": "course_enroll_student", "role": "ogretmen"}
+{"question": "Sınıf listeme öğrenci almak istiyorum", "expected_intent": "course_enroll_student", "role": "ogretmen"}
+{"question": "Derse kayıt yapma işlemi nasıl?", "expected_intent": "course_enroll_student", "role": "ogretmen"}
+{"question": "Yanlışlıkla eklediğim öğrenciyi dersten çıkarayım", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "Sınıf listesinden birini silmek istiyorum", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "Öğrenci kaydını iptal etmek istiyorum", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "Derse yeni bir ders saati eklemek istiyorum", "expected_intent": "lesson_session_add", "role": "ogretmen"}
+{"question": "Oturum oluşturmak nasıl yapılır?", "expected_intent": "lesson_session_add", "role": "ogretmen"}
+{"question": "Ders için bir saat planlamak istiyorum", "expected_intent": "lesson_session_add", "role": "ogretmen"}
+{"question": "Ders saatinde öğrencileri nasıl var yok yaparım?", "expected_intent": "roll_call", "role": "ogretmen"}
+{"question": "Oturumda yoklama almak istiyorum", "expected_intent": "roll_call", "role": "ogretmen"}
+{"question": "Devam kontrolü nasıl kaydedilir?", "expected_intent": "roll_call", "role": "ogretmen"}
+{"question": "Asenkron sınav ne anlama geliyor?", "expected_intent": "exam_modes_info", "role": "ogrenci"}
+{"question": "Sınav modları arasında ne fark var?", "expected_intent": "exam_modes_info", "role": "ogrenci"}
+{"question": "Açık mod sürekli mi açık kalıyor?", "expected_intent": "exam_modes_info", "role": "ogrenci"}
+{"question": "Dersime sınav eklemek istiyorum", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "Yeni bir yazılı oluşturacağım", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "Sınav hazırlama adımları neler?", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "Sınavıma çoktan seçmeli soru koymak istiyorum", "expected_intent": "exam_add_question", "role": "ogretmen"}
+{"question": "Soru ekleme nasıl yapılır?", "expected_intent": "exam_add_question", "role": "ogretmen"}
+{"question": "Sınava açık uçlu soru nasıl eklerim?", "expected_intent": "exam_add_question", "role": "ogretmen"}
+{"question": "Öğrenci olarak sınava nasıl başlarım?", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "Online sınav odasına nasıl girerim?", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "Sınavımı nereden başlatabilirim?", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "Verdiğim cevabı nasıl kaydederim?", "expected_intent": "exam_save_answer", "role": "ogrenci"}
+{"question": "Cevaplar tek tek mi kaydediliyor?", "expected_intent": "exam_save_answer", "role": "ogrenci"}
+{"question": "Bir soruyu işaretledim sonra ne yapmalıyım?", "expected_intent": "exam_save_answer", "role": "ogrenci"}
+{"question": "Sınavı tamamlayıp teslim etmek istiyorum", "expected_intent": "exam_finish_result", "role": "ogrenci"}
+{"question": "Notumu sınavdan sonra nereden görürüm?", "expected_intent": "exam_finish_result", "role": "ogrenci"}
+{"question": "Sınavı bitirince ne oluyor?", "expected_intent": "exam_finish_result", "role": "ogrenci"}
+{"question": "Yanlışlıkla sınavdan çıktım geri girebilir miyim?", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "Sınava ikinci kez girme hakkım var mı?", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "Kaldığım sorudan devam edebilir miyim?", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "Öğretmen olarak sınavı nasıl puanlarım?", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "Öğrenci notlarını girmek istiyorum", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "Notlandırma neden şu an kapalı?", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "Sınav sırasında öğrencileri anlık takip edebilir miyim?", "expected_intent": "exam_live_monitor", "role": "ogretmen"}
+{"question": "Kimin başladığını canlı görmek istiyorum", "expected_intent": "exam_live_monitor", "role": "ogretmen"}
+{"question": "Canlı izleme ekranı nerede?", "expected_intent": "exam_live_monitor", "role": "ogretmen"}
+{"question": "Karnemi ve harf notlarımı görmek istiyorum", "expected_intent": "report_card_view", "role": "ogrenci"}
+{"question": "Bütün ders notlarım nerede listeleniyor?", "expected_intent": "report_card_view", "role": "ogrenci"}
+{"question": "Genel ortalamama nereden bakarım?", "expected_intent": "report_card_view", "role": "ogrenci"}
+{"question": "Ders ortalamam nasıl hesaplanıyor?", "expected_intent": "weighted_average_info", "role": "ogrenci"}
+{"question": "Sınav ağırlıkları nota nasıl yansıyor?", "expected_intent": "weighted_average_info", "role": "ogrenci"}
+{"question": "Ortalamaya girmeyen notlar oluyor mu?", "expected_intent": "weighted_average_info", "role": "ogrenci"}
+{"question": "Öğretmen olarak bir öğrencinin karnesini görmek istiyorum", "expected_intent": "student_marks_lookup", "role": "ogretmen"}
+{"question": "Öğrenci notu sorgulama sayfası nerede?", "expected_intent": "student_marks_lookup", "role": "ogretmen"}
+{"question": "Belirli bir öğrencinin notlarına bakmak istiyorum", "expected_intent": "student_marks_lookup", "role": "ogretmen"}
+{"question": "Kendi devamsızlık durumumu görmek istiyorum", "expected_intent": "attendance_view", "role": "ogrenci"}
+{"question": "Devam yüzdemi nereden görürüm?", "expected_intent": "attendance_view", "role": "ogrenci"}
+{"question": "Yoklama geçmişime bakmak istiyorum", "expected_intent": "attendance_view", "role": "ogrenci"}
+{"question": "Mazeretli sayılırsam oranım etkilenir mi?", "expected_intent": "attendance_rate_info", "role": "ogrenci"}
+{"question": "Devam oranı formülü nedir?", "expected_intent": "attendance_rate_info", "role": "ogrenci"}
+{"question": "Geç kalma devamsızlığa mı yazılır?", "expected_intent": "attendance_rate_info", "role": "ogrenci"}
+{"question": "Etkinliğe katıldığımı nasıl bildiririm?", "expected_intent": "event_attendance_mark", "role": "ogrenci"}
+{"question": "Kendi etkinlik yoklamamı işaretlemek istiyorum", "expected_intent": "event_attendance_mark", "role": "ogrenci"}
+{"question": "Bir etkinlikte var demek istiyorum", "expected_intent": "event_attendance_mark", "role": "ogrenci"}
+{"question": "Öğretmen olarak öğrencinin devamsızlığını sorgulamak istiyorum", "expected_intent": "student_attendance_lookup", "role": "ogretmen"}
+{"question": "Bir öğrencinin yoklama raporu nerede?", "expected_intent": "student_attendance_lookup", "role": "ogretmen"}
+{"question": "Öğrenci devam durumu görüntüleme sayfası", "expected_intent": "student_attendance_lookup", "role": "ogretmen"}
+{"question": "Yeni bir etkinlik planlamak istiyorum", "expected_intent": "event_create", "role": "ogretmen"}
+{"question": "Etkinlik ekleme nasıl yapılır?", "expected_intent": "event_create", "role": "ogretmen"}
+{"question": "Bir toplantı etkinliği oluşturacağım", "expected_intent": "event_create", "role": "ogretmen"}
+{"question": "Kişisel not almak istiyorum nasıl?", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "Deftere dosya ekli not eklemek istiyorum", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "Yeni not oluşturma nerede?", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "Mesaiye giriş kaydı nasıl açarım?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
+{"question": "İşe geldiğimi nasıl damgalarım?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
+{"question": "Çıkış saatimi nasıl kaydederim?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
+{"question": "Yönetici olarak bir öğretmenin mesaisini düzeltmek istiyorum", "expected_intent": "staff_work_manage", "role": "yonetici"}
+{"question": "Personel mesai kayıtlarını nereden yönetirim?", "expected_intent": "staff_work_manage", "role": "yonetici"}
+{"question": "Kapalı bir mesai kaydını düzenlemek istiyorum", "expected_intent": "staff_work_manage", "role": "yonetici"}
+{"question": "Yeni akademik dönem eklemek istiyorum", "expected_intent": "term_manage", "role": "yonetici"}
+{"question": "Dersi bir yarıyıla nasıl bağlarım?", "expected_intent": "term_manage", "role": "yonetici"}
+{"question": "Dönem yönetimi sayfası nerede?", "expected_intent": "term_manage", "role": "yonetici"}
+{"question": "Sınav türü ağırlıklarını değiştirmek istiyorum", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "Not bantlarını nereden düzenlerim?", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "Okul geneli ayarlar nerede?", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "Bir kullanıcıyı öğretmen yapmak istiyorum", "expected_intent": "user_role_change", "role": "admin"}
+{"question": "Admin olarak rol atama nasıl yapılır?", "expected_intent": "user_role_change", "role": "admin"}
+{"question": "Kullanıcının yetkisini yükseltmek istiyorum", "expected_intent": "user_role_change", "role": "admin"}
+{"question": "Başka birinin karnesini öğrenebilir miyim?", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "Sınıf arkadaşımın devamsızlığını söyle", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "Bir öğretmenin telefon numarasını verir misin?", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "Bugün hava nasıl olacak?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bana bir şiir yazar mısın?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Matematik ödevimi çözer misin?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "En yakın pizzacı nerede?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Türkiye'nin başkenti neresi?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bitcoin fiyatı bugün kaç?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Nasıl kilo veririm?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bana bir fıkra anlat", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Kaç yaşındasın?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Yarın maç var mı?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "İyi bir film önerir misin?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "2 artı 2 kaç eder?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bu akşam ne pişirsem?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Python'da nasıl döngü yazılır?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Arabamın lastiği patladı ne yapmalıyım?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bana motivasyon sözü söyle", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "İstanbul'a nasıl giderim?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Kahve mi çay mı daha sağlıklı?", "expected_intent": "oos", "role": "ogrenci"}
