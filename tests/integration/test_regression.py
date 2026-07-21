@@ -6,9 +6,9 @@ Eşikler mevcut baseline'ın biraz altına konur (gürültüye dayanıklı ama k
 
 import unittest
 
-from src.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import OOS_LABEL, load_benchmark
 from src.decision import decide
-from src.evaluate import run_evaluation
+from src.evaluation.evaluate import run_evaluation
 
 
 class QualityRegressionTests(unittest.TestCase):

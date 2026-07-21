@@ -21,13 +21,18 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass
-from typing import Final, Iterable
+from typing import Final, Iterable, Protocol, runtime_checkable
 
 from .catalog import INTENTS
-from .normalize import fold_accents, normalize
+from .normalize import fold_accents, folded_tokens, normalize
 
 
 DEFAULT_NGRAMS: Final[tuple[int, ...]] = (3, 4, 5)
+# Kelime-düzeyi özelliklerin ağırlığı (opsiyonel knob).
+# NOT: Bu benchmark'ta kelime özelliği macro-F1'i DÜŞÜRDÜ (0.859 -> ~0.85); char
+# n-gram tek başına daha güçlü çıktı. Bu yüzden varsayılan 0 (saf char n-gram).
+# Asıl anlamsal kazanç için embedding backend'ini kullan (bkz. src/embedding.py).
+DEFAULT_WORD_WEIGHT: Final[int] = 0
 
 
 def _prepare(text: str) -> str:
@@ -59,6 +64,16 @@ class ScoredIntent:
     score: float
 
 
+@runtime_checkable
+class SimilarityBackend(Protocol):
+    """Benzerlik backend sözleşmesi. TF-IDF ve embedding aynı arayüzü paylaşır."""
+
+    def rank(self, query: str) -> list["ScoredIntent"]: ...
+    def best(self, query: str) -> "ScoredIntent | None": ...
+    @property
+    def size(self) -> int: ...
+
+
 class SimilarityMatcher:
     """Karakter n-gram TF-IDF üzerinden intent benzerliği."""
 
@@ -66,16 +81,18 @@ class SimilarityMatcher:
         self,
         examples: list[tuple[str, str]],
         ns: Iterable[int] = DEFAULT_NGRAMS,
+        word_weight: int = DEFAULT_WORD_WEIGHT,
     ) -> None:
         """examples: (intent, question) çiftleri."""
 
         self._ns = tuple(ns)
+        self._word_weight = word_weight
         self._intents: list[str] = []
         self._doc_tfs: list[Counter[str]] = []
 
         document_frequency: Counter[str] = Counter()
         for intent, question in examples:
-            tf = char_ngrams(question, self._ns)
+            tf = self._features(question)
             if not tf:
                 continue
             self._intents.append(intent)
@@ -115,6 +132,16 @@ class SimilarityMatcher:
 
         return len(self._doc_vectors)
 
+    def _features(self, text: str) -> Counter[str]:
+        """Karakter n-gram + kelime-düzeyi (stemmed) birleşik özellik sayımı."""
+
+        counts = char_ngrams(text, self._ns)
+        if self._word_weight:
+            for token in folded_tokens(text):
+                if len(token) >= 3:
+                    counts["w:" + token] += self._word_weight
+        return counts
+
     def _to_vector(self, tf: Counter[str]) -> dict[str, float]:
         """TF sayımını IDF ağırlıklı vektöre çevirir (bilinmeyen gram'lar atlanır)."""
 
@@ -131,7 +158,7 @@ class SimilarityMatcher:
         benzerliği o intent'in skorudur.
         """
 
-        query_tf = char_ngrams(query, self._ns)
+        query_tf = self._features(query)
         query_vec = self._to_vector(query_tf)
         query_norm = _norm(query_vec)
         if query_norm == 0.0:

@@ -28,7 +28,7 @@ class ProcessTests(unittest.TestCase):
     def test_required_trace_keys(self) -> None:
         _, trace = process("Merhaba")
         for key in [
-            "trace_id", "raw_query", "normalized", "roots", "rule_layer",
+            "trace_id", "query_masked", "normalized", "roots", "rule_layer",
             "similarity", "decision", "response_id", "latency_ms", "alarms",
         ]:
             self.assertIn(key, trace)
@@ -94,7 +94,7 @@ class TraceJsonTests(unittest.TestCase):
         _, trace = process("Şifremi unuttum")
         text = trace_to_json(trace)
         parsed = json.loads(text)
-        self.assertEqual(parsed["raw_query"], "Şifremi unuttum")
+        self.assertEqual(parsed["query_masked"], "Şifremi unuttum")  # PII yok -> aynen
         self.assertIn("Ş", text)  # ensure_ascii=False
 
 

@@ -8,7 +8,7 @@ Coverage'ın düşük olması normaldir; gerisini benzerlik katmanı toplar.
 
 import unittest
 
-from src.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import OOS_LABEL, load_benchmark
 from src.rules import match
 
 

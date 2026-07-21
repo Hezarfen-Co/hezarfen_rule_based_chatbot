@@ -9,7 +9,7 @@ Eşik eklenince yeni metrikler doğar:
 
 import unittest
 
-from src.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import OOS_LABEL, load_benchmark
 from src.decision import DEFAULT_THRESHOLD, decide
 
 

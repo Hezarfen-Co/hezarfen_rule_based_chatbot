@@ -8,9 +8,9 @@ sınıflandırma kalitesi ölçülür: accuracy ve macro-F1. Tahmin:
 import unittest
 
 from src import rules
-from src.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import OOS_LABEL, load_benchmark
 from src.catalog import INTENTS
-from src.metrics import accuracy, macro_f1, per_class_scores
+from src.evaluation.metrics import accuracy, macro_f1, per_class_scores
 from src.similarity import get_default_matcher
 
 

@@ -30,7 +30,32 @@ from .normalize import fold_accents, folded_tokens, normalize
 _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "greeting", "groups": [
         {"all": ["merhaba"]}, {"all": ["selam"]}, {"all": ["günaydın"]},
-        {"all": ["naber"]}, {"all": ["hey"]},
+        {"all": ["hey"]}, {"all": ["iyi", "günler"]},
+    ]},
+    {"intent": "smalltalk", "groups": [
+        {"all": ["naber"]}, {"all": ["nasılsın"]}, {"all": ["napıyorsun"]},
+        {"all": ["ne", "haber"]}, {"all": ["keyifler"]},
+    ]},
+    {"intent": "thanks", "groups": [
+        {"all": ["teşekkür"]}, {"all": ["sağol"]}, {"all": ["sağ", "ol"]},
+        {"all": ["eyvallah"]},
+    ]},
+    {"intent": "farewell", "groups": [
+        {"all": ["görüşürüz"]}, {"all": ["hoşça"]}, {"all": ["hoşçakal"]},
+        {"all": ["iyi", "gece"]},
+    ]},
+    {"intent": "bot_identity", "groups": [
+        {"all": ["kimsin"]}, {"all": ["robot"]}, {"all": ["yapay", "zeka"]},
+        {"all": ["adın", "ne"]}, {"all": ["kim", "yaptı", "seni"]},
+    ]},
+    {"intent": "platform_info", "groups": [
+        # 'Hezarfen nedir' + sık yazım hatası 'hazerfen'. Salt 'hezarfen' KULLANILMAZ
+        # (çünkü 'hezarfen'de sınav oluştur' gibi sorularda da geçer) — 'ne/nedir'
+        # veya 'tanıt' ile birlikte istenir. 'hazerfen' yanlış-yazımı tek başına yeter.
+        {"all": ["hezarfen", "nedir"]}, {"all": ["hezarfen", "ne"]},
+        {"all": ["hezarfen", "tanıt"]}, {"all": ["hazerfen"]},
+        {"all": ["bu", "site", "nedir"]}, {"all": ["bu", "uygulama", "nedir"]},
+        {"all": ["bu", "platform"]},
     ]},
     {"intent": "help_capabilities", "groups": [
         {"all": ["neler", "yapabil"], "none": ["yönetici", "öğretmen", "rol", "yetki"]},
@@ -42,6 +67,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["yönetici", "yapabil"]}, {"all": ["öğretmen", "yapabil"]},
         {"all": ["rol", "kademe"]}, {"all": ["yetki", "seviye"]},
         {"all": ["rol", "nedir"]}, {"all": ["kim", "yetki"]},
+        # 'Rolüm ne?' — kendi rolünü sorma ('rolümü değiştir' user_role_change'in
+        # 2'lik kuralına takılır, o kazanır).
+        {"all": ["rolüm"]},
     ]},
     {"intent": "privacy_security", "groups": [
         {"all": ["arkadaş"]}, {"all": ["başka", "öğrenci"]},
@@ -76,8 +104,12 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["ağırlıklı", "ortalama"]},
     ]},
     {"intent": "student_marks_lookup", "groups": [
-        {"all": ["öğrenci", "karne"]}, {"all": ["öğrenci", "not", "gör"]},
-        {"all": ["öğrenci", "not", "sorgu"]}, {"all": ["öğrenci", "not", "bak"]},
+        # 'başka/birinin' varsa bu meşru bir öğretmen sorgusu değil, gizlilik
+        # sorusudur ('başka bir öğrencinin notunu görebilir miyim') -> privacy'ye bırak.
+        {"all": ["öğrenci", "karne"], "none": ["başka", "birinin"]},
+        {"all": ["öğrenci", "not", "gör"], "none": ["başka", "birinin"]},
+        {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin"]},
+        {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin"]},
     ]},
     {"intent": "note_create", "groups": [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
@@ -152,6 +184,29 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "event_attendance_mark", "groups": [
         {"all": ["etkinlik", "katıl"]}, {"all": ["etkinlik", "yoklama"]},
+    ]},
+    # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
+    {"intent": "pomodoro_use", "groups": [
+        # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.
+        {"all": ["pomodoro"], "none": ["öğrenci"]},
+        {"all": ["odak", "başlat"]}, {"all": ["odağ", "başlat"]},
+        {"all": ["odak", "bitir"]}, {"all": ["odağ", "bitir"]},
+        {"all": ["odak", "oturum"], "none": ["öğrenci"]},
+    ]},
+    {"intent": "student_pomodoro_lookup", "groups": [
+        {"all": ["öğrenci", "pomodoro"]}, {"all": ["öğrenci", "odak"]},
+        {"all": ["öğrenci", "odağ"]},
+    ]},
+    {"intent": "messages_use", "groups": [
+        {"all": ["mesaj"]}, {"all": ["gelen", "kutusu"]},
+    ]},
+    {"intent": "study_club_info", "groups": [
+        # 'etüde/kulübe' çekimlerinde ünsüz yumuşar (t->d, p->b); iki kök de tanınır.
+        {"all": ["etüt"]}, {"all": ["etüd"]},
+        {"all": ["kulüp"]}, {"all": ["kulüb"]},
+    ]},
+    {"intent": "parent_info", "groups": [
+        {"all": ["veli"]}, {"all": ["ebeveyn"]},
     ]},
 ]
 

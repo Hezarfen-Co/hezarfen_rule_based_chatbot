@@ -5,3 +5,9 @@ __pycache__/
 .coverage
 .agents
 hezarfen-site-rehberi.md
+
+# Çalışma-zamanı artıkları (kalıcı saklama backend'de yapılır)
+feedback.jsonl
+
+# Yöneticiye gönderilen üretilmiş rapor (yerelde tutulur; gerekirse elle eklenir)
+Celebi-Teknik-Ozet.pdf

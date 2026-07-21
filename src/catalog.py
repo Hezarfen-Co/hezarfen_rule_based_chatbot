@@ -32,6 +32,7 @@ from typing import Any, Final
 # Hiyerarşi düşükten yükseğe. Üst rol, alt rolün yaptığı her şeyi yapabilir.
 ROLE_HIERARCHY: Final[tuple[str, ...]] = (
     "ziyaretci",  # oturum açmamış kullanıcı
+    "veli",       # bağlı öğrencilerin salt-okunur gözlemcisi (backend: Parent)
     "ogrenci",
     "ogretmen",
     "yonetici",
@@ -41,7 +42,7 @@ ROLE_HIERARCHY: Final[tuple[str, ...]] = (
 _ROLE_RANK: Final[dict[str, int]] = {role: rank for rank, role in enumerate(ROLE_HIERARCHY)}
 
 # Oturum açmış sayılan en düşük rol.
-MIN_AUTHENTICATED_ROLE: Final[str] = "ogrenci"
+MIN_AUTHENTICATED_ROLE: Final[str] = "veli"
 
 
 REQUIRED_INTENT_FIELDS: Final[frozenset[str]] = frozenset(
@@ -59,6 +60,25 @@ REQUIRED_INTENT_FIELDS: Final[frozenset[str]] = frozenset(
 )
 
 
+
+# Asistanın adı: Hezarfen Ahmed Çelebi'ye saygıyla. Arayüzler (web/cli) ve
+# cevap metinleri bu sabiti kullanır; isim değişirse tek yer burası.
+ASSISTANT_NAME: Final[str] = "Çelebi"
+
+# Selamlama aynalama: kullanıcı 'günaydın' derse cevap da 'Günaydın!' ile başlar.
+# Anahtarlar katlanmış (ascii) formdadır; greeting şablonundaki {selam} yerine
+# geçer. Eşleşme yoksa varsayılan kullanılır. Uzun anahtarlar önce denenir.
+GREETING_OPENERS: Final[dict[str, str]] = {
+    "gunaydin": "Günaydın! ☀️",
+    "iyi gunler": "İyi günler! 🌞",
+    "iyi aksamlar": "İyi akşamlar! 🌙",
+    "selam": "Selam! 👋",
+    "hey": "Selam! 👋",
+    "merhaba": "Merhaba!",
+}
+DEFAULT_GREETING_OPENER: Final[str] = "Merhaba!"
+
+
 INTENTS: Final[list[dict[str, Any]]] = [
     # --- Genel ---------------------------------------------------------------
     {
@@ -67,14 +87,119 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kullanıcının selam vermesi / sohbeti başlatması.",
         "response_id": "welcome_message",
         "response_template": (
-            "Merhaba! Ben Hezarfen kullanım asistanıyım. Ders, sınav, karne, "
-            "yoklama, defter ve mesai gibi konularda 'nasıl yaparım?' sorularını "
-            "yanıtlayabilirim. Ne yapmak istiyorsun?"
+            "{selam} Ben Çelebi 🪽 — Hezarfen'in kullanım asistanı. Ders, sınav, "
+            "karne, yoklama, defter ve mesai gibi konularda 'nasıl yaparım?' "
+            "sorularını yanıtlayabilirim. Ne yapmak istiyorsun?"
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
         "example_questions": ["Merhaba", "Selam", "Günaydın", "İyi günler", "Hey"],
-        "must_not_match": ["help_capabilities"],
+        "must_not_match": ["help_capabilities", "smalltalk"],
+    },
+    {
+        "intent": "smalltalk",
+        "category": "general",
+        "description": "Hatır sorma / sohbet ('naber', 'nasılsın') — kısa samimi yanıt.",
+        "response_id": "smalltalk_reply",
+        "response_template": (
+            "İyiyim, sorduğun için sağ ol! 😊 Umarım senin de moralin yerindedir. "
+            "Ben Çelebi; asıl işim Hezarfen'de yolunu bulmana yardım etmek. Ders, "
+            "sınav, karne, yoklama veya hesap ayarları hakkında 'nasıl yaparım?' "
+            "diye sorabilirsin."
+        ),
+        "response_variants": [
+            "Keyfim yerinde, teşekkürler! 🪽 Sen nasılsın bakalım? Hazır buradayken "
+            "Hezarfen'le ilgili merak ettiğin bir şey varsa çekinme — ders, sınav, "
+            "karne... ne istersen sor.",
+            "İyidir iyidir! 😄 Çelebi her zaman görev başında. Söyle bakalım, "
+            "Hezarfen'de bugün ne yapmak istiyorsun?",
+        ],
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": ["Naber", "Nasılsın", "Ne haber", "Napıyorsun", "İyi misin"],
+        "must_not_match": ["greeting"],
+    },
+    {
+        "intent": "thanks",
+        "category": "general",
+        "description": "Teşekkür etme — kibar kapanış yanıtı.",
+        "response_id": "thanks_reply",
+        "response_template": (
+            "Rica ederim! 😊 Başka bir konuda takıldığında yine sorabilirsin — "
+            "ders, sınav, karne, yoklama, defter... hepsi için buradayım."
+        ),
+        "response_variants": [
+            "Ne demek, her zaman! 🪽 Yardımcı olabildiysem ne mutlu. Başka bir "
+            "sorun olursa Çelebi burada.",
+            "Rica ederim, kolay gelsin! 😊 Takıldığın başka bir yer olursa "
+            "sormaktan çekinme.",
+        ],
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": ["Teşekkürler", "Sağ ol", "Teşekkür ederim", "Eyvallah", "Çok sağol"],
+        "must_not_match": [],
+    },
+    {
+        "intent": "farewell",
+        "category": "general",
+        "description": "Vedalaşma — sohbeti kapatma yanıtı.",
+        "response_id": "farewell_reply",
+        "response_template": (
+            "Görüşmek üzere! 👋 Hezarfen'de yolun düştüğünde yine buradayım. "
+            "İyi çalışmalar!"
+        ),
+        "response_variants": [
+            "Hoşça kal! 🪽 İhtiyacın olduğunda Çelebi bir mesaj uzağında. "
+            "Kendine iyi bak!",
+            "Görüşürüz, iyi günler! 👋 Derslerin ve sınavların kolay geçsin.",
+        ],
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": ["Görüşürüz", "Hoşça kal", "İyi geceler", "Ben kaçtım", "Kendine iyi bak"],
+        "must_not_match": ["greeting"],
+    },
+    {
+        "intent": "bot_identity",
+        "category": "general",
+        "description": "Botun kim/ne olduğunun sorulması ('sen kimsin', 'robot musun').",
+        "response_id": "bot_identity_reply",
+        "response_template": (
+            "Ben Çelebi 🪽 — Hezarfen'in kullanım asistanıyım. Adımı, Galata "
+            "Kulesi'nden uçtuğu rivayet edilen Hezarfen Ahmed Çelebi'den alıyorum. "
+            "Serbest metin üreten bir yapay zekâ değil, kural tabanlı bir yardımcıyım: "
+            "sitedeki gerçek menü ve sayfalara dayanarak 'nasıl yaparım?' sorularını "
+            "yanıtlar, seni doğru sayfaya yönlendiririm. Bir şey sormak ister misin?"
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": ["Sen kimsin?", "Adın ne?", "Robot musun?", "Yapay zeka mısın?", "Seni kim yaptı?"],
+        "must_not_match": ["smalltalk", "help_capabilities", "platform_info"],
+    },
+    {
+        "intent": "platform_info",
+        "category": "general",
+        "description": "Hezarfen nedir — platformun ne olduğunun sorulması.",
+        "response_id": "platform_overview",
+        "response_template": (
+            "Hezarfen, bir okulun **ders, sınav, not, yoklama, etkinlik ve personel "
+            "mesaisini tek yerde** toplayan bir okul yönetim sitesidir — sloganı: "
+            "\"Kampüs çalışma alanın: notlar, etkinlikler ve sınavlar tek yerde.\" "
+            "Temel akış **Ders → Sınav → Karne**: öğretmen ders açar, öğrenci sınavlara "
+            "girer, notlar **Karnem**'de ağırlıklı ortalamayla toplanır. Ayrıca kişisel "
+            "**Defter**, **Etkinlikler**, **Yoklama** ve personel için **Mesai** var. "
+            "Ben Çelebi, bu siteyi nasıl kullanacağını adım adım anlatırım — 'ne yapmak "
+            "istiyorsun?' diye sorabilirsin."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Hezarfen nedir?",
+            "Bu site ne işe yarıyor?",
+            "Hezarfen ne demek?",
+            "Bu uygulama nedir?",
+            "Hezarfen'i kısaca anlatır mısın?",
+        ],
+        "must_not_match": ["help_capabilities", "bot_identity", "guide_info"],
     },
     {
         "intent": "help_capabilities",
@@ -280,19 +405,25 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Roller ve yetkilerin sorulması.",
         "response_id": "roles_overview",
         "response_template": (
-            "Hezarfen'de dört kademeli rol vardır: **Öğrenci < Öğretmen < Yönetici < "
-            "ADMIN**. Üst rol, alt rolün yaptığı her şeyi yapar. Kayıt olan herkes "
-            "Öğrenci başlar; üst roller sonradan bir ADMIN tarafından atanır. Rol her "
-            "istekte yeniden kontrol edilir; değişince yeniden giriş gerekmez."
+            "Hezarfen'de roller şöyle sıralanır: **Veli < Öğrenci < Öğretmen < "
+            "Yönetici < ADMIN**. Üst rol, alt rolün yaptığı her şeyi yapar; **Veli** "
+            "istisnadır — yalnızca kendine bağlanan öğrencileri salt-okunur izler "
+            "(sınava giremez, derse kaydolamaz). Kayıt olan herkes Öğrenci başlar; "
+            "diğer roller sonradan bir ADMIN tarafından atanır. Rol her istekte "
+            "yeniden kontrol edilir; değişince yeniden giriş gerekmez. **Kendi "
+            "rolünü** sol menünün altındaki hesap kutusunda, adının yanındaki rol "
+            "rozetinden görebilirsin."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Roller nelerdir?",
             "Yetkiler nasıl çalışıyor?",
             "Öğretmen neler yapabilir?",
             "ADMIN ile Yönetici farkı ne?",
             "Kimin hangi yetkisi var?",
+            "Rolüm ne benim?",
+            "Kendi rolümü nereden görürüm?",
         ],
         "must_not_match": ["user_role_change", "access_denied_help"],
     },
@@ -529,10 +660,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "exam_add_question_instructions",
         "response_template": (
             "Ön koşul: yönetim yetkisi; sınav 'Bitti' veya 'Yakında' değilse sorular "
-            "düzenlenebilir. 1) Sınav detayı → **Sorular (Questions)** → **Soru ekle**. "
-            "2) **Soru metni** + **Puan** (1–100). 3) **Soru türü**: Seçmeli (2–10 şık, "
-            "doğru şıkkı işaretle) veya Metin. 4) **Oluştur**. Metin sorular otomatik "
-            "puanlanmaz, elle notlanır."
+            "düzenlenebilir. Ayrıca ders detayında en az bir **Konu (Subject)** "
+            "tanımlı olmalı — her sınav sorusu bir konuya bağlanır. 1) Sınav detayı → "
+            "**Sorular (Questions)** → **Soru ekle**. 2) **Soru metni** + **Puan** "
+            "(1–100) + **Konu** seç. 3) **Soru türü**: Seçmeli (2–10 şık, doğru şıkkı "
+            "işaretle) veya Metin. 4) **Oluştur**. Metin sorular otomatik puanlanmaz, "
+            "elle notlanır."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -1021,6 +1154,122 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["student_marks_lookup", "student_attendance_lookup", "account_access_problem"],
     },
+    # --- Pomodoro / Mesajlar / Etüt-Kulüp / Veli (backend v2 özellikleri) -----
+    {
+        "intent": "pomodoro_use",
+        "category": "pomodoro",
+        "description": "Pomodoro odak oturumu başlatma/bitirme (Öğrenci).",
+        "response_id": "pomodoro_instructions",
+        "response_template": (
+            "Pomodoro, sunucu saatiyle damgalanan kişisel odak kaydıdır (yalnız "
+            "Öğrenci). 1) `/pomodoro` sayfasına git. 2) **Odağı başlat (Start focus)** "
+            "ile oturumu aç — aynı anda tek açık oturum olabilir. 3) Çalışman bitince "
+            "**Odağı bitir (Finish focus)**'a bas. Sayfada **Toplam odak** süreni ve "
+            "**Son oturumlar** geçmişini görürsün; saatler sunucu tarafından damgalanır."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Pomodoro nasıl kullanılır?",
+            "Odak oturumu nasıl başlatırım?",
+            "Pomodoro sayacı nerede?",
+            "Çalışma odağımı nasıl kaydederim?",
+            "Odağı bitir düğmesi ne yapıyor?",
+        ],
+        "must_not_match": ["student_pomodoro_lookup"],
+    },
+    {
+        "intent": "student_pomodoro_lookup",
+        "category": "pomodoro",
+        "description": "Öğretmenin bir öğrencinin pomodoro geçmişine bakması (Öğretmen+).",
+        "response_id": "student_pomodoro_lookup_instructions",
+        "response_template": (
+            "Bir öğrencinin odak geçmişi için: 1) Yönetim menüsünden **Pomodorolar** "
+            "(`/management/pomodoros`) sayfasına git. 2) Arama kutusuna öğrenci adını "
+            "yaz ve seç. 3) Panelde o öğrencinin oturumları **Başlangıç / Bitiş / "
+            "Süre** sütunlarıyla listelenir. Bu sayfa Öğretmen ve üstüne açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Öğrencinin pomodoro geçmişini nasıl görürüm?",
+            "Bir öğrencinin odak oturumlarına bakmak istiyorum",
+            "Öğrenci pomodoroları nerede?",
+            "Öğrencimin çalışma sürelerini görebilir miyim?",
+        ],
+        "must_not_match": ["pomodoro_use"],
+    },
+    {
+        "intent": "messages_use",
+        "category": "messages",
+        "description": "Mesajlar: kullanıcılar arası bire-bir mesaj gönderme/okuma.",
+        "response_id": "messages_instructions",
+        "response_template": (
+            "**Mesajlar** (`/messages`), kullanıcılar arasında bire-bir, posta tarzı "
+            "yazışma içindir. Sol menüden **Mesajlar**'ı aç: **Gelen kutusu**ndaki "
+            "mesajları okuyabilir, mesajları **Arşiv**'e veya **Çöp**'e taşıyabilir, "
+            "yeni mesaj oluşturup konu + metin yazarak gönderebilirsin. Karşı tarafın "
+            "kopyası senin silmenden etkilenmez. (Bu bölüm yeni ekleniyor; arayüzün "
+            "son hâli sürüme göre değişebilir.)"
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Mesajlarım nerede?",
+            "Nasıl mesaj gönderirim?",
+            "Gelen kutusunu nasıl açarım?",
+            "Öğretmenime mesaj atabilir miyim?",
+            "Mesajı arşive nasıl taşırım?",
+        ],
+        "must_not_match": ["privacy_security"],
+    },
+    {
+        "intent": "study_club_info",
+        "category": "courses",
+        "description": "Etüt ve Kulüp nedir — ders türleri (course/study/club).",
+        "response_id": "study_club_info_message",
+        "response_template": (
+            "**Etüt** ve **Kulüp**, dersin iki özel türüdür — ders altyapısının "
+            "aynısını kullanırlar (kayıt, oturum, yoklama, hatta sınav). Sol menüde "
+            "**Etüt** (`/studies`) ve **Kulüp** (`/clubs`) ayrı listeler olarak "
+            "görünür; oluştururken tür seçilir. Katılım ve yönetim kuralları dersle "
+            "aynıdır: Öğretmen+ oluşturur, öğrenci kaydolur; kontenjan (kapasite) "
+            "sınırı konabilir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Etüt nedir?",
+            "Kulüp nasıl çalışıyor?",
+            "Etüt ile ders arasındaki fark ne?",
+            "Kulübe nasıl katılırım?",
+            "Etüt oluşturabilir miyim?",
+        ],
+        "must_not_match": ["course_create", "course_view"],
+    },
+    {
+        "intent": "parent_info",
+        "category": "roles",
+        "description": "Veli rolü nedir, veli neler görebilir.",
+        "response_id": "parent_role_info",
+        "response_template": (
+            "**Veli**, kendisine bağlanan öğrencileri **salt-okunur** izleyen roldür: "
+            "bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
+            "Mesajlar'ı kullanabilir. Veli hesabı sınava giremez, derse kaydolamaz ve "
+            "yoklamada işaretlenmez — bu işlemler öğrenciye özeldir. Veli–öğrenci "
+            "bağlantısını **ADMIN** kurar; birden çok öğrenci bir veliye bağlanabilir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Veli rolü nedir?",
+            "Veli neler görebilir?",
+            "Velimi hesabıma nasıl bağlarım?",
+            "Veli çocuğunun notlarını görebilir mi?",
+            "Ebeveyn hesabı ne işe yarar?",
+        ],
+        "must_not_match": ["roles_permissions"],
+    },
 ]
 
 
@@ -1032,6 +1281,205 @@ FALLBACK: Final[dict[str, str]] = {
         "soru sorabilir misin?"
     ),
 }
+
+
+# --- Yönlendirme (navigation) ------------------------------------------------
+# Her intent'i, kullanıcıyı götürecek gerçek sayfa yoluna eşler. Yollar
+# `hezarfen-site-rehberi.md` §4 URL tablosundan birebir alınmıştır (uydurma yok).
+# Dinamik yollar ($id gerektirenler) genel liste sayfasına yönlendirilir; asistan
+# tekil ID'yi bilmediğinden dürüst davranıp listeye götürür. None = ilgili bir
+# sayfa yok (bilgi/açıklama intent'i, ör. selamlama, rol açıklaması).
+INTENT_ROUTES: Final[dict[str, str | None]] = {
+    "greeting": None,
+    "smalltalk": None,
+    "thanks": None,
+    "farewell": None,
+    "bot_identity": None,
+    "platform_info": "/guide",
+    "help_capabilities": None,
+    "guide_info": "/guide",
+    "login_how": "/login",
+    "register_how": "/register",
+    "logout_how": None,
+    "session_info": None,
+    "account_access_problem": "/login",
+    "profile_edit": "/profile",
+    "language_theme": None,
+    "roles_permissions": None,
+    "access_denied_help": None,
+    "navigation_help": "/",
+    "course_view": "/courses",
+    "course_create": "/courses",
+    "course_enroll_student": "/courses",
+    "course_remove_student": "/courses",
+    "lesson_session_add": "/courses",
+    "roll_call": "/courses",
+    "exam_modes_info": None,
+    "exam_create": "/exams",
+    "exam_add_question": "/exams",
+    "exam_enter_room": "/exams",
+    "exam_save_answer": "/exams",
+    "exam_finish_result": "/exams",
+    "exam_rejoin_retake": "/exams",
+    "exam_grade_student": "/exams",
+    "exam_live_monitor": "/exams",
+    "report_card_view": "/marks",
+    "weighted_average_info": "/marks",
+    "student_marks_lookup": "/management/student-marks",
+    "attendance_view": "/attendance",
+    "attendance_rate_info": "/attendance",
+    "event_attendance_mark": "/events",
+    "student_attendance_lookup": "/management/student-attendance",
+    "event_create": "/events",
+    "note_create": "/notes",
+    "work_checkin_out": "/work",
+    "staff_work_manage": "/management/staff-work",
+    "term_manage": "/management/terms",
+    "school_settings": "/management/settings",
+    "user_role_change": "/admin/users",
+    "privacy_security": None,
+    "pomodoro_use": "/pomodoro",
+    "student_pomodoro_lookup": "/management/pomodoros",
+    "messages_use": "/messages",
+    "study_club_info": "/studies",
+    "parent_info": None,
+}
+
+# Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
+ROUTE_LABELS: Final[dict[str, str]] = {
+    "/": "Ana sayfa",
+    "/login": "Giriş sayfası",
+    "/register": "Kayıt sayfası",
+    "/courses": "Dersler",
+    "/exams": "Sınavlar",
+    "/events": "Etkinlikler",
+    "/marks": "Karnem",
+    "/attendance": "Yoklama",
+    "/notes": "Defter",
+    "/profile": "Profili düzenle",
+    "/guide": "Rehber",
+    "/work": "Mesai",
+    "/management/student-marks": "Öğrenci notları",
+    "/management/student-attendance": "Öğrenci yoklaması",
+    "/management/staff-work": "Personel mesai",
+    "/pomodoro": "Pomodoro",
+    "/management/pomodoros": "Pomodorolar",
+    "/messages": "Mesajlar",
+    "/studies": "Etüt",
+    "/clubs": "Kulüp",
+    "/management/settings": "Ayarlar",
+    "/management/terms": "Dönemler",
+    "/admin/users": "Kullanıcılar",
+}
+
+
+def route_for(intent_name: str) -> tuple[str, str] | None:
+    """Intent için (yol, sayfa_adı) döndürür; sayfası olmayan intent'lerde None."""
+
+    route = INTENT_ROUTES.get(intent_name)
+    if not route:
+        return None
+    return route, ROUTE_LABELS.get(route, route)
+
+
+# --- Rol beyanı / role özel yetenek özeti ------------------------------------
+# Kullanıcı yalnızca rolünü söylediğinde ("Öğrenci", "ben öğretmenim") o role özel
+# ne yapabileceğini özetler. İçerik `hezarfen-site-rehberi.md` §2 yetki matrisinden.
+ROLE_CAPABILITIES: Final[dict[str, str]] = {
+    "veli": (
+        "Veli olarak, sana bağlanan öğrencilerin **salt-okunur gözlemcisisin**: "
+        "bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
+        "etkinlikleri ve dersleri izleyebilirsin. Veli hesabı sınava giremez, derse "
+        "kaydolamaz ve yoklamada işaretlenmez — bunlar öğrenciye özeldir. "
+        "Öğrenci bağlantısını ADMIN yapar. Kendi profilini düzenleyebilir ve "
+        "Mesajlar'ı kullanabilirsin."
+    ),
+    "ogrenci": (
+        "Öğrenci olarak şunları yapabilirsin: derslere kaydolmak ve sınavlara girmek "
+        "(**Sınav odası**), notlarını **Karnem**'de ağırlıklı ortalamayla görmek, "
+        "**Yoklama** raporunu takip etmek, kişisel **Defter** tutmak, etkinliklerde "
+        "kendi katılımını işaretlemek ve profilini düzenlemek. "
+        "Örneğin 'karnemi nerede görürüm' ya da 'sınava nasıl girerim' diye sorabilirsin."
+    ),
+    "ogretmen": (
+        "Öğretmen olarak şunları yapabilirsin: **ders, sınav ve etkinlik oluşturmak**, "
+        "derse öğrenci kaydetmek, sınava soru eklemek, **notlandırmak**, ders oturumu "
+        "açıp **yoklama almak**, sınavı **canlı izlemek**, öğrenci not/yoklamasını "
+        "aramak, **Mesai** kaydı tutmak ve Defter kullanmak. "
+        "Örneğin 'sınav nasıl oluşturulur' ya da 'yoklama nasıl alınır' diye sorabilirsin."
+    ),
+    "yonetici": (
+        "Yönetici olarak öğretmenin tüm yetkilerine ek olarak: **her dersi/etkinliği "
+        "düzenleyip silmek** (başkasınınki dâhil), **Okul ayarlarını** ve **Dönemleri** "
+        "yönetmek, **Personel mesaisini** görüp düzeltmek. "
+        "Örneğin 'okul ayarları nerede' ya da 'dönem nasıl oluşturulur' diye sorabilirsin."
+    ),
+    "admin": (
+        "ADMIN olarak yöneticinin tüm yetkilerine ek olarak: **kullanıcı rollerini "
+        "değiştirmek** (kendi rolün hariç) ve herhangi bir kullanıcının profilini "
+        "düzenlemek. Not: ADMIN'de kişisel mesai kaydı yoktur. "
+        "Örneğin 'kullanıcı rolü nasıl değiştirilir' diye sorabilirsin."
+    ),
+}
+
+# Serbest metindeki rol kelimelerini (ve okul-özel adlarını) kanonik role eşler.
+ROLE_ALIASES: Final[dict[str, str]] = {
+    "veli": "veli", "ebeveyn": "veli",
+    "ogrenci": "ogrenci", "talebe": "ogrenci",
+    "ogretmen": "ogretmen", "hoca": "ogretmen",
+    "yonetici": "yonetici", "mudur": "yonetici",
+    "admin": "admin",
+}
+
+
+def capabilities_for(role: str) -> str | None:
+    """Kanonik rol için yetenek özeti (yoksa None)."""
+
+    return ROLE_CAPABILITIES.get(role)
+
+
+# Role göre başlangıç soru önerileri (frontend "altta tıklanabilir çip" olarak
+# gösterir). Her öneri gerçek bir intent'e çözülür — uydurma yönlendirme yok.
+ROLE_SUGGESTIONS: Final[dict[str, list[str]]] = {
+    "ziyaretci": [
+        "Hezarfen nedir?",
+        "Nasıl üye olurum?",
+        "Nasıl giriş yaparım?",
+    ],
+    "veli": [
+        "Veli neler görebilir?",
+        "Roller ve yetkiler nedir?",
+        "Mesajlar nerede?",
+    ],
+    "ogrenci": [
+        "Karnemi nerede görürüm?",
+        "Sınava nasıl girerim?",
+        "Devamsızlığımı nasıl takip ederim?",
+        "Deftere not nasıl eklerim?",
+    ],
+    "ogretmen": [
+        "Sınav nasıl oluşturulur?",
+        "Yoklama nasıl alınır?",
+        "Öğrenci notunu nasıl girerim?",
+        "Yeni ders nasıl açılır?",
+    ],
+    "yonetici": [
+        "Okul ayarları nerede?",
+        "Dönem nasıl oluşturulur?",
+        "Personel mesaisini nasıl görürüm?",
+    ],
+    "admin": [
+        "Kullanıcı rolü nasıl değiştirilir?",
+        "Okul ayarları nerede?",
+        "Dönem nasıl oluşturulur?",
+    ],
+}
+
+
+def suggestions_for(role: str) -> list[str]:
+    """Rol için başlangıç soru önerileri (bilinmeyen rolde ziyaretçi listesi)."""
+
+    return ROLE_SUGGESTIONS.get(role, ROLE_SUGGESTIONS["ziyaretci"])
 
 
 # --- Yardımcı fonksiyonlar ---------------------------------------------------
@@ -1117,6 +1565,14 @@ def validate_catalog() -> dict[str, int]:
             errors.append(f"{name}: boş veya metin olmayan örnek soru var.")
         questions.extend(examples)
 
+        # Opsiyonel cevap varyantları (aynı response_id altında metin çeşitliliği).
+        variants = item.get("response_variants")
+        if variants is not None:
+            if not isinstance(variants, list) or not variants:
+                errors.append(f"{name}: response_variants boş olmayan bir liste olmalı.")
+            elif any(not isinstance(v, str) or not v.strip() for v in variants):
+                errors.append(f"{name}: boş veya metin olmayan response_variant var.")
+
         # Rol geçerliliği.
         min_role = item["min_role"]
         if not is_known_role(min_role):
@@ -1156,6 +1612,15 @@ def validate_catalog() -> dict[str, int]:
 
     if not FALLBACK.get("response_id") or not FALLBACK.get("response_template"):
         errors.append("Fallback cevabı eksik.")
+
+    # Yönlendirme: her intent'in bir route eşlemesi olmalı (None de olabilir ama
+    # anahtar bulunmalı) ve tanımlı her yolun bir etiketi olmalı.
+    missing_routes = known_intents.difference(INTENT_ROUTES)
+    if missing_routes:
+        errors.append(f"INTENT_ROUTES eksik intent(ler): {sorted(missing_routes)}")
+    unlabeled = {r for r in INTENT_ROUTES.values() if r and r not in ROUTE_LABELS}
+    if unlabeled:
+        errors.append(f"ROUTE_LABELS'ta etiketi olmayan yol(lar): {sorted(unlabeled)}")
 
     if errors:
         raise ValueError("Katalog doğrulanamadı:\n- " + "\n- ".join(errors))

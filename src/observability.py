@@ -19,6 +19,7 @@ import uuid
 from typing import Any
 
 from .catalog import get_intent, meets_role
+from .safety import mask_pii
 from .decision import (
     LOGIN_REQUIRED,
     ROLE_INSUFFICIENT,
@@ -109,18 +110,20 @@ def process(
     decision = decide_core(rule_match, ranked, role, authenticated, in_domain=in_domain)
     latency["decide"] = _elapsed_ms(t)
 
-    # 5) Cevap.
+    # 5) Cevap (query, varyantlı intent'lerde deterministik metin seçimi için).
     t = time.perf_counter_ns()
-    response = render(decision)
+    response = render(decision, query=query)
     latency["render"] = _elapsed_ms(t)
 
     latency["total"] = _elapsed_ms(total_start)
 
     alarms = check_auth_alarms(decision, authenticated, role)
 
+    # KVKK: loglanan sorgu PII-maskelidir (ham sorgu asla kalıcı kayda girmez).
+    query_masked, _ = mask_pii(query)
     trace: dict[str, Any] = {
         "trace_id": trace_id,
-        "raw_query": query,
+        "query_masked": query_masked,
         "role": role,
         "authenticated": authenticated,
         "normalized": normalized,

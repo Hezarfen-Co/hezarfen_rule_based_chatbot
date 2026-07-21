@@ -2,7 +2,7 @@
 
 import unittest
 
-from src.metrics import (
+from src.evaluation.metrics import (
     accuracy,
     confusion_counts,
     macro_f1,

@@ -2,8 +2,8 @@
 
 import unittest
 
-from src.evaluate import format_report, run_evaluation
-from src.metrics import percentile, topk_accuracy
+from src.evaluation.evaluate import format_report, run_evaluation
+from src.evaluation.metrics import percentile, topk_accuracy
 
 
 class PercentileTests(unittest.TestCase):
