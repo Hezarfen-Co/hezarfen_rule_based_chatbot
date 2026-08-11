@@ -145,6 +145,7 @@ def process(
             "source": decision.source,
             "confidence": round(decision.confidence, 4),
             "tie_break": decision.tie_break,
+            "role_redirect": decision.role_redirect,
             "auth_action": decision.auth_action,
             "required_role": decision.required_role,
         },

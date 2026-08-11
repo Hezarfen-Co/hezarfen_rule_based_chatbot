@@ -9,5 +9,8 @@ hezarfen-site-rehberi.md
 # Çalışma-zamanı artıkları (kalıcı saklama backend'de yapılır)
 feedback.jsonl
 
-# Yöneticiye gönderilen üretilmiş rapor (yerelde tutulur; gerekirse elle eklenir)
+# Üretilmiş raporlar / obsolete belgeler (repoya konmaz; yerelde tutulabilir)
 Celebi-Teknik-Ozet.pdf
+ENTEGRASYON.md
+KONUSMALAR.md
+test_sonuclari.txt

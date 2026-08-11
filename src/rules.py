@@ -43,6 +43,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "farewell", "groups": [
         {"all": ["görüşürüz"]}, {"all": ["hoşça"]}, {"all": ["hoşçakal"]},
         {"all": ["iyi", "gece"]},
+        # Sık kullanılan İngilizce vedalar (aksi hâlde fallback'e düşüyordu).
+        {"all": ["bye"]}, {"all": ["goodbye"]},
     ]},
     {"intent": "bot_identity", "groups": [
         {"all": ["kimsin"]}, {"all": ["robot"]}, {"all": ["yapay", "zeka"]},
@@ -80,7 +82,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "account_access_problem", "groups": [
         {"all": ["şifre", "unut"]}, {"all": ["şifre", "yanlış"]},
-        {"all": ["şifre", "sıfırla"]}, {"all": ["parola", "unut"]},
+        {"all": ["şifre", "sıfırla"]}, {"all": ["şifre", "değiştir"]},
+        {"all": ["parola", "unut"]}, {"all": ["parola", "değiştir"]},
         {"all": ["parola", "hatırla"]}, {"all": ["giremiyor"]},
         {"all": ["yapamıyor"]}, {"all": ["erişemiyor"]},
     ]},
@@ -98,6 +101,12 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "report_card_view", "groups": [
         {"all": ["karne"], "none": ["öğrenci", "başka", "birinin"]},
         {"all": ["harf", "not"]},
+        # 1. şahıs "karnem" tek anlamlı (kendi karnem = report_card_view); bu yüzden
+        # kural olarak güvenli — "öğrenci olarak karnemi görürüm" de buraya düşer.
+        # 'notum/notlarım/ortalamam' KURAL DEĞİL: "notumu sınavdan sonra görürüm"
+        # (exam_finish_result) gibi belirsizlikler var; onları similarity + rol
+        # tie-break çözer (kural katmanı yüksek-kesinlik kalsın).
+        {"all": ["karnem"], "none": ["başka", "birinin"]},
     ]},
     {"intent": "weighted_average_info", "groups": [
         {"all": ["ortalama", "hesap"]}, {"all": ["ağırlık", "ortalama"]},
@@ -106,10 +115,13 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "student_marks_lookup", "groups": [
         # 'başka/birinin' varsa bu meşru bir öğretmen sorgusu değil, gizlilik
         # sorusudur ('başka bir öğrencinin notunu görebilir miyim') -> privacy'ye bırak.
-        {"all": ["öğrenci", "karne"], "none": ["başka", "birinin"]},
-        {"all": ["öğrenci", "not", "gör"], "none": ["başka", "birinin"]},
-        {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin"]},
-        {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin"]},
+        # 1. şahıs iyelik ('notum/karnem/notlarım/ortalamam') = kendi notu ->
+        # öğretmen sorgusu DEĞİL; report_card_view'e bırak. Öğretmenin 3. şahıs
+        # sorgusu ('öğrencinin notunu gör') bu köklere takılmaz, korunur.
+        {"all": ["öğrenci", "karne"], "none": ["başka", "birinin", "karnem"]},
+        {"all": ["öğrenci", "not", "gör"], "none": ["başka", "birinin", "notum", "notlarım"]},
+        {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin", "notum", "notlarım"]},
+        {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin", "notum", "notlarım"]},
     ]},
     {"intent": "note_create", "groups": [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
@@ -144,6 +156,10 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "event_create", "groups": [
         {"all": ["etkinlik", "oluştur"]}, {"all": ["etkinlik", "ekle"]},
         {"all": ["etkinlik", "planla"]},
+        # Ünsüz yumuşaması: 'etkinliği' katlanınca 'etkinligi' olur ve sert-k
+        # 'etkinlik' önekiyle EŞLEŞMEZ (g!=k); bu morfolojik varyantı tamamla.
+        {"all": ["etkinliğ", "oluştur"]}, {"all": ["etkinliğ", "ekle"]},
+        {"all": ["etkinliğ", "planla"]},
     ]},
     {"intent": "user_role_change", "groups": [
         {"all": ["rol", "değiştir"]}, {"all": ["rol", "ata"]},
@@ -160,6 +176,13 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "work_checkin_out", "groups": [
         {"all": ["mesai", "giriş"]}, {"all": ["mesai", "çık"]},
         {"all": ["işe", "gel"]},
+        # 'mesai kaydımı başlatırım' benzerlikte exam_enter_room'a kayıyordu.
+        {"all": ["mesai", "başlat"]}, {"all": ["mesai", "başla"]},
+    ]},
+    {"intent": "course_enroll_student", "groups": [
+        {"all": ["derse", "kaydet"]}, {"all": ["öğrenci", "kaydet"]},
+        {"all": ["derse", "öğrenci"], "none": ["çıkar", "sil"]},
+        {"all": ["sınıfa", "öğrenci"]},
     ]},
     # --- Aşama 11: kapsamı olmayan/karışan intent'ler için hedefli kurallar ---
     {"intent": "guide_info", "groups": [

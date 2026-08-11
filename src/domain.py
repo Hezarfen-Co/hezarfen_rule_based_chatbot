@@ -36,6 +36,11 @@ STOPWORDS: Final[frozenset[str]] = frozenset(
         # Generic anlatım/tanıtım fiilleri — alan-ayırt edici değil (fıkra anlat,
         # şiir anlat da bunları içerir). platform_info örnekleriyle sözlüğe sızmasın.
         "anlat", "anlatir", "anlatabilir", "kisaca", "tanit", "tanitir", "bilgi",
+        # Jenerik fiil çekimleri: katalog örneklerinden (not veririm / not yazılır /
+        # derse giderim / iyi günler) sözlüğe sızıp OOS sorguları ('kilo veririm',
+        # 'python nasıl yazılır', 'İstanbul'a giderim', 'iyi film öner') yanlışlıkla
+        # in-scope gösteriyordu. Alan-ayırt edici değiller.
+        "iyi", "giderim", "veririm", "verir", "yazilir",
     }
 )
 

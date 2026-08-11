@@ -58,10 +58,28 @@ CLARIFY_MARGIN: float = 0.08
 # — yanlış-ama-özgüvenli cevap, dürüst soru sormaktan kötüdür.
 ASK_CONFIDENCE: float = 0.30
 
+# İkinci "emin değilim" tetikleyicisi: güven orta-düşük VE ilk iki aday neredeyse
+# berabere (top1 ~ top2). "ben kimim" gibi kapsam-dışı/gürültü sorgularında sistem
+# iki intent arasında bölünüp yanlış-ama-özgüvenli cevap verirdi; bunun yerine
+# netleştirme sorar. Benchmark ölçümü: yalnız ~5 doğru cevabı netleştirmeye çevirir,
+# buna karşılık düşük-güven+düşük-margin bölgesindeki özgüvenli-yanlışları önler.
+# (Metrikler etkilenmez: evaluate karar katmanını ölçer, bu sunum katmanıdır.)
+ASK_LOW_MARGIN_CONFIDENCE: float = 0.45
+ASK_LOW_MARGIN: float = 0.05
+
+# Düşük-margin "emin değilim" YALNIZCA ilk iki aday da sosyal/meta intent iken
+# tetiklenir ('ben kimim' -> farewell ~ bot_identity, gerçek görev yok). Görev
+# intent'lerinde (report_card_view vb.) doğru-ama-düşük-güvenli bir cevabı
+# netleştirmeye çevirip kurban etmesin.
+_SOCIAL_INTENTS: frozenset = frozenset(
+    {"greeting", "smalltalk", "farewell", "thanks", "bot_identity"}
+)
+
 # Belirsiz bölgede kullanıcıya dönen metin (response_id: clarification_prompt).
 CLARIFICATION_PROMPT_TEXT: str = (
-    "Bunu tam anlayamadım, kusura bakma 🙏 Aşağıdakilerden birini mi sormak "
-    "istedin? Değilse, soruyu biraz daha açık yazarsan yardımcı olayım."
+    "Bunu tam anlayamadım, kusura bakma 🙏 Soruyu biraz daha açık yazar mısın? "
+    "Ders, sınav, karne, yoklama, defter, mesaj veya hesap ayarları hakkında "
+    "'nasıl yaparım?' diye sorabilirsin."
 )
 from .similarity import SimilarityMatcher, get_default_matcher
 
@@ -227,6 +245,73 @@ def _safety_trace(
         "safety": _safety_info(safety),
         "response_id": "safety_" + safety.category.lower(),
     }
+
+
+# Tire/nokta ile aralanmış tek harf dizisi ("S-ı-n-a-v", "a.b.c"). Kelime
+# sınırı (boşluk) ayraç sınıfına DAHİL DEĞİL -> kelimeler birbirine karışmaz.
+_SPACED_LETTER_RUN: "re.Pattern[str]" = re.compile(r"(?<!\w)(\w(?:[.\-]\w){2,})(?!\w)")
+
+
+def _deobfuscate(text: str) -> str:
+    """Gizlenmiş sorguyu intent eşleşmesi için temizler.
+
+    safety_normalize (leetspeak/görünmez unicode/aksan) + tire-nokta ile aralanmış
+    tek harfleri kelimeye toplama (kelime sınırı korunur):
+    'S-ı-n-a-v n-a-s-ı-l' -> 'sinav nasil', '5ın4v' -> 'sinav'.
+    """
+
+    text = safety_mod.safety_normalize(text)
+    return _SPACED_LETTER_RUN.sub(lambda m: re.sub(r"[.\-]", "", m.group(1)), text)
+
+
+_BRAND: str = "hezarfen"
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """İki dize arasındaki düzenleme (edit) mesafesi."""
+
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _brand_typo(query: str) -> str | None:
+    """Sorguda 'Hezarfen' marka adının yanlış yazımı var mı?
+
+    Varsa yanlış yazılan token'ı döndürür; doğru yazım (çekimli hâller dahil:
+    'Hezarfen', 'Hezarfen'de', 'Hezarfeni'...) varsa None. Yakınlık edit-mesafesi
+    <= 2 ile ölçülür (yalnız gerçek yakın-ıskalar; 'haberler' gibi kelimeler uzak).
+    """
+
+    tokens = folded_tokens(query)
+    # Doğru yazım (önek eşleşmesi çekimleri de kapsar) varsa uyarı yok.
+    if any(t == _BRAND or t.startswith(_BRAND) for t in tokens):
+        return None
+    for t in tokens:
+        if 6 <= len(t) <= 10 and t.startswith("h") and _levenshtein(t, _BRAND) <= 2:
+            return t
+    return None
+
+
+def _with_brand_note(text: str, query: str) -> str:
+    """Marka adı yanlış yazılmışsa cevabın başına kibar bir düzeltme notu ekler.
+
+    Normal cevap korunur; yalnızca nazik bir hatırlatma öne eklenir.
+    """
+
+    typo = _brand_typo(query)
+    if typo is None:
+        return text
+    return (
+        f'🙂 Küçük bir not: doğru yazımı **Hezarfen** ("{typo.capitalize()}" yazmışsın).\n\n'
+        + text
+    )
 
 
 class Engine:
@@ -403,7 +488,7 @@ class Engine:
             return {
                 "trace_id": trace_id,
                 "response_id": first["response_id"],
-                "text": text,
+                "text": _with_brand_note(text, query),
                 "intent": first["intent"],
                 "confidence": 1.0,  # kural tabanlı parçalar (yüksek kesinlik)
                 "fallback": False,
@@ -426,13 +511,56 @@ class Engine:
         )
         trace["safety"] = safety_info
 
+        # İkinci şans: leetspeak ('5ın4v') veya harf-aralama ('S-ı-n-a-v') gibi
+        # gizlemeler normal boru hattında fallback'e düşerse, güvenlik-normalize
+        # edilmiş (deleet + tek-harf birleştirme) sorguyla bir kez daha dene. Yalnız
+        # fallback'te çalışır, normal sorguları etkilemez; OOS yine OOS kalır.
+        # Gizlenmiş sorgu her zaman fallback'e düşmez; orta-güvenli bir similarity
+        # yanlışına da oturabilir ('5ın4v nasıl oluşturulur' -> course_create 0.65).
+        # O yüzden birincil karar KURAL değilse (similarity) de deobfuscation dene;
+        # ama düşük-güvenli similarity'yi YALNIZ deobfuscation bir KURAL eşleşmesi
+        # (precision=1.0 garantili) açığa çıkarırsa geçersiz kıl. Fallback yolu aynen.
+        primary_source = trace["decision"].get("source")
+        if response.fallback or primary_source == "similarity":
+            cleaned = _deobfuscate(effective_query)
+            if cleaned and cleaned != effective_query.strip().lower():
+                alt_response, alt_trace = process(
+                    cleaned,
+                    role=role,
+                    authenticated=authenticated,
+                    trace_id=trace_id,
+                    matcher=self._matcher,
+                )
+                alt_source = alt_trace["decision"].get("source")
+                if (response.fallback and not alt_response.fallback) or (
+                    not response.fallback and alt_source == "rule"
+                ):
+                    alt_trace["safety"] = safety_info
+                    alt_trace["deobfuscated_query"] = cleaned
+                    response, trace = alt_response, alt_trace
+
         # Belirsiz bölge: benzerlik güveni düşükse yanlış-ama-özgüvenli cevap verme;
         # "anlayamadım — bunu mu demek istedin?" + adaylar döndür.
         dec = trace["decision"]
+        margin = trace["similarity"].get("margin")
+        topk = trace["similarity"].get("top_k") or []
+        top2_social = (
+            len(topk) >= 2
+            and topk[0]["intent"] in _SOCIAL_INTENTS
+            and topk[1]["intent"] in _SOCIAL_INTENTS
+        )
         ask_mode = (
             not response.fallback
             and dec["source"] == "similarity"
-            and dec["confidence"] < ASK_CONFIDENCE
+            and (
+                dec["confidence"] < ASK_CONFIDENCE
+                or (
+                    dec["confidence"] < ASK_LOW_MARGIN_CONFIDENCE
+                    and margin is not None
+                    and margin < ASK_LOW_MARGIN
+                    and top2_social
+                )
+            )
         )
         if ask_mode:
             clarification = _build_clarification(trace, force=True)
@@ -465,6 +593,12 @@ class Engine:
             role_caps = capabilities_for(role)
             if role_caps:
                 text = role_caps
+        # ADMIN'de kişisel mesai kaydı yoktur (mesai öğretmen/yönetici içindir).
+        if response.intent == "work_checkin_out" and role == "admin":
+            text = (
+                "ADMIN hesabında kişisel mesai kaydı bulunmaz — mesai giriş/çıkışı "
+                "öğretmen ve yöneticiler içindir. Yine de akış şöyle:\n\n"
+            ) + text
         if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
             text = safety.user_message + "\n" + text
 
@@ -482,7 +616,7 @@ class Engine:
         return {
             "trace_id": trace["trace_id"],
             "response_id": response.response_id,
-            "text": text,
+            "text": _with_brand_note(text, query),
             "intent": response.intent,
             "confidence": trace["decision"]["confidence"],
             "fallback": response.fallback,

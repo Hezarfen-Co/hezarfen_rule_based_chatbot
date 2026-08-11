@@ -133,11 +133,12 @@ class KnownLimitTests(unittest.TestCase):
         self.assertEqual(resp["intent"], "report_card_view")
 
     def test_multi_intent_needs_rule_backed_segments(self) -> None:
-        # Çoklu-istek desteği KURAL tabanlı parçalarla sınırlı: 'öğrenci kaydet'
-        # parçası kurala çarpmaz (benzerlik intent'i) -> bu cümle tek cevap alır.
-        # Kural-tabanlı parçalar ('sınav oluştur ve yoklama al') hepsi yanıtlanır
-        # (bkz. test_engine.MultiIntentTests).
-        resp = ask("sınav oluştur ve öğrenci kaydet", "ogretmen")
+        # Çoklu-istek desteği KURAL tabanlı parçalarla sınırlı: 'sınav modları
+        # nelerdir' parçası kurala çarpmaz (yalnız benzerlik intent'i) -> bu cümle
+        # tek cevap alır. Kural-tabanlı parçalar ('sınav oluştur ve yoklama al' ya
+        # da 'sınav oluştur ve öğrenci kaydet') hepsi yanıtlanır (bkz.
+        # test_engine.MultiIntentTests).
+        resp = ask("sınav oluştur ve sınav modları nelerdir", "ogretmen")
         self.assertIsNone(resp["answers"])
         self.assertEqual(resp["intent"], "exam_create")
 

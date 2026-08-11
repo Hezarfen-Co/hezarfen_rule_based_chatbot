@@ -20,8 +20,9 @@ from typing import Iterable
 from .catalog import INTENTS
 from .similarity import ScoredIntent
 
-# Türkçe'ye güçlü, çok dilli hafif bir varsayılan.
-DEFAULT_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# Türkçe'ye özel eğitilmiş varsayılan. Çok dilli MiniLM'e göre "not" (grade vs
+# note) gibi Türkçe belirsizliklerini daha iyi ayırır; skorları daha temiz.
+DEFAULT_MODEL: str = "trmteb/turkish-embedding-model"
 
 _IMPORT_HINT = (
     "EmbeddingMatcher için 'sentence-transformers' gerekli. Kurulum:\n"
