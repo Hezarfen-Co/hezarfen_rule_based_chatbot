@@ -2,25 +2,27 @@
 
 Hezarfen okul yönetim sitesinin **rol-farkında kullanım asistanı**. "Nasıl
 yaparım?" tarzı soruları, sitenin gerçek menü/etiket ve yollarına dayanarak
-adım adım yanıtlar. Harici çalışma-zamanı bağımlılığı yoktur (yalnızca Python
-standart kütüphanesi) ve tamamen offline çalışır.
+adım adım yanıtlar. Asistan çekirdeği harici çalışma-zamanı bağımlılığı
+içermez (yalnızca Python standart kütüphanesi) ve offline çalışır; tek istisna
+backend'e bağlanan QUIC köprüsüdür (`src/bridge.py`, `aioquic`).
 
 Bilgi kaynağı: `hezarfen-site-rehberi.md`.
 
-> **Backend'e entegre mi ediyorsunuz?** Tek belge yeter: **[`ENTEGRASYON.md`](ENTEGRASYON.md)**
-> — nasıl çalıştırılır, istek/yanıt JSON sözleşmesi, rol eşleme, izleme, proxy.
+> **Backend'e bağlanıyor:** Çelebi, backend'in QUIC AI köprüsüne (protokol
+> `hab/1`) dial-in eden istemciyle bağlanır — **[`src/bridge.py`](src/bridge.py)**;
+> `chat.reply` yeteneğini sunar, rolü backend payload'ından alır. Çalıştırma ve
+> ortam değişkenleri dosya başındaki docstring'de.
 
 ## Proje haritası — ne nerede
 
 ```
 Hezarfen-Rule-Based-Chatbot/
-├─ ENTEGRASYON.md              # ⭐ backend entegrasyon paketi (buradan başla)
 ├─ hezarfen-site-rehberi.md    # BİLGİ KAYNAĞI: sitenin tüm sayfa/rol/akış tanımı
-├─ KONUSMALAR.md               # üretilmiş: 212 örnek konuşma + bot cevapları
 ├─ data/benchmark.jsonl        # değerlendirme seti (soru → beklenen intent)
 │
 ├─ src/                        # ── ASISTAN MOTORU ──
 │  ├─ engine.py                # 🚪 GİRİŞ NOKTASI: handle_request(payload)->dict; boru hattını yönetir
+│  ├─ bridge.py                # 🔌 backend QUIC köprü istemcisi (hab/1, chat.reply) — aioquic
 │  ├─ catalog.py               # 📚 VERİ: 53 intent + cevap metinleri + route + rol modeli + rol yetenekleri
 │  ├─ rules.py                 # kural katmanı (yüksek kesinlik, anahtar kelime eşleşmesi)
 │  ├─ similarity.py            # benzerlik katmanı (TF-IDF karakter n-gram + kosinüs)
@@ -79,7 +81,7 @@ Backend sözleşmesi `src/engine.py`; frontend'ler `src/cli.py` (terminal) ve
   (~%100 kesinlikle) bağlar; belirsizlikte karar vermez.
 - **Benzerlik** kalan soruları toplar; "X nasıl oluşturulur" gibi ortak fiilli
   kalıpları kural katmanı alan-ismiyle (sınav/ders/dönem) ayırır.
-- **Domain-gate** char n-gram'ın OOS zayıflığını kapatır (OOS recall %44 → %81).
+- **Domain-gate** char n-gram'ın OOS zayıflığını kapatır (OOS recall %44 → %100).
 
 ## Modüller
 
@@ -160,13 +162,13 @@ Yanıt:
 
 | Metrik | Değer | Anlamı |
 |---|---|---|
-| **Macro-F1** | **0.87** | Başlık metriği; her intent'e eşit ağırlık (nadir intent'leri saklamaz) |
-| Accuracy | %86 | Genel doğruluk (dengesizlikte yanıltıcı olabilir) |
-| Top-1 / Top-3 | %86 / %95 | Doğru cevap ilk 1 / ilk 3 tahminde |
-| Coverage | %98.6 | FALLBACK yerine cevap verilen in-scope oranı |
-| Accuracy-on-covered | %86 | Cevap verince doğruluk |
-| OOS recall | %81 | Kapsam dışını doğru reddetme |
-| Latency p50/p95 | ~0.8 / 1.3 ms | Sorgu başına gecikme |
+| **Macro-F1** | **0.99** | Başlık metriği; her intent'e eşit ağırlık (nadir intent'leri saklamaz) |
+| Accuracy | %98.7 | Genel doğruluk (dengesizlikte yanıltıcı olabilir) |
+| Top-1 / Top-3 | %99 / %100 | Doğru cevap ilk 1 / ilk 3 tahminde |
+| Coverage | %98.7 | FALLBACK yerine cevap verilen in-scope oranı |
+| Accuracy-on-covered | %100 | Cevap verince doğruluk |
+| OOS recall | %100 | Kapsam dışını doğru reddetme |
+| Latency p50/p95 | ~0.4 / 2.2 ms | Sorgu başına gecikme |
 
 **Neden bu metrikler:** Macro-F1 dengesiz sınıfta kritik-ama-nadir intent'lerin
 (gizlilik, şifre) bozukluğunu saklamaz. Coverage/OOS-recall, FALLBACK'in
@@ -183,7 +185,7 @@ python -m unittest discover -s tests -t .
 - `tests/e2e/` — uçtan uca sohbet senaryoları; `test_conversation.py` içinde
   **212 çok-turlu konuşma** (5 rol, 3–8 mesajlık gerçekçi oturumlar). Cevapları
   okumak için: `python -m tests.e2e.test_conversation --transcript` (konsol) veya
-  `--markdown` (→ `KONUSMALAR.md`, insan incelemesi için üretilmiş rapor).
+  `--markdown` (yerelde `KONUSMALAR.md` üretir; git-ignored, repoya konmaz).
 - **`tests/e2e/test_behavior_matrix.py` — davranış sözleşmesi**: 53 intent'in
   tamamı için "şu doğal soruya şu `response_id` döner" matrisi + rol gating
   (5 rol × yetki), güvenlik davranış tablosu, yönlendirme/netleştirme/rol-beyanı
@@ -192,8 +194,9 @@ python -m unittest discover -s tests -t .
 - `tests/integration/test_edge_cases.py` — adversarial regresyon: hiçbir tuhaf
   girdi çökertmez; gizleme varyantları (leet/karışık-kasa/harf-aralama) güvenlikten
   kaçamaz; bilinen sınırlar (olumsuzlama, çoklu-intent, İngilizce) sabitli.
-- `tests/integration/test_regression.py` — kalite eşikleri (macro-F1 ≥ 0.80,
-  OOS recall ≥ 0.70, gizlilik recall = 1.0, kural precision = 1.0) düşerse kırılır.
+- `tests/integration/test_regression.py` — kalite standardı/eşikleri (macro-F1 ≥ 0.92,
+  accuracy ≥ 0.92, OOS recall ≥ 0.90, top-3 ≥ 0.97, gizlilik recall = 1.0,
+  kural precision = 1.0) düşerse kırılır.
 
 ## Yeni intent ekleme
 
@@ -249,8 +252,8 @@ ve `decide(..., matcher=m)`. (Kelime-düzeyi hibrit özellik denendi ama bu benc
 char n-gram'ı geçemedi; varsayılan kapalı.)
 
 ## Bilinen sınırlar / sıradaki adım
-- OOS'ta ~%22 (alan fiili paylaşan sorular) hâlâ kaçıyor — char n-gram tavanı;
-  yukarıdaki embedding backend'i bu boşluğu kapatabilir.
+- OOS recall %100 (domain-gate stopword genişletmesiyle kapatıldı); yeni jenerik
+  fiil çekimleri ortaya çıktıkça `domain.STOPWORDS` güncellenmeli.
 - Güvenlik sözlükleri başlangıç niteliğinde; üretimde genişletilmeli ve gerçek
   trafikle kalibre edilmelidir.
 - **`safety/authorization.py` henüz boru hattına bağlı değil** — IDOR/BOLA
