@@ -10,8 +10,9 @@ Bilgi kaynağı: `hezarfen-site-rehberi.md`.
 
 > **Backend'e bağlanıyor:** Çelebi, backend'in QUIC AI köprüsüne (protokol
 > `hab/1`) dial-in eden istemciyle bağlanır — **[`src/bridge.py`](src/bridge.py)**;
-> `chat.reply` yeteneğini sunar, rolü backend payload'ından alır. Çalıştırma ve
-> ortam değişkenleri dosya başındaki docstring'de.
+> `chat.reply` yeteneğini sunar, backend'in doğrulanmış oturum rolünü
+> `asker_role` alanından alır. Çalıştırma ve ortam değişkenleri dosya başındaki
+> docstring'de.
 
 ## Proje haritası — ne nerede
 
@@ -23,6 +24,7 @@ Hezarfen-Rule-Based-Chatbot/
 ├─ src/                        # ── ASISTAN MOTORU ──
 │  ├─ engine.py                # 🚪 GİRİŞ NOKTASI: handle_request(payload)->dict; boru hattını yönetir
 │  ├─ bridge.py                # 🔌 backend QUIC köprü istemcisi (hab/1, chat.reply) — aioquic
+│  ├─ bridge_contract.py       # 🔐 backend asker_role -> motor oturumu sözleşmesi (stdlib)
 │  ├─ catalog.py               # 📚 VERİ: 53 intent + cevap metinleri + route + rol modeli + rol yetenekleri
 │  ├─ rules.py                 # kural katmanı (yüksek kesinlik, anahtar kelime eşleşmesi)
 │  ├─ similarity.py            # benzerlik katmanı (TF-IDF karakter n-gram + kosinüs)

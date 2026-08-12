@@ -21,10 +21,11 @@ Akış (bkz. backend ``src/ai/mod.rs`` ve ``server.rs``):
 Çerçeveleme: 4 bayt big-endian uzunluk + o kadar bayt JSON.
 
 Not — sözleşme sınırları (bilerek):
-* Backend ``chat.reply`` üzerinden **rol göndermez**; yalnızca ``message`` +
-  ``history`` gelir. Çelebi rol-farkında olduğundan, oturum rolü
-  ``HEZARFEN_ASSISTANT_ROLE`` ile sabitlenir (varsayılan ``ogrenci``). Gerçek
-  yetki her zaman backend'de kalır.
+* Backend ``chat.reply`` üzerinden doğrulanmış güncel okul rolünü
+  ``asker_role`` alanında gönderir. Çelebi bu rolü cevap kapsamı ve rol
+  kapıları için kullanır. Eski backend sürümleriyle uyumluluk amacıyla
+  ``session.role`` / ``role`` ve son çare olarak ``HEZARFEN_ASSISTANT_ROLE``
+  desteği korunur. Gerçek yetki her zaman backend'de kalır.
 * Çelebi tek-turludur; ``history`` yok sayılır (her mesaj bağımsız değerlendirilir).
 
 Çalıştırma::
@@ -39,7 +40,7 @@ Ortam değişkenleri (hepsinin makul varsayılanı vardır)::
     AI_SHARED_TOKEN        Hello'daki paylaşılan sır    (vars. change-me)
     AI_TLS_SERVER_NAME     TLS doğrulaması için ad      (vars. localhost)
     AI_SERVICE_NAME        Loglarda görünen servis adı  (vars. celebi)
-    HEZARFEN_ASSISTANT_ROLE  Sabitlenen oturum rolü     (vars. ogrenci)
+    HEZARFEN_ASSISTANT_ROLE  Eski backend için yedek rol (vars. ogrenci)
     AI_MAX_CONCURRENT      Aynı anda kabul edilen istek (vars. 8)
     AI_RECONNECT_SECS      Kopunca yeniden deneme aralığı (vars. 3)
 """
@@ -62,6 +63,7 @@ from aioquic.asyncio.protocol import QuicConnectionProtocol
 from aioquic.quic.configuration import QuicConfiguration
 from aioquic.quic.events import ConnectionTerminated, QuicEvent, StreamDataReceived
 
+from .bridge_contract import resolve_session
 from .engine import Engine, RequestError, get_default_engine
 
 # --- Protokol sabitleri (backend src/constant.rs ile eşleşir) ---------------
@@ -233,18 +235,13 @@ class BridgeProtocol(QuicConnectionProtocol):
     def _resolve_session(self, payload: dict[str, Any]) -> tuple[str, bool]:
         """Rolü backend'in ilettiği payload'dan al; iletmezse varsayılana düş.
 
-        Backend chat.reply isteğine `session: {role, authenticated}` (ya da düz
-        `role`) eklerse cevaplar GERÇEK oturum rolüne göre gating alır. Engine
-        İngilizce rol adlarını da (student/teacher/manager/parent) kabul eder.
-        Hiçbiri yoksa `HEZARFEN_ASSISTANT_ROLE` (varsayılan 'ogrenci') kullanılır.
+        Güncel backend sözleşmesinin güvenilir alanı `asker_role`'dür. Eski
+        sözleşmelerdeki `session: {role, authenticated}` ve düz `role` alanları
+        geriye uyumluluk için kabul edilir. Engine İngilizce rol adlarını da
+        (student/teacher/manager/parent/admin) kabul eder. Hiçbiri yoksa
+        `HEZARFEN_ASSISTANT_ROLE` (varsayılan 'ogrenci') kullanılır.
         """
-        session = payload.get("session")
-        session = session if isinstance(session, dict) else {}
-        role = session.get("role") or payload.get("role") or self._config.role
-        authenticated = session.get("authenticated")
-        if authenticated is None:
-            authenticated = role != "ziyaretci"
-        return role, bool(authenticated)
+        return resolve_session(payload, self._config.role)
 
     def _run_engine(self, message: str, payload: dict[str, Any]) -> str:
         role, authenticated = self._resolve_session(payload)
