@@ -33,7 +33,9 @@ class RenderTests(unittest.TestCase):
         r = render(_decision("greeting"))
         self.assertFalse(r.fallback)
         self.assertEqual(r.response_id, "welcome_message")
-        self.assertEqual(r.text, get_intent("greeting")["response_template"])
+        # {selam} yer tutucusu, query verilmediğinde varsayılan selamla çözülür.
+        expected = get_intent("greeting")["response_template"].replace("{selam}", "Merhaba!")
+        self.assertEqual(r.text, expected)
 
     def test_login_required_prefix(self) -> None:
         r = render(_decision("report_card_view", auth_action=LOGIN_REQUIRED, required_role="ogrenci"))

@@ -16,9 +16,9 @@ from typing import Any, Final
 
 OOS_LABEL: Final[str] = "oos"
 
-# Depo kökü: src/benchmark.py -> parents[1] = proje kökü.
+# Depo kökü: src/evaluation/benchmark.py -> parents[2] = proje kökü.
 DEFAULT_BENCHMARK_PATH: Final[Path] = (
-    Path(__file__).resolve().parents[1] / "data" / "benchmark.jsonl"
+    Path(__file__).resolve().parents[2] / "data" / "benchmark.jsonl"
 )
 
 

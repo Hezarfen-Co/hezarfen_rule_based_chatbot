@@ -1,14 +1,17 @@
-"""Aşama 14 regresyon eşiği: kalite metrikleri bir tabanın altına düşerse KIRILIR.
+"""Kalite standardı — regresyon eşiği: metrikler bir tabanın altına düşerse KIRILIR.
 
 Bu testler, ileride yapılan değişikliklerin sistemi sessizce bozmasını engeller.
-Eşikler mevcut baseline'ın biraz altına konur (gürültüye dayanıklı ama koruyucu).
+Eşikler mevcut baseline'ın (macro-F1 0.992, acc %98.7, OOS recall %100) biraz
+altına konur (gürültüye dayanıklı ama koruyucu). Kalite denetimi (Aşama: rol-bazlı
+audit + adversarial doğrulama) sonrası taban yükseltildi: F1 0.80->0.92, acc
+0.82->0.92, OOS 0.70->0.90, top3 0.90->0.97. Bunları düşüren değişiklik testi kırar.
 """
 
 import unittest
 
-from src.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import OOS_LABEL, load_benchmark
 from src.decision import decide
-from src.evaluate import run_evaluation
+from src.evaluation.evaluate import run_evaluation
 
 
 class QualityRegressionTests(unittest.TestCase):
@@ -17,19 +20,19 @@ class QualityRegressionTests(unittest.TestCase):
         cls.report = run_evaluation()
 
     def test_macro_f1_floor(self) -> None:
-        self.assertGreaterEqual(self.report["macro_f1"], 0.80, self.report["macro_f1"])
+        self.assertGreaterEqual(self.report["macro_f1"], 0.92, self.report["macro_f1"])
 
     def test_accuracy_floor(self) -> None:
-        self.assertGreaterEqual(self.report["accuracy"], 0.82)
+        self.assertGreaterEqual(self.report["accuracy"], 0.92)
 
     def test_coverage_floor(self) -> None:
         self.assertGreaterEqual(self.report["coverage"], 0.95)
 
     def test_oos_recall_floor(self) -> None:
-        self.assertGreaterEqual(self.report["oos_recall"], 0.70)
+        self.assertGreaterEqual(self.report["oos_recall"], 0.90)
 
     def test_top3_floor(self) -> None:
-        self.assertGreaterEqual(self.report["top3_accuracy"], 0.90)
+        self.assertGreaterEqual(self.report["top3_accuracy"], 0.97)
 
     def test_latency_reasonable(self) -> None:
         # Aşırı yavaşlamaya karşı gevşek tavan (ms).

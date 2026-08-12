@@ -17,8 +17,8 @@ from __future__ import annotations
 from typing import Any
 
 from .benchmark import OOS_LABEL, load_benchmark
-from .catalog import INTENTS
-from .decision import DEFAULT_THRESHOLD, _is_confusable_pair
+from ..catalog import INTENTS
+from ..decision import DEFAULT_THRESHOLD, _is_confusable_pair
 from .metrics import (
     accuracy,
     macro_f1,
@@ -26,8 +26,8 @@ from .metrics import (
     percentile,
     topk_accuracy,
 )
-from .observability import process
-from .similarity import SimilarityMatcher, get_default_matcher
+from ..observability import process
+from ..similarity import SimilarityMatcher, get_default_matcher
 
 # in-scope iken FALLBACK'e düşeni işaretlemek için sözde etiket.
 _FALLBACK_LABEL = "__fallback__"

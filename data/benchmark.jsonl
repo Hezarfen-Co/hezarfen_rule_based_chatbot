@@ -1,5 +1,7 @@
 {"question": "Selamlar", "expected_intent": "greeting", "role": "ziyaretci"}
-{"question": "Naber", "expected_intent": "greeting", "role": "ziyaretci"}
+{"question": "Naber dostum", "expected_intent": "smalltalk", "role": "ziyaretci"}
+{"question": "Sen nasılsın bakalım", "expected_intent": "smalltalk", "role": "ogrenci"}
+{"question": "Ne haber kanka", "expected_intent": "smalltalk", "role": "ogrenci"}
 {"question": "Merhaba asistan", "expected_intent": "greeting", "role": "ziyaretci"}
 {"question": "Sen ne yapabiliyorsun tam olarak?", "expected_intent": "help_capabilities", "role": "ziyaretci"}
 {"question": "Yardım menün var mı?", "expected_intent": "help_capabilities", "role": "ziyaretci"}
@@ -145,3 +147,37 @@
 {"question": "Bana motivasyon sözü söyle", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "İstanbul'a nasıl giderim?", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Kahve mi çay mı daha sağlıklı?", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Pythonda for döngüsü nasıl yazılır", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bana pizza tarifi ver", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Sevgilimden ayrıldım çok üzgünüm", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Bugünkü maç kaçta başlıyor", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Kilo vermek için ne önerirsin", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "En sevdiğin film hangisi", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Telefonumun şarjı çabuk bitiyor", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Yarın hava yağmurlu mu", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Çok teşekkür ederim ya", "expected_intent": "thanks", "role": "ogrenci"}
+{"question": "sağ olasın", "expected_intent": "thanks", "role": "ogrenci"}
+{"question": "eyvallah hocam", "expected_intent": "thanks", "role": "ogrenci"}
+{"question": "hadi görüşürüz", "expected_intent": "farewell", "role": "ogrenci"}
+{"question": "hoşçakal", "expected_intent": "farewell", "role": "ogrenci"}
+{"question": "iyi geceler sana", "expected_intent": "farewell", "role": "ogrenci"}
+{"question": "sen bir robot musun", "expected_intent": "bot_identity", "role": "ogrenci"}
+{"question": "kimsin sen ya", "expected_intent": "bot_identity", "role": "ogrenci"}
+{"question": "senin adın ne", "expected_intent": "bot_identity", "role": "ogrenci"}
+{"question": "Pomodoro oturumu açmak istiyorum", "expected_intent": "pomodoro_use", "role": "ogrenci"}
+{"question": "Odağı nasıl başlatırım?", "expected_intent": "pomodoro_use", "role": "ogrenci"}
+{"question": "Toplam odak sürem nerede görünür?", "expected_intent": "pomodoro_use", "role": "ogrenci"}
+{"question": "Öğrencinin pomodorolarına bakmak istiyorum", "expected_intent": "student_pomodoro_lookup", "role": "ogretmen"}
+{"question": "Bir öğrencinin odak geçmişini nasıl açarım?", "expected_intent": "student_pomodoro_lookup", "role": "ogretmen"}
+{"question": "Mesaj kutum nerede?", "expected_intent": "messages_use", "role": "ogrenci"}
+{"question": "Birine mesaj yollamak istiyorum", "expected_intent": "messages_use", "role": "ogrenci"}
+{"question": "Gelen kutusuna nereden bakarım?", "expected_intent": "messages_use", "role": "veli"}
+{"question": "Etüt ne demek?", "expected_intent": "study_club_info", "role": "ogrenci"}
+{"question": "Kulüp dersten farklı mı?", "expected_intent": "study_club_info", "role": "ogrenci"}
+{"question": "Etüde nasıl katılırım?", "expected_intent": "study_club_info", "role": "ogrenci"}
+{"question": "Veli hesabı nedir?", "expected_intent": "parent_info", "role": "ogrenci"}
+{"question": "Velim notlarımı görebilir mi?", "expected_intent": "parent_info", "role": "ogrenci"}
+{"question": "Ebeveyn rolü ne işe yarıyor?", "expected_intent": "parent_info", "role": "veli"}
+{"question": "Hazerfen tam olarak ne?", "expected_intent": "platform_info", "role": "ziyaretci"}
+{"question": "Bu platform ne için var?", "expected_intent": "platform_info", "role": "ogrenci"}
+{"question": "Hezarfeni kısaca tanıtır mısın", "expected_intent": "platform_info", "role": "ziyaretci"}

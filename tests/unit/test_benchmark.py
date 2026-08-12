@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from src import catalog
-from src.benchmark import (
+from src.evaluation.benchmark import (
     OOS_LABEL,
     load_benchmark,
     validate_benchmark,

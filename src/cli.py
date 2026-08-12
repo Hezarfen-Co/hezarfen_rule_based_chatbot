@@ -45,7 +45,13 @@ class ChatSession:
 
     @staticmethod
     def format_response(resp: dict[str, Any]) -> str:
-        tag = "fallback" if resp["fallback"] else resp["intent"]
+        safety = resp.get("safety") or {}
+        if safety.get("decision") and safety["decision"] != "ALLOW" and resp["intent"] is None:
+            tag = f"safety:{safety['category']}"
+        elif resp["fallback"]:
+            tag = "fallback"
+        else:
+            tag = resp["intent"]
         return f"[{tag}] {resp['text']}"
 
     def handle_line(self, line: str) -> tuple[str | None, bool]:
@@ -87,7 +93,7 @@ _HELP_TEXT = (
 )
 
 _BANNER = (
-    "=== Hezarfen Kullanım Asistanı (terminal) ===\n"
+    "=== Çelebi — Hezarfen Kullanım Asistanı (terminal) ===\n"
     "Rolünü /rol ile ayarla, soru sor. Çıkış: /cikis\n"
 )
 
@@ -115,6 +121,17 @@ def run(
 
 
 def main() -> int:
+    # Windows konsollarında (cp1254) Türkçe/işaret karakterleri için UTF-8'e geç.
+    import sys
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except Exception:  # pragma: no cover - platforma bağlı
+                pass
+
     run()
     return 0
 

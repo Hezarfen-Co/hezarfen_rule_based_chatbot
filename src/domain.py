@@ -32,6 +32,15 @@ STOPWORDS: Final[frozenset[str]] = frozenset(
         "bir", "bana", "benim", "sen", "ben", "ile", "icin", "daha", "cok",
         "bu", "sunu", "sonra", "once", "gibi", "kadar", "ama", "veya",
         "lazim", "gerek", "acaba", "peki", "yeni",
+        "eder", "ederim", "edeyim", "etmek", "edilir",
+        # Generic anlatım/tanıtım fiilleri — alan-ayırt edici değil (fıkra anlat,
+        # şiir anlat da bunları içerir). platform_info örnekleriyle sözlüğe sızmasın.
+        "anlat", "anlatir", "anlatabilir", "kisaca", "tanit", "tanitir", "bilgi",
+        # Jenerik fiil çekimleri: katalog örneklerinden (not veririm / not yazılır /
+        # derse giderim / iyi günler) sözlüğe sızıp OOS sorguları ('kilo veririm',
+        # 'python nasıl yazılır', 'İstanbul'a giderim', 'iyi film öner') yanlışlıkla
+        # in-scope gösteriyordu. Alan-ayırt edici değiller.
+        "iyi", "giderim", "veririm", "verir", "yazilir",
     }
 )
 
@@ -80,11 +89,25 @@ def _overlaps(token: str, vocab: set[str]) -> bool:
 
 
 def is_in_domain(query: str, vocab: set[str] | None = None) -> bool:
-    """Sorgunun en az bir içerik kelimesi alan söz varlığıyla örtüşüyor mu?"""
+    """Sorgunun içerik kelimeleri alan söz varlığıyla yeterince örtüşüyor mu?
+
+    Sinyal gücü sorgu uzunluğuna göre ayarlanır:
+    - Tam eşleşme (kelime söz varlığında birebir var) -> güçlü sinyal, tek başına yeter.
+    - Kısa sorgu (<=2 içerik kelimesi): tek bir kısmi (önek) örtüşme yeter.
+    - Uzun sorgu (>=3 içerik kelimesi) ve hiç tam eşleşme yok: tek bir zayıf önek
+      örtüşmesi ('yazılır' ~ 'yazılı') yanıltıcı olabilir -> en az 2 örtüşme iste.
+      Bu, alan-dışı uzun cümlelerin ('python'da döngü nasıl yazılır') tek bir
+      yanlış-dost yüzünden alan-içi sayılmasını azaltır.
+    """
 
     vocab = vocab if vocab is not None else get_domain_vocab()
     content = _content_tokens(query)
     if not content:
         # Yalnızca jenerik kelimelerden oluşan sorgu -> ayırt edici alan sinyali yok.
         return False
-    return any(_overlaps(token, vocab) for token in content)
+    if any(token in vocab for token in content):
+        return True
+    overlaps = sum(1 for token in content if _overlaps(token, vocab))
+    if len(content) <= 2:
+        return overlaps >= 1
+    return overlaps >= 2

@@ -30,7 +30,34 @@ from .normalize import fold_accents, folded_tokens, normalize
 _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "greeting", "groups": [
         {"all": ["merhaba"]}, {"all": ["selam"]}, {"all": ["günaydın"]},
-        {"all": ["naber"]}, {"all": ["hey"]},
+        {"all": ["hey"]}, {"all": ["iyi", "günler"]},
+    ]},
+    {"intent": "smalltalk", "groups": [
+        {"all": ["naber"]}, {"all": ["nasılsın"]}, {"all": ["napıyorsun"]},
+        {"all": ["ne", "haber"]}, {"all": ["keyifler"]},
+    ]},
+    {"intent": "thanks", "groups": [
+        {"all": ["teşekkür"]}, {"all": ["sağol"]}, {"all": ["sağ", "ol"]},
+        {"all": ["eyvallah"]},
+    ]},
+    {"intent": "farewell", "groups": [
+        {"all": ["görüşürüz"]}, {"all": ["hoşça"]}, {"all": ["hoşçakal"]},
+        {"all": ["iyi", "gece"]},
+        # Sık kullanılan İngilizce vedalar (aksi hâlde fallback'e düşüyordu).
+        {"all": ["bye"]}, {"all": ["goodbye"]},
+    ]},
+    {"intent": "bot_identity", "groups": [
+        {"all": ["kimsin"]}, {"all": ["robot"]}, {"all": ["yapay", "zeka"]},
+        {"all": ["adın", "ne"]}, {"all": ["kim", "yaptı", "seni"]},
+    ]},
+    {"intent": "platform_info", "groups": [
+        # 'Hezarfen nedir' + sık yazım hatası 'hazerfen'. Salt 'hezarfen' KULLANILMAZ
+        # (çünkü 'hezarfen'de sınav oluştur' gibi sorularda da geçer) — 'ne/nedir'
+        # veya 'tanıt' ile birlikte istenir. 'hazerfen' yanlış-yazımı tek başına yeter.
+        {"all": ["hezarfen", "nedir"]}, {"all": ["hezarfen", "ne"]},
+        {"all": ["hezarfen", "tanıt"]}, {"all": ["hazerfen"]},
+        {"all": ["bu", "site", "nedir"]}, {"all": ["bu", "uygulama", "nedir"]},
+        {"all": ["bu", "platform"]},
     ]},
     {"intent": "help_capabilities", "groups": [
         {"all": ["neler", "yapabil"], "none": ["yönetici", "öğretmen", "rol", "yetki"]},
@@ -42,6 +69,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["yönetici", "yapabil"]}, {"all": ["öğretmen", "yapabil"]},
         {"all": ["rol", "kademe"]}, {"all": ["yetki", "seviye"]},
         {"all": ["rol", "nedir"]}, {"all": ["kim", "yetki"]},
+        # 'Rolüm ne?' — kendi rolünü sorma ('rolümü değiştir' user_role_change'in
+        # 2'lik kuralına takılır, o kazanır).
+        {"all": ["rolüm"]},
     ]},
     {"intent": "privacy_security", "groups": [
         {"all": ["arkadaş"]}, {"all": ["başka", "öğrenci"]},
@@ -52,7 +82,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "account_access_problem", "groups": [
         {"all": ["şifre", "unut"]}, {"all": ["şifre", "yanlış"]},
-        {"all": ["şifre", "sıfırla"]}, {"all": ["parola", "unut"]},
+        {"all": ["şifre", "sıfırla"]}, {"all": ["şifre", "değiştir"]},
+        {"all": ["parola", "unut"]}, {"all": ["parola", "değiştir"]},
         {"all": ["parola", "hatırla"]}, {"all": ["giremiyor"]},
         {"all": ["yapamıyor"]}, {"all": ["erişemiyor"]},
     ]},
@@ -70,14 +101,27 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "report_card_view", "groups": [
         {"all": ["karne"], "none": ["öğrenci", "başka", "birinin"]},
         {"all": ["harf", "not"]},
+        # 1. şahıs "karnem" tek anlamlı (kendi karnem = report_card_view); bu yüzden
+        # kural olarak güvenli — "öğrenci olarak karnemi görürüm" de buraya düşer.
+        # 'notum/notlarım/ortalamam' KURAL DEĞİL: "notumu sınavdan sonra görürüm"
+        # (exam_finish_result) gibi belirsizlikler var; onları similarity + rol
+        # tie-break çözer (kural katmanı yüksek-kesinlik kalsın).
+        {"all": ["karnem"], "none": ["başka", "birinin"]},
     ]},
     {"intent": "weighted_average_info", "groups": [
         {"all": ["ortalama", "hesap"]}, {"all": ["ağırlık", "ortalama"]},
         {"all": ["ağırlıklı", "ortalama"]},
     ]},
     {"intent": "student_marks_lookup", "groups": [
-        {"all": ["öğrenci", "karne"]}, {"all": ["öğrenci", "not", "gör"]},
-        {"all": ["öğrenci", "not", "sorgu"]}, {"all": ["öğrenci", "not", "bak"]},
+        # 'başka/birinin' varsa bu meşru bir öğretmen sorgusu değil, gizlilik
+        # sorusudur ('başka bir öğrencinin notunu görebilir miyim') -> privacy'ye bırak.
+        # 1. şahıs iyelik ('notum/karnem/notlarım/ortalamam') = kendi notu ->
+        # öğretmen sorgusu DEĞİL; report_card_view'e bırak. Öğretmenin 3. şahıs
+        # sorgusu ('öğrencinin notunu gör') bu köklere takılmaz, korunur.
+        {"all": ["öğrenci", "karne"], "none": ["başka", "birinin", "karnem"]},
+        {"all": ["öğrenci", "not", "gör"], "none": ["başka", "birinin", "notum", "notlarım"]},
+        {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin", "notum", "notlarım"]},
+        {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin", "notum", "notlarım"]},
     ]},
     {"intent": "note_create", "groups": [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
@@ -112,6 +156,10 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "event_create", "groups": [
         {"all": ["etkinlik", "oluştur"]}, {"all": ["etkinlik", "ekle"]},
         {"all": ["etkinlik", "planla"]},
+        # Ünsüz yumuşaması: 'etkinliği' katlanınca 'etkinligi' olur ve sert-k
+        # 'etkinlik' önekiyle EŞLEŞMEZ (g!=k); bu morfolojik varyantı tamamla.
+        {"all": ["etkinliğ", "oluştur"]}, {"all": ["etkinliğ", "ekle"]},
+        {"all": ["etkinliğ", "planla"]},
     ]},
     {"intent": "user_role_change", "groups": [
         {"all": ["rol", "değiştir"]}, {"all": ["rol", "ata"]},
@@ -128,6 +176,13 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "work_checkin_out", "groups": [
         {"all": ["mesai", "giriş"]}, {"all": ["mesai", "çık"]},
         {"all": ["işe", "gel"]},
+        # 'mesai kaydımı başlatırım' benzerlikte exam_enter_room'a kayıyordu.
+        {"all": ["mesai", "başlat"]}, {"all": ["mesai", "başla"]},
+    ]},
+    {"intent": "course_enroll_student", "groups": [
+        {"all": ["derse", "kaydet"]}, {"all": ["öğrenci", "kaydet"]},
+        {"all": ["derse", "öğrenci"], "none": ["çıkar", "sil"]},
+        {"all": ["sınıfa", "öğrenci"]},
     ]},
     # --- Aşama 11: kapsamı olmayan/karışan intent'ler için hedefli kurallar ---
     {"intent": "guide_info", "groups": [
@@ -152,6 +207,29 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "event_attendance_mark", "groups": [
         {"all": ["etkinlik", "katıl"]}, {"all": ["etkinlik", "yoklama"]},
+    ]},
+    # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
+    {"intent": "pomodoro_use", "groups": [
+        # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.
+        {"all": ["pomodoro"], "none": ["öğrenci"]},
+        {"all": ["odak", "başlat"]}, {"all": ["odağ", "başlat"]},
+        {"all": ["odak", "bitir"]}, {"all": ["odağ", "bitir"]},
+        {"all": ["odak", "oturum"], "none": ["öğrenci"]},
+    ]},
+    {"intent": "student_pomodoro_lookup", "groups": [
+        {"all": ["öğrenci", "pomodoro"]}, {"all": ["öğrenci", "odak"]},
+        {"all": ["öğrenci", "odağ"]},
+    ]},
+    {"intent": "messages_use", "groups": [
+        {"all": ["mesaj"]}, {"all": ["gelen", "kutusu"]},
+    ]},
+    {"intent": "study_club_info", "groups": [
+        # 'etüde/kulübe' çekimlerinde ünsüz yumuşar (t->d, p->b); iki kök de tanınır.
+        {"all": ["etüt"]}, {"all": ["etüd"]},
+        {"all": ["kulüp"]}, {"all": ["kulüb"]},
+    ]},
+    {"intent": "parent_info", "groups": [
+        {"all": ["veli"]}, {"all": ["ebeveyn"]},
     ]},
 ]
 

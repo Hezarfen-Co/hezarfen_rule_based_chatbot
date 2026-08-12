@@ -46,7 +46,7 @@ def main() -> int:
         return chat_main()
 
     if args.evaluate:
-        from .evaluate import format_report, run_evaluation
+        from .evaluation import format_report, run_evaluation
 
         print(format_report(run_evaluation()))
         return 0
