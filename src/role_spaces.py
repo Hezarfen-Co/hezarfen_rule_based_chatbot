@@ -38,34 +38,42 @@ def _matrix(parent, student, teacher, manager, admin):
 
 A = AccessOutcome.ALLOW
 D = AccessOutcome.DENY
-C = AccessOutcome.CLARIFY
 G = AccessScope.GENERAL
 O = AccessScope.OWN
-L = AccessScope.LINKED_CHILD
 E = AccessScope.ENROLLED_COURSE
 M = AccessScope.MANAGED_COURSE
 S = AccessScope.SCHOOL
 V = AccessScope.EVENT_AUDIENCE
 
-# (outcome, scope, navigation_key). These are the actions used by the current
-# catalog, copied from the backend policy rather than inferred from role rank.
+# (outcome, scope, navigation_key). İkili model: bir rol o işlemi backend'de
+# yapabiliyorsa (kapsamı ne olursa olsun) ALLOW — asistan adımları anlatır, kapsam
+# cevabın içinde nottur. Yapamıyorsa DENY — adım/rota/ayrıcalıklı rol adı sızmaz.
+# Kaynak: hezarfen_backend endpoint guard'ları (rol×yetki taraması). CLARIFY-for-
+# scope KALDIRILDI: bu asistan sistemi ANLATIR, kapsamı çalışma anında doğrulamaz.
 _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None, str | None]]]] = {
     "platform.help": _matrix((A, G, "guide"), (A, G, "guide"), (A, G, "guide"), (A, G, "guide"), (A, G, "guide")),
     "account.self": _matrix((A, O, "profile"), (A, O, "profile"), (A, O, "profile"), (A, O, "profile"), (A, O, "profile")),
     "messages.use": _matrix((A, O, "messages"), (A, O, "messages"), (A, O, "messages"), (A, O, "messages"), (A, O, "messages")),
     "notes.use": _matrix((A, O, "notes"), (A, O, "notes"), (A, O, "notes"), (A, O, "notes"), (A, O, "notes")),
-    "courses.view": _matrix((D, None, None), (C, E, "courses"), (C, M, "courses"), (A, S, "courses"), (A, S, "courses")),
+    # Ders görüntüleme: Veli erişemez (kayıt/yönetim yok); öğrenci kayıtlı derslerini,
+    # öğretmen yönettiklerini görür — ikisi de ALLOW (kapsam nottur).
+    "courses.view": _matrix((D, None, None), (A, E, "courses"), (A, M, "courses"), (A, S, "courses"), (A, S, "courses")),
     "courses.create": _matrix((D, None, None), (D, None, None), (A, O, "courses"), (A, S, "courses"), (A, S, "courses")),
-    "courses.manage": _matrix((D, None, None), (D, None, None), (C, M, "courses"), (A, S, "courses"), (A, S, "courses")),
-    "courses.enroll_student": _matrix((D, None, None), (D, None, None), (C, M, "courses"), (A, S, "courses"), (A, S, "courses")),
-    "exams.take": _matrix((D, None, None), (C, E, "exams"), (D, None, None), (D, None, None), (D, None, None)),
-    "exams.manage": _matrix((D, None, None), (D, None, None), (C, M, "exams"), (A, S, "exams"), (A, S, "exams")),
+    "courses.manage": _matrix((D, None, None), (D, None, None), (A, M, "courses"), (A, S, "courses"), (A, S, "courses")),
+    "courses.enroll_student": _matrix((D, None, None), (D, None, None), (A, M, "courses"), (A, S, "courses"), (A, S, "courses")),
+    # Sınava girme yalnız Öğrenci (backend: tam olarak Student + enrolled). Personel giremez.
+    "exams.take": _matrix((D, None, None), (A, E, "exams"), (D, None, None), (D, None, None), (D, None, None)),
+    "exams.manage": _matrix((D, None, None), (D, None, None), (A, M, "exams"), (A, S, "exams"), (A, S, "exams")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
-    "events.mark_attendance": _matrix((D, None, None), (D, None, None), (C, V, "events"), (C, V, "events"), (C, V, "events")),
+    # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
+    "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
     "reports.read_own": _matrix((A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self")),
-    "reports.observe_student": _matrix((C, L, None), (D, None, None), (C, M, None), (A, S, None), (A, S, None)),
-    "pomodoro.start": _matrix((D, None, None), (A, O, "pomodoro"), (D, None, None), (D, None, None), (D, None, None)),
-    "pomodoro.observe_student": _matrix((C, L, None), (D, None, None), (A, S, None), (A, S, None), (A, S, None)),
+    # Öğrenci not/yoklama arama = Öğretmen yönetim sayfası (Öğretmen+). Veli bu sayfayı
+    # kullanmaz (çocuğunun verisini ayrı akıştan görür) -> DENY.
+    "reports.observe_student": _matrix((D, None, None), (D, None, None), (A, M, "student_marks"), (A, S, "student_marks"), (A, S, "student_marks")),
+    # Pomodoro backend'de her doğrulanmış kullanıcıya açık (CurrentUser) -> hepsi ALLOW.
+    "pomodoro.start": _matrix((A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro")),
+    "pomodoro.observe_student": _matrix((D, None, None), (D, None, None), (A, S, "student_pomodoro"), (A, S, "student_pomodoro"), (A, S, "student_pomodoro")),
     "work.self": _matrix((D, None, None), (D, None, None), (A, O, "work"), (A, O, "work"), (A, O, "work")),
     "work.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "staff_work"), (A, S, "staff_work")),
     "school.settings_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_settings"), (A, S, "school_settings")),
@@ -150,30 +158,6 @@ _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {
     ),
 }
 
-_CONTEXT_TEXT: Final[dict[AccessScope, str]] = {
-    AccessScope.LINKED_CHILD: (
-        "Bu bilgi yalnızca sana bağlı bir çocuk için görüntülenebilir. Bu mesajda "
-        "veli–öğrenci bağlantısını doğrulayamıyorum; hangi bağlı öğrenciyi kastettiğini belirt."
-    ),
-    AccessScope.ENROLLED_COURSE: (
-        "Bu işlem yalnızca kayıtlı olduğun ders veya sınav bağlamında yapılabilir. "
-        "Kaydını bu mesajdan doğrulayamıyorum; ilgili ders/sınavı belirt."
-    ),
-    AccessScope.MANAGED_COURSE: (
-        "Bu işlem yalnızca yönettiğin ders bağlamında yapılabilir. Ders sahipliğini "
-        "bu mesajdan doğrulayamıyorum; ilgili dersi belirt."
-    ),
-    AccessScope.OWNED_RESOURCE: "Bu işlem yalnızca sahibi olduğun kaynak için yapılabilir.",
-    AccessScope.PARTICIPANT: "Bu işlem yalnızca katılımcısı olduğun kaynak için yapılabilir.",
-    AccessScope.REQUESTER: "Bu işlem yalnızca talebin sahibi için yapılabilir.",
-    AccessScope.EVENT_AUDIENCE: (
-        "Etkinlik yoklamasını Öğretmen, Yönetici veya ADMIN yalnızca etkinliğin "
-        "hedef kitlesindeki kullanıcı için kaydedebilir. Etkinlik ve hedef kullanıcı "
-        "bilgisi olmadan bu koşulu doğrulayamıyorum."
-    ),
-}
-
-
 def action_id_for_intent(intent: str) -> str:
     return _ACTION_BY_INTENT[intent]
 
@@ -188,11 +172,20 @@ def _local_rule(item: dict, role: str):
     return action_id, outcome, scope, route_key
 
 
-def _deny_text(item: dict, role: str, reason: ReasonCode) -> str:
+def _deny_text(reason: ReasonCode) -> str:
+    """Ret metni. Ayrıcalıklı adım, rota veya gerekli-rol adı ASLA sızmaz.
+
+    Giriş gereken durumda (ziyaretçi) yalnız kamuya açık `/login` yolu verilir —
+    bu bir sızıntı değil, herkesin erişebildiği giriş sayfasıdır.
+    """
+
     if reason is ReasonCode.AUTHENTICATION_REQUIRED:
-        return "Bu konu oturum bilgisi gerektiriyor. Önce güvenli biçimde giriş yapmalısın."
+        return (
+            "Bu konu için önce giriş yapman gerekiyor. `/login` sayfasından "
+            "güvenli biçimde giriş yapabilirsin."
+        )
     return (
-        f"Bu işlem **{role}** rolüne açık değil. Yetkisiz işlem adımları veya "
+        "Bu işlem senin rolünde yapılamıyor. Yetkisiz işlem adımları ve "
         "yönlendirme paylaşılmadı."
     )
 
@@ -205,19 +198,17 @@ def _view(item: dict, role: str) -> RoleIntentView:
             if role == "ziyaretci" and item["auth_required"]
             else ReasonCode.ROLE_NOT_PERMITTED
         )
-        body = _deny_text(item, role, reason)
-    elif outcome is C:
-        reason = ReasonCode.CONTEXT_REQUIRED
-        body = _CONTEXT_TEXT[scope]
+        body = _deny_text(reason)
+        scope = None
         route_key = None
-    else:
+    else:  # ALLOW
         reason = ReasonCode.ALLOWED
         body = item["response_template"]
+        # Karne/yoklama sayfası öğrenciye özeldir; üst roller için kişisel karne
+        # yerine kapsam notu döndürülür (adım değil, bilgi).
+        if item["intent"] in {"report_card_view", "attendance_view"} and role != "ogrenci":
+            body = _OWN_REPORT_RESPONSES.get(role, body)
 
-    if item["intent"] in {"report_card_view", "attendance_view"} and role != "ogrenci":
-        body = _OWN_REPORT_RESPONSES.get(role, body)
-
-    clarification = _CONTEXT_TEXT.get(scope) if outcome is C else None
     return RoleIntentView(
         role=role,
         intent=item["intent"],
@@ -228,8 +219,10 @@ def _view(item: dict, role: str) -> RoleIntentView:
         response_id=item["response_id"],
         response_template=body,
         examples=tuple(item["example_questions"]),
-        clarification=clarification,
-        required_role=None if outcome is not D else item["min_role"],
+        clarification=None,
+        # Sözleşme metadata'sı (frontend butonu pasifleştirmek için kullanabilir);
+        # kullanıcıya dönen METİN ayrıcalıklı rol adını/adımı ASLA içermez.
+        required_role=item["min_role"] if outcome is D else None,
         route_key=route_key if outcome is A else None,
         route_label=None,
     )
