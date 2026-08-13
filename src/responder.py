@@ -20,6 +20,7 @@ from typing import Final
 
 from .catalog import DEFAULT_GREETING_OPENER, FALLBACK, GREETING_OPENERS, get_intent
 from .normalize import fold_accents, normalize
+from .access import AccessOutcome
 from .decision import (
     LOGIN_REQUIRED,
     ROLE_INSUFFICIENT,
@@ -113,19 +114,31 @@ def render(decision: Decision, query: str | None = None) -> Response:
 
     view = get_role_space(decision.role).view_for(decision.intent)
     if decision.view_id and view is not None:
-        # The view body is already either role-local guidance or a fail-closed
-        # denial.  Do not append the global catalog body to a denial.
-        body = view.response_template
+        if (
+            view.outcome is AccessOutcome.ALLOW
+            and view.response_template == info["response_template"]
+        ):
+            # Standart ALLOW: aynalama/varyant sunum katmanı geri devrede
+            # ('günaydın' -> 'Günaydın! ☀️', sosyal varyantlar).
+            body = _select_body(info, query)
+        else:
+            # Ret metni ya da role özel geçersiz kılma (kişisel karne notu gibi):
+            # olduğu gibi kullanılır; ret gövdesine katalog adımları eklenmez.
+            body = view.response_template
     else:
         body = _select_body(info, query)
 
+    # Aşağıdaki dallar yalnız view_id'siz eski çağrı yolu içindir (üretimde her zaman
+    # view_id vardır -> ret metni role-space'ten gelir). Ret hiçbir yolda adım sızdırmaz.
     if decision.auth_action == LOGIN_REQUIRED and not decision.view_id:
-        text = "Bu konu oturum bilgisi gerektiriyor. Önce güvenli biçimde giriş yapmalısın."
-    elif decision.auth_action == ROLE_INSUFFICIENT and not decision.view_id:
-        needed = role_display(decision.required_role or "")
         text = (
-            f"Bu işlem için **{needed}** yetkisi gerekir. Yetkisiz işlem adımları "
-            "ve yönlendirme paylaşılmadı."
+            "Bu konu için önce giriş yapman gerekiyor. `/login` sayfasından "
+            "güvenli biçimde giriş yapabilirsin."
+        )
+    elif decision.auth_action == ROLE_INSUFFICIENT and not decision.view_id:
+        text = (
+            "Bu işlem senin rolünde yapılamıyor. Yetkisiz işlem adımları ve "
+            "yönlendirme paylaşılmadı."
         )
     else:
         text = body
