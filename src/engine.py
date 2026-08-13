@@ -187,8 +187,11 @@ def _build_navigation(
     if intent is None or auth_action is not None:
         return None
     view = get_role_space(role).view_for(intent)
-    if view is None or view.outcome is not AccessOutcome.ALLOW or view.route_key is None:
+    if view is None or view.outcome is not AccessOutcome.ALLOW:
         return None
+    # Rota, izin verilen intent'in gerçek sayfasıdır (rehber §4). Reddedilen/CLARIFY
+    # görünümlerde buraya gelinmez -> ret'te rota sızmaz. Bilgi intent'lerinde
+    # (route_for None) navigasyon yoktur.
     route = route_for(intent)
     if route is None:
         return None
@@ -503,8 +506,11 @@ class Engine:
         # 1.5) Rol beyanı ("Öğrenci", "ben öğretmenim") -> role özel yetenek özeti.
         # Bot 'rolünü söyle' dediğinde verilen tek kelimelik cevabı anlamlandırır;
         # aksi hâlde 'Öğrenci' yanlışlıkla 'öğrenci kaydet' intent'ine benzerdi.
+        # Rol beyanı/sorusu BİLGİ amaçlıdır: sorulan rolün yeteneklerini anlatır,
+        # oturumun gerçek yetkisini (gating) ASLA değiştirmez. Doğrulanmış bir öğrenci
+        # 'admin' yazarsa admin yeteneklerini bilgi olarak görür, admin OLMAZ.
         declared = _declared_role(query)
-        served_declaration = role if (authenticated and declared) else declared
+        served_declaration = declared
         caps = capabilities_for(served_declaration) if served_declaration else None
         if caps:
             if self._log_sink is not None:
