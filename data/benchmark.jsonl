@@ -181,3 +181,15 @@
 {"question": "Hazerfen tam olarak ne?", "expected_intent": "platform_info", "role": "ziyaretci"}
 {"question": "Bu platform ne için var?", "expected_intent": "platform_info", "role": "ogrenci"}
 {"question": "Hezarfeni kısaca tanıtır mısın", "expected_intent": "platform_info", "role": "ziyaretci"}
+{"question": "Bana atanan ödevler nerede", "expected_intent": "homework_view", "role": "ogrenci"}
+{"question": "Ödev listemi görmek istiyorum", "expected_intent": "homework_view", "role": "ogrenci"}
+{"question": "Ödevlerim hangi sayfada", "expected_intent": "homework_view", "role": "ogrenci"}
+{"question": "Ödevi nasıl gönderirim", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "Ödev teslimini nereden yaparım", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "Yaptığım ödevi yüklemek istiyorum", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "Sınıfa ödev atamak istiyorum", "expected_intent": "homework_assign", "role": "ogretmen"}
+{"question": "Öğrencilerime nasıl ödev veririm", "expected_intent": "homework_assign", "role": "ogretmen"}
+{"question": "Yeni bir ödev oluşturmak istiyorum", "expected_intent": "homework_assign", "role": "ogretmen"}
+{"question": "Öğrencinin ödevine nasıl not veririm", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "Ödev teslimini değerlendirmek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "Teslim edilen ödeve puan vermek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}

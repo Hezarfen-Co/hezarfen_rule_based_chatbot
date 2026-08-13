@@ -208,6 +208,36 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "event_attendance_mark", "groups": [
         {"all": ["etkinlik", "katıl"]}, {"all": ["etkinlik", "yoklama"]},
     ]},
+    # --- Ödev (bağımsız modül; "ödev" + eylem köküyle ayrışır; none-koruması
+    # alt-intent'leri ve exam_grade_student'ı birbirinden ayırır) ---
+    {"intent": "homework_view", "groups": [
+        {"all": ["ödev", "nerede"], "none": [
+            "oluştur", "ekle", "ata", "gönder", "yükle", "teslim",
+            "notland", "değerlendir", "puan", "gir"]},
+        {"all": ["ödev", "hangi", "sayfa"]},
+        {"all": ["ödev", "takip"]}, {"all": ["ödev", "listem"]},
+        {"all": ["atanan", "ödev"]},
+        {"all": ["verilen", "ödev"], "none": ["yükle", "gönder", "teslim"]},
+        {"all": ["ödevlerim"], "none": [
+            "teslim", "gönder", "yükle", "notland", "değerlendir", "puan"]},
+    ]},
+    {"intent": "homework_submit", "groups": [
+        {"all": ["ödev", "gönder"]}, {"all": ["ödev", "yükle"]},
+        {"all": ["ödev", "teslim"], "none": [
+            "takip", "notland", "değerlendir", "puan", "not"]},
+    ]},
+    {"intent": "homework_assign", "groups": [
+        {"all": ["ödev", "oluştur"]}, {"all": ["ödev", "ekle"]},
+        {"all": ["yeni", "ödev"]},
+        {"all": ["ödev", "ata"], "none": ["atanan"]},
+        {"all": ["ödev", "ver"], "none": [
+            "not", "puan", "verilen", "notland", "değerlendir", "gir"]},
+    ]},
+    {"intent": "homework_grade", "groups": [
+        {"all": ["ödev", "notland"]}, {"all": ["ödev", "değerlendir"]},
+        {"all": ["ödev", "puan"]},
+        {"all": ["ödev", "not", "ver"]}, {"all": ["ödev", "not", "gir"]},
+    ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
         # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.

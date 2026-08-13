@@ -71,6 +71,11 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "sınavdan atıldım tekrar girebilir miyim", "exam_rejoin_retake"),
     ("ogretmen", "öğrencileri notlandırmak istiyorum", "exam_grade_student"),
     ("ogretmen", "sınavı canlı izlemek istiyorum", "exam_live_monitor"),
+    # --- ödev ---
+    ("ogrenci", "verilen ödevleri nereden takip ederim", "homework_view"),
+    ("ogrenci", "ödevimi teslim etmek istiyorum", "homework_submit"),
+    ("ogretmen", "öğrencilere ödev vermek istiyorum", "homework_assign"),
+    ("ogretmen", "ödev teslimlerini notlandırmak istiyorum", "homework_grade"),
     # --- notlar / karne ---
     ("ogrenci", "karnemi görmek istiyorum", "report_card_view"),
     ("ogrenci", "ağırlıklı ortalama nasıl hesaplanıyor", "weighted_average_info"),

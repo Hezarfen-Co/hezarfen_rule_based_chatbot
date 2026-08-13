@@ -32,6 +32,7 @@ CROSS_ROLE: list[tuple[str, list[str], str]] = [
     ("okul ayarlarını değiştirmek istiyorum", ["ogrenci", "ogretmen"], "yonetici"),
     ("personel mesailerini görmek istiyorum", ["ogrenci", "ogretmen"], "yonetici"),
     ("bir öğrencinin karnesine bakmak istiyorum", ["ogrenci"], "ogretmen"),
+    ("öğrencilere ödev vermek istiyorum", ["ogrenci", "veli"], "ogretmen"),
 ]
 
 # Cevap gövdesinde ASLA görünmemesi gereken, o işlemin adımlarına/rotasına özgü
@@ -42,6 +43,7 @@ STEP_SIGNATURES: dict[str, list[str]] = {
     "okul ayarlarını değiştirmek istiyorum": ["/management/settings", "Not bantları"],
     "personel mesailerini görmek istiyorum": ["/management/staff-work", "Düzenle"],
     "bir öğrencinin karnesine bakmak istiyorum": ["/management/student-marks"],
+    "öğrencilere ödev vermek istiyorum": ["Ödev ekle", "/homework", "Son teslim"],
 }
 
 

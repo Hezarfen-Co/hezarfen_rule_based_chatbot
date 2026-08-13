@@ -833,6 +833,97 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["exam_grade_student"],
     },
+    # --- Ödev (backend/frontend'de bağımsız modül; rehberdeki "Ödev" ise sınav
+    # TÜRÜdür — ayrı şey. İçerik frontend'den: /homework, "Ödevler" menüsü) --------
+    {
+        "intent": "homework_view",
+        "category": "homework",
+        "description": "Ödevleri/atanan ödevleri görüntüleme.",
+        "response_id": "homework_view_info",
+        "response_template": (
+            "Ödevleri **Akademik** grubundaki **Ödevler** menüsünden (`/homework`) "
+            "görürsün. Öğrencide sayfa **Ödevlerim** başlığıyla açılır; her kartta "
+            "**Son teslim** tarihi ve durum görünür. Bir ödevin detayına gitmek için "
+            "**Aç**'a bas (`/homework/$id`). Öğretmen ve üstü, verdikleri ödevleri ve "
+            "**Teslimler**'i aynı sayfadan takip eder."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Ödevlerimi nerede görürüm?",
+            "Ödevler sayfası nerede?",
+            "Bana verilen ödevler neler?",
+            "Ödev son teslim tarihlerini nereden takip ederim?",
+            "Ödevlerim listesi nerede?",
+        ],
+        "must_not_match": ["homework_submit", "course_view", "exam_modes_info"],
+    },
+    {
+        "intent": "homework_submit",
+        "category": "homework",
+        "description": "Öğrencinin ödevini teslim etmesi.",
+        "response_id": "homework_submit_instructions",
+        "response_template": (
+            "Ön koşul: ödevin verildiği dersin kayıtlı öğrencisisin. 1) **Ödevler** "
+            "(`/homework`) → ilgili ödevin detayına (`/homework/$id`) gir. 2) **Ödevi "
+            "teslim et** panelinde cevabını yaz ve/veya dosya ekle. 3) Gönder. Teslim "
+            "yalnızca Öğrenciye açıktır; **Son teslim** tarihine dikkat et."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Ödevimi nasıl teslim ederim?",
+            "Ödev teslimi nereden yapılır?",
+            "Verilen ödevi nasıl yüklerim?",
+            "Ödev cevabımı nasıl gönderirim?",
+            "Ödevimi göndermek istiyorum",
+        ],
+        "must_not_match": ["homework_view", "homework_grade", "exam_save_answer"],
+    },
+    {
+        "intent": "homework_assign",
+        "category": "homework",
+        "description": "Ödev oluşturma/atama (Öğretmen+).",
+        "response_id": "homework_assign_instructions",
+        "response_template": (
+            "Ön koşul: yönettiğin bir ders olmalı. 1) **Ödevler** (`/homework`) → "
+            "**Ödev ekle**. 2) Dersi seç, başlık ve açıklamayı gir, **Son teslim** "
+            "tarihini belirle. 3) Oluştur. Ödev dersin öğrencilerine atanır; gelen "
+            "teslimleri ödev detayındaki **Teslimler** bölümünden görürsün."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Ödev nasıl veririm?",
+            "Yeni ödev eklemek istiyorum",
+            "Öğrencilere ödev atamak istiyorum",
+            "Ödev oluşturma nerede?",
+            "Sınıfıma ödev vermek istiyorum",
+        ],
+        "must_not_match": ["homework_grade", "homework_submit", "exam_create"],
+    },
+    {
+        "intent": "homework_grade",
+        "category": "homework",
+        "description": "Ödev teslimlerini notlandırma (Öğretmen+).",
+        "response_id": "homework_grade_instructions",
+        "response_template": (
+            "Ön koşul: ödevi verdiğin (yönettiğin) ders. 1) **Ödevler** (`/homework`) → "
+            "ödevin detayı → **Teslimler**. 2) Bir öğrencinin teslimini aç, **Notlandır** "
+            "ile not/geri bildirim ver; gerekirse **Notu kaldır** ile geri al. "
+            "Notlandırma Öğretmen ve üstüne açıktır; kendi teslimini notlandıramazsın."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Ödevi nasıl notlandırırım?",
+            "Öğrenci ödevine not vermek istiyorum",
+            "Ödev teslimlerini nereden değerlendiririm?",
+            "Ödev notu girme nerede?",
+            "Teslim edilen ödevleri notlandırma",
+        ],
+        "must_not_match": ["homework_assign", "exam_grade_student", "homework_submit"],
+    },
     # --- Karne / notlar ------------------------------------------------------
     {
         "intent": "report_card_view",
@@ -1372,6 +1463,10 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "exam_rejoin_retake": "/exams",
     "exam_grade_student": "/exams",
     "exam_live_monitor": "/exams",
+    "homework_view": "/homework",
+    "homework_submit": "/homework",
+    "homework_assign": "/homework",
+    "homework_grade": "/homework",
     "report_card_view": "/marks",
     "weighted_average_info": "/marks",
     "student_marks_lookup": "/management/student-marks",
@@ -1401,6 +1496,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/register": "Kayıt sayfası",
     "/courses": "Dersler",
     "/exams": "Sınavlar",
+    "/homework": "Ödevler",
     "/events": "Etkinlikler",
     "/marks": "Karnem",
     "/attendance": "Yoklama",

@@ -64,6 +64,12 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     # Sınava girme yalnız Öğrenci (backend: tam olarak Student + enrolled). Personel giremez.
     "exams.take": _matrix((D, None, None), (A, E, "exams"), (D, None, None), (D, None, None), (D, None, None)),
     "exams.manage": _matrix((D, None, None), (D, None, None), (A, M, "exams"), (A, S, "exams"), (A, S, "exams")),
+    # Ödev: görüntüleme öğrenci+ (Veli /students'tan çocuğunu izler, /homework'ü
+    # kullanmaz -> D); teslim yalnız Öğrenci (backend: exactly Student + enrolled);
+    # oluşturma/notlandırma Öğretmen+ (yönettiği ders).
+    "homework.view": _matrix((D, None, None), (A, E, "homework"), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
+    "homework.submit": _matrix((D, None, None), (A, E, "homework"), (D, None, None), (D, None, None), (D, None, None)),
+    "homework.manage": _matrix((D, None, None), (D, None, None), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
     # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
     "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
@@ -115,6 +121,10 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "exam_rejoin_retake": "exams.take",
     "exam_grade_student": "exams.manage",
     "exam_live_monitor": "exams.manage",
+    "homework_view": "homework.view",
+    "homework_submit": "homework.submit",
+    "homework_assign": "homework.manage",
+    "homework_grade": "homework.manage",
     "report_card_view": "reports.read_own",
     "weighted_average_info": "platform.help",
     "student_marks_lookup": "reports.observe_student",
