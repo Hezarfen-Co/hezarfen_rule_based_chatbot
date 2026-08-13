@@ -41,13 +41,15 @@ class RenderTests(unittest.TestCase):
         r = render(_decision("report_card_view", auth_action=LOGIN_REQUIRED, required_role="ogrenci"))
         self.assertEqual(r.response_id, "report_card_info")
         self.assertIn("/login", r.text)
-        # Gövde de korunmalı.
-        self.assertIn("Karnem", r.text)
+        # No-leak: giriş istenir; adımlar (Karnem içeriği) GÖSTERİLMEZ.
+        self.assertNotIn("Karnem", r.text)
 
     def test_role_insufficient_prefix(self) -> None:
         r = render(_decision("course_create", auth_action=ROLE_INSUFFICIENT, required_role="ogretmen"))
-        self.assertIn("Öğretmen", r.text)
         self.assertEqual(r.response_id, "course_create_instructions")
+        # No-leak: adımlar ve ayrıcalıklı rol adı GÖSTERİLMEZ.
+        self.assertNotIn("Öğretmen", r.text)
+        self.assertNotIn("Yeni ders", r.text)
 
     def test_response_id_stable_under_gating(self) -> None:
         plain = render(_decision("course_create"))

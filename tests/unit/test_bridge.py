@@ -62,9 +62,10 @@ class BridgeRoleContractTests(unittest.TestCase):
         )
 
         self.assertEqual(student["auth_action"], "role_insufficient")
-        self.assertEqual(student["required_role"], "ogretmen")
-        self.assertFalse(student["navigation"]["available"])
+        self.assertEqual(student["required_role"], "ogretmen")  # sözleşme metadata'sı
+        self.assertIsNone(student["navigation"])                # no-leak: rota sızmaz
         self.assertIsNone(admin["auth_action"])
+        self.assertIsNotNone(admin["navigation"])
         self.assertTrue(admin["navigation"]["available"])
 
 
