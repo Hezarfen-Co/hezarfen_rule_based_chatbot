@@ -40,8 +40,10 @@ from .catalog import (
     route_for,
     suggestions_for,
 )
+from .access import AccessOutcome
 from .normalize import folded_tokens
 from .observability import new_trace_id, process
+from .role_spaces import get_role_space
 
 # Rol beyanını ("ben öğrenciyim") gerçek sorudan ayırmak için yok sayılan doldurma
 # kelimeleri. Bunlar dışındaki her kelime rol kelimesi değilse -> beyan sayılmaz.
@@ -81,7 +83,7 @@ CLARIFICATION_PROMPT_TEXT: str = (
     "Ders, sınav, karne, yoklama, defter, mesaj veya hesap ayarları hakkında "
     "'nasıl yaparım?' diye sorabilirsin."
 )
-from .similarity import SimilarityMatcher, get_default_matcher
+from .similarity import SimilarityMatcher
 
 # İsteğe bağlı log alıcısı: bir trace sözlüğü alır (dosyaya/akışa yazmak çağıranın işi).
 LogSink = Callable[[dict[str, Any]], None]
@@ -121,7 +123,7 @@ def _parse_session(payload: dict[str, Any]) -> tuple[str, bool]:
 _MULTI_SPLIT_RE: re.Pattern[str] = re.compile(r"\s+(?:ve|ayrıca)\s+|[;,]", re.IGNORECASE)
 
 
-def _multi_intent_segments(query: str) -> list[tuple[str, str]] | None:
+def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[str, str]] | None:
     """Sorgu birden çok BAĞIMSIZ isteğe bölünüyor mu? -> [(parça, intent), ...].
 
     Muhafazakâr tasarım: yalnızca KURAL katmanının (yüksek kesinlik) tanıdığı
@@ -135,8 +137,9 @@ def _multi_intent_segments(query: str) -> list[tuple[str, str]] | None:
         return None
     hits: list[tuple[str, str]] = []
     seen: set[str] = set()
+    rule_matcher = get_role_space(role).rule_matcher
     for segment in raw_segments:
-        match = rules.match(segment)
+        match = rule_matcher.match(segment)
         if match is not None and match.intent not in seen:
             seen.add(match.intent)
             hits.append((segment, match.intent))
@@ -170,20 +173,100 @@ def _declared_role(query: str) -> str | None:
     return found
 
 
-def _build_navigation(intent: str | None, auth_action: str | None) -> dict[str, Any] | None:
+def _build_navigation(
+    intent: str | None,
+    auth_action: str | None,
+    role: str = "ziyaretci",
+) -> dict[str, Any] | None:
     """Seçilen intent için yönlendirme hedefi (route) üretir.
 
     Frontend bunu "Git →" butonu olarak çizer. `available`, kullanıcının rolü
     yeterliyse True'dur (yetersizse buton pasif gösterilir; neden `auth_action`'da).
     """
 
-    if intent is None:
+    if intent is None or auth_action is not None:
+        return None
+    view = get_role_space(role).view_for(intent)
+    if view is None or view.outcome is not AccessOutcome.ALLOW or view.route_key is None:
         return None
     route = route_for(intent)
     if route is None:
         return None
     path, label = route
-    return {"route": path, "label": label, "available": auth_action is None}
+    return {"route": path, "label": label, "available": True}
+
+
+_WIRE_ROLES: dict[str, str] = {
+    "ziyaretci": "visitor",
+    "veli": "parent",
+    "ogrenci": "student",
+    "ogretmen": "teacher",
+    "yonetici": "manager",
+    "admin": "admin",
+}
+
+
+def assistant_meta_from_result(result: dict[str, Any], role: str) -> dict[str, Any]:
+    """Build the role-space V2 metadata from one engine result.
+
+    The legacy engine response remains intact; bridge V2 puts this metadata next
+    to ``text`` on the wire.
+    """
+
+    space = get_role_space(role)
+    intent = result.get("intent")
+    view = space.view_for(intent) if isinstance(intent, str) else None
+    response_id = result.get("response_id")
+    if response_id == "clarification_prompt":
+        outcome = "clarify"
+        reason_code = "ambiguous_query"
+    elif bool(result.get("fallback")):
+        outcome = "fallback"
+        reason_code = "out_of_scope"
+    elif result.get("auth_action") is not None:
+        outcome = "deny"
+        reason_code = view.reason_code.value if view else "role_not_permitted"
+    elif isinstance(response_id, str) and response_id.startswith("safety_"):
+        outcome = "deny"
+        safety = result.get("safety") or {}
+        reason_code = "safety_" + str(safety.get("category", "blocked")).lower()
+    else:
+        outcome = "allow"
+        reason_code = view.reason_code.value if view else "allowed"
+
+    navigation = None
+    if outcome == "allow" and view is not None and view.route_key is not None:
+        navigation = {"route_key": view.route_key}
+        if view.route_label:
+            navigation["label"] = view.route_label
+
+    clarification = None
+    existing_clarification = result.get("clarification")
+    if outcome == "clarify" and isinstance(existing_clarification, dict):
+        options = [
+            str(candidate.get("intent"))
+            for candidate in existing_clarification.get("candidates", [])
+            if isinstance(candidate, dict) and candidate.get("intent")
+        ]
+        clarification = {"prompt": CLARIFICATION_PROMPT_TEXT, "options": options}
+
+    return {
+        "contract_version": 2,
+        "served_role": _WIRE_ROLES[role],
+        "role_space_version": space.version,
+        "role_space_hash": space.content_hash,
+        "outcome": outcome,
+        "action_id": intent,
+        "reason_code": reason_code,
+        "navigation": navigation,
+        "clarification": clarification,
+        "suggestions": list(result.get("suggestions") or []),
+    }
+
+
+def _attach_assistant_meta(result: dict[str, Any], role: str) -> dict[str, Any]:
+    result["assistant_meta"] = assistant_meta_from_result(result, role)
+    return result
 
 
 def _build_clarification(trace: dict[str, Any], *, force: bool = False) -> dict[str, Any] | None:
@@ -323,7 +406,9 @@ class Engine:
         log_sink: LogSink | None = None,
         rate_limiter: "safety_mod.RateLimiter | None" = None,
     ) -> None:
-        self._matcher = matcher or get_default_matcher()
+        # ``None`` means role-local default. A custom matcher is retained for
+        # tests/opt-in embedding and projected into the selected space later.
+        self._matcher = matcher
         self._log_sink = log_sink
         self._rate_limiter = rate_limiter
 
@@ -368,7 +453,7 @@ class Engine:
                     "authenticated": authenticated, "short_circuit": "empty_query",
                     "response_id": FALLBACK["response_id"],
                 })
-            return empty
+            return _attach_assistant_meta(empty, role)
 
         # 0) Rate-limit / spam (opsiyonel; user_id gerekir).
         if self._rate_limiter is not None and user_id:
@@ -376,7 +461,7 @@ class Engine:
             if limited is not None:
                 if self._log_sink is not None:
                     self._log_sink(_safety_trace(trace_id, query, role, authenticated, limited))
-                return {
+                return _attach_assistant_meta({
                     "trace_id": trace_id,
                     "response_id": "safety_" + limited.category.lower(),
                     "text": limited.user_message,
@@ -390,7 +475,7 @@ class Engine:
                     "answers": None,
                     "suggestions": suggestions,
                     "safety": _safety_info(limited),
-                }
+                }, role)
 
         # 1) İçerik-güvenliği giriş kapısı.
         safety = safety_mod.evaluate_input(query, role=role, authenticated=authenticated)
@@ -399,7 +484,7 @@ class Engine:
         if safety.decision in safety_mod.BLOCKING_DECISIONS:
             if self._log_sink is not None:
                 self._log_sink(_safety_trace(trace_id, query, role, authenticated, safety))
-            return {
+            return _attach_assistant_meta({
                 "trace_id": trace_id,
                 "response_id": "safety_" + safety.category.lower(),
                 "text": safety.user_message,
@@ -413,23 +498,25 @@ class Engine:
                 "answers": None,
                 "suggestions": suggestions,
                 "safety": safety_info,
-            }
+            }, role)
 
         # 1.5) Rol beyanı ("Öğrenci", "ben öğretmenim") -> role özel yetenek özeti.
         # Bot 'rolünü söyle' dediğinde verilen tek kelimelik cevabı anlamlandırır;
         # aksi hâlde 'Öğrenci' yanlışlıkla 'öğrenci kaydet' intent'ine benzerdi.
         declared = _declared_role(query)
-        caps = capabilities_for(declared) if declared else None
+        served_declaration = role if (authenticated and declared) else declared
+        caps = capabilities_for(served_declaration) if served_declaration else None
         if caps:
             if self._log_sink is not None:
                 self._log_sink({
                     "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0], "role": role,
                     "authenticated": authenticated, "short_circuit": "role_declaration",
-                    "declared_role": declared, "response_id": "role_capabilities_" + declared,
+                    "declared_role": declared, "served_role": served_declaration,
+                    "response_id": "role_capabilities_" + served_declaration,
                 })
-            return {
+            return _attach_assistant_meta({
                 "trace_id": trace_id,
-                "response_id": "role_capabilities_" + declared,
+                "response_id": "role_capabilities_" + served_declaration,
                 "text": caps,
                 "intent": None,
                 "confidence": 1.0,
@@ -441,7 +528,7 @@ class Engine:
                 "answers": None,
                 "suggestions": suggestions,
                 "safety": safety_info,
-            }
+            }, role)
 
         # PII maskeleme: maskelenmiş sorguyu boru hattına ver.
         effective_query = query
@@ -449,7 +536,7 @@ class Engine:
             effective_query = safety.masked_message
 
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
-        segments = _multi_intent_segments(effective_query)
+        segments = _multi_intent_segments(effective_query, role)
         if segments is not None:
             answers: list[dict[str, Any]] = []
             parts: list[str] = []
@@ -463,7 +550,9 @@ class Engine:
                     "response_id": seg_response.response_id,
                     "text": seg_response.text,
                     "auth_action": seg_response.auth_action,
-                    "navigation": _build_navigation(seg_response.intent, seg_response.auth_action),
+                    "navigation": _build_navigation(
+                        seg_response.intent, seg_response.auth_action, role
+                    ),
                 })
                 info = get_intent(seg_response.intent) if seg_response.intent else None
                 title = (info["description"].rstrip(".") if info else segment)
@@ -485,7 +574,7 @@ class Engine:
                     "response_id": first["response_id"],
                     "safety": safety_info,
                 })
-            return {
+            result = {
                 "trace_id": trace_id,
                 "response_id": first["response_id"],
                 "text": _with_brand_note(text, query),
@@ -500,6 +589,7 @@ class Engine:
                 "suggestions": suggestions,
                 "safety": safety_info,
             }
+            return _attach_assistant_meta(result, role)
 
         # 2) Boru hattı.
         response, trace = process(
@@ -570,7 +660,7 @@ class Engine:
                 text = safety.user_message + "\n" + text
             if self._log_sink is not None:
                 self._log_sink(trace)
-            return {
+            result = {
                 "trace_id": trace["trace_id"],
                 "response_id": "clarification_prompt",
                 "text": text,
@@ -585,6 +675,7 @@ class Engine:
                 "suggestions": suggestions,
                 "safety": safety_info,
             }
+            return _attach_assistant_meta(result, role)
 
         text = response.text
         # "Neler yapabilirim?" -> oturum rolü belliyse jenerik "rolünü söyle" yerine
@@ -593,12 +684,6 @@ class Engine:
             role_caps = capabilities_for(role)
             if role_caps:
                 text = role_caps
-        # ADMIN'de kişisel mesai kaydı yoktur (mesai öğretmen/yönetici içindir).
-        if response.intent == "work_checkin_out" and role == "admin":
-            text = (
-                "ADMIN hesabında kişisel mesai kaydı bulunmaz — mesai giriş/çıkışı "
-                "öğretmen ve yöneticiler içindir. Yine de akış şöyle:\n\n"
-            ) + text
         if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
             text = safety.user_message + "\n" + text
 
@@ -613,7 +698,7 @@ class Engine:
         if self._log_sink is not None:
             self._log_sink(trace)
 
-        return {
+        result = {
             "trace_id": trace["trace_id"],
             "response_id": response.response_id,
             "text": _with_brand_note(text, query),
@@ -622,12 +707,13 @@ class Engine:
             "fallback": response.fallback,
             "auth_action": response.auth_action,
             "required_role": trace["decision"]["required_role"],
-            "navigation": _build_navigation(response.intent, response.auth_action),
+            "navigation": _build_navigation(response.intent, response.auth_action, role),
             "clarification": _build_clarification(trace),
             "answers": None,
             "suggestions": suggestions,
             "safety": safety_info,
         }
+        return _attach_assistant_meta(result, role)
 
 
 # Kolaylık: paylaşılan varsayılan motor.

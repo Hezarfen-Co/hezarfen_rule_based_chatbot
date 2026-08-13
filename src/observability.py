@@ -18,6 +18,7 @@ import time
 import uuid
 from typing import Any
 
+from .access import AccessOutcome
 from .catalog import get_intent, meets_role
 from .safety import mask_pii
 from .decision import (
@@ -31,6 +32,8 @@ from . import rules
 from .normalize import normalize, roots
 from .responder import Response, render
 from .similarity import SimilarityMatcher, get_default_matcher
+from .similarity import ScoredIntent
+from .role_spaces import get_role_space
 
 
 def new_trace_id() -> str:
@@ -52,6 +55,21 @@ def check_auth_alarms(decision: Decision, authenticated: bool, role: str) -> lis
 
     alarms: list[str] = []
     if decision.fallback or decision.intent is None:
+        return alarms
+
+    if decision.view_id:
+        effective_role = role if authenticated else "ziyaretci"
+        view = get_role_space(effective_role).view_for(decision.intent)
+        if view is None:
+            return [f"ROLE_SPACE_LEAK: '{decision.intent}' bu rol uzayında yok."]
+        expected = None
+        if view.outcome is AccessOutcome.DENY:
+            expected = LOGIN_REQUIRED if not authenticated else ROLE_INSUFFICIENT
+        if decision.auth_action != expected:
+            return [
+                f"ROLE_SPACE_LEAK: '{decision.intent}' outcome={view.outcome.value} "
+                f"ama auth_action={decision.auth_action!r}."
+            ]
         return alarms
 
     info = get_intent(decision.intent)
@@ -82,7 +100,9 @@ def process(
 ) -> tuple[Response, dict[str, Any]]:
     """Boru hattını izleyerek çalıştırır; (Response, trace kaydı) döndürür."""
 
-    matcher = matcher or get_default_matcher()
+    effective_role = role if authenticated else "ziyaretci"
+    space = get_role_space(effective_role)
+    matcher = matcher or space.similarity_matcher
     trace_id = trace_id or new_trace_id()
     latency: dict[str, float] = {}
 
@@ -96,13 +116,23 @@ def process(
 
     # 2) Kural katmanı.
     t = time.perf_counter_ns()
-    rule_match = rules.match(query)
+    rule_match = space.rule_matcher.match(query)
     latency["rules"] = _elapsed_ms(t)
 
     # 3) Benzerlik + alan kapısı (yalnızca kural boş dönerse).
     t = time.perf_counter_ns()
     ranked = None if rule_match is not None else matcher.rank(query)
-    in_domain = True if rule_match is not None else is_in_domain(query)
+    if ranked is not None:
+        ranked = [
+            ScoredIntent(item.intent, item.score, space.space_id)
+            for item in ranked
+            if item.intent in space.views
+        ]
+    in_domain = (
+        True
+        if rule_match is not None
+        else is_in_domain(query, set(space.domain_vocab))
+    )
     latency["similarity"] = _elapsed_ms(t)
 
     # 4) Karar.
@@ -125,6 +155,9 @@ def process(
         "trace_id": trace_id,
         "query_masked": query_masked,
         "role": role,
+        "role_space_id": space.space_id,
+        "role_space_version": space.version,
+        "role_space_hash": space.content_hash,
         "authenticated": authenticated,
         "normalized": normalized,
         "roots": query_roots,
@@ -136,7 +169,10 @@ def process(
         "similarity": {
             "evaluated": ranked is not None,
             "in_domain": in_domain,
-            "top_k": [{"intent": s.intent, "score": round(s.score, 4)} for s in decision.top_k],
+            "top_k": [
+                {"intent": s.intent, "score": round(s.score, 4), "space_id": s.space_id}
+                for s in decision.top_k
+            ],
             "margin": decision.margin,
         },
         "decision": {
@@ -148,6 +184,10 @@ def process(
             "role_redirect": decision.role_redirect,
             "auth_action": decision.auth_action,
             "required_role": decision.required_role,
+            "view_id": decision.view_id,
+            "outcome": decision.outcome,
+            "scope": decision.scope,
+            "reason_code": decision.reason_code,
         },
         "response_id": response.response_id,
         "latency_ms": latency,

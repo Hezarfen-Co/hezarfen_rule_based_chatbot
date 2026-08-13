@@ -2,9 +2,8 @@
 
 İlkeler (rehber §0):
 - Gerçek etiket/yol içeren `response_template` kullanılır (katalogda hazır).
-- Rol-farkında: seçilen intent oturum/rol gerektiriyor ve kullanıcı yetersizse,
-  cevabın başına kibar bir uyarı eklenir (ama adımlar yine gösterilir; kullanıcı
-  ne gerektiğini görsün).
+- Rol-farkında: cevap gövdesi yalnızca güvenilir oturum rolünün derlenmiş
+  görünümünden gelir. Retlerde işlem adımı ve rota asla gösterilmez.
 - FALLBACK: anlaşılmayan/kapsam dışı sorularda netleştirme metni.
 - `response_id` kararlıdır (testler metne değil id'ye bakar).
 - Varyantlar (opsiyonel `response_variants`): sosyal intent'lerde robotik tekrarı
@@ -27,6 +26,7 @@ from .decision import (
     Decision,
     decide,
 )
+from .role_spaces import get_role_space
 
 
 # Rollerin insan-okunur (arayüzdeki) adları.
@@ -111,18 +111,21 @@ def render(decision: Decision, query: str | None = None) -> Response:
             fallback=True,
         )
 
-    body = _select_body(info, query)
+    view = get_role_space(decision.role).view_for(decision.intent)
+    if decision.view_id and view is not None:
+        # The view body is already either role-local guidance or a fail-closed
+        # denial.  Do not append the global catalog body to a denial.
+        body = view.response_template
+    else:
+        body = _select_body(info, query)
 
-    if decision.auth_action == LOGIN_REQUIRED:
-        text = (
-            "Bunun için önce giriş yapmalısın (`/login`). Giriş yaptıktan sonra:\n"
-            + body
-        )
-    elif decision.auth_action == ROLE_INSUFFICIENT:
+    if decision.auth_action == LOGIN_REQUIRED and not decision.view_id:
+        text = "Bu konu oturum bilgisi gerektiriyor. Önce güvenli biçimde giriş yapmalısın."
+    elif decision.auth_action == ROLE_INSUFFICIENT and not decision.view_id:
         needed = role_display(decision.required_role or "")
         text = (
-            f"Bu işlem için en az **{needed}** yetkisi gerekir; mevcut rolün bunu "
-            f"yapmaya yetmiyor. Yine de adımlar şöyle:\n" + body
+            f"Bu işlem için **{needed}** yetkisi gerekir. Yetkisiz işlem adımları "
+            "ve yönlendirme paylaşılmadı."
         )
     else:
         text = body
