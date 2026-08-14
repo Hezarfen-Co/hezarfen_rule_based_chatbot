@@ -211,3 +211,12 @@
 {"question": "Yeni yemek menüsü yayınlamak istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
 {"question": "Öğüne yeni yemek eklemek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
 {"question": "Öğrenci yemek kredisi girmek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Soru havuzunda soru sormak istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Takıldığım soruyu havuza nasıl sorarım", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Soru havuzuna soru göndermek istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Zor bir soruya çözüm göndermek istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Bir soruya çözüm önerisi yapmak istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Havuzdaki soruyu çözmek istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Bekleyen havuz sorularını onaylayayım", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Öğrenci sorularını nasıl onaylarım", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Havuzdaki bir soruyu reddetmek istiyorum", "expected_intent": "question_approve", "role": "ogretmen"}

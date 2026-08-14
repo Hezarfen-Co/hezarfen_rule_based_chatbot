@@ -275,6 +275,22 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["yemek", "ekle"], "none": ["yer"]},
         {"all": ["yemek", "kredi"]}, {"all": ["kredi", "kaydet"]},
     ]},
+    # --- Soru havuzu (sor=ask, çöz=solve, onayla=approve; sınav soru ekle'den ayrı) ---
+    {"intent": "question_ask", "groups": [
+        # "sor" öneki "soru"yu da yakalar (soru.startswith(sor)); bu yüzden ask hep
+        # havuz bağlamı ister -> sınav "soru" sorgularıyla karışmaz.
+        {"all": ["soru", "havuz"]}, {"all": ["havuz", "soru"]},
+    ]},
+    {"intent": "question_solve", "groups": [
+        {"all": ["çözüm", "gönder"]}, {"all": ["çözüm", "öner"]},
+        {"all": ["çözüm", "paylaş"]}, {"all": ["çözüm", "yaz"]},
+        {"all": ["soru", "çöz"]},
+    ]},
+    {"intent": "question_approve", "groups": [
+        {"all": ["soru", "onayla"], "none": ["banka"]},
+        {"all": ["soru", "reddet"]},
+        {"all": ["bekleyen", "soru"]}, {"all": ["havuz", "onayla"]},
+    ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
         # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.

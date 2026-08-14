@@ -109,6 +109,10 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "yemek menüsünü nereden görürüm", "meal_view"),
     ("ogrenci", "öğün için yer ayırmak istiyorum", "meal_book"),
     ("yonetici", "yeni yemek menüsü yayınlamak istiyorum", "meal_menu_manage"),
+    # --- soru havuzu ---
+    ("ogrenci", "soru havuzuna soru sormak istiyorum", "question_ask"),
+    ("ogrenci", "bir soruya çözüm göndermek istiyorum", "question_solve"),
+    ("ogretmen", "havuzdaki soruları onaylamak istiyorum", "question_approve"),
 ]
 
 

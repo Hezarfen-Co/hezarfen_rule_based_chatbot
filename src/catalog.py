@@ -1545,6 +1545,73 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["meal_book", "meal_view"],
     },
+    # --- Soru havuzu (T1; frontend /questions "Soru havuzu"; pool.* — sınav
+    # "Soru bankası"/question-bank'ten AYRI. Veli havuzdan hariç) --------------
+    {
+        "intent": "question_ask",
+        "category": "questions",
+        "description": "Soru havuzuna soru sorma (Öğrenci+, Veli hariç).",
+        "response_id": "question_ask_instructions",
+        "response_template": (
+            "**Topluluk** grubundaki **Soru havuzu** (`/questions`) sayfasına git. "
+            "**Soru sor**'a bas; **Konu**, **Soru detayı** ve isteğe bağlı **Görsel** "
+            "ekleyip gönder. Sorun önce **Bekliyor** durumundadır; bir öğretmen "
+            "onaylayınca **Onaylandı** olur ve herkese görünür. Soru havuzu Öğrenci "
+            "ve üstüne açıktır (Veli hariç)."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Soru havuzuna nasıl soru sorarım?",
+            "Soru havuzu nedir?",
+            "Havuza yeni soru sormak istiyorum",
+            "Soru havuzunda soru sorma nerede?",
+            "Soru havuzuna bir soru sormak istiyorum",
+        ],
+        "must_not_match": ["question_solve", "question_approve", "exam_add_question"],
+    },
+    {
+        "intent": "question_solve",
+        "category": "questions",
+        "description": "Havuzdaki bir soruya çözüm gönderme (Öğrenci+).",
+        "response_id": "question_solve_instructions",
+        "response_template": (
+            "Bir soruya çözüm göndermek için **Soru havuzu** (`/questions`) → soruyu "
+            "aç (`/questions/$id`) → **Çözümler** bölümünde **Çözüm gönder** ile "
+            "çözümünü yaz ve paylaş. Çözüm gönderme Öğrenci ve üstüne açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Bir soruya nasıl çözüm gönderirim?",
+            "Çözüm önermek istiyorum",
+            "Soruya çözüm yazmak istiyorum",
+            "Çözüm paylaşmak istiyorum",
+            "Soruyu nasıl çözerim?",
+        ],
+        "must_not_match": ["question_ask", "question_approve"],
+    },
+    {
+        "intent": "question_approve",
+        "category": "questions",
+        "description": "Havuzdaki soruları onaylama/reddetme (Öğretmen+).",
+        "response_id": "question_approve_instructions",
+        "response_template": (
+            "Ön koşul: Öğretmen+. **Soru havuzu** (`/questions`) → soru detayında "
+            "**Onayla** ile bekleyen soruyu yayınla, gerekirse **Reddet**. Onaylanan "
+            "soru **Onaylandı** olur ve herkese görünür. Onaylama Öğretmen ve üstüne açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Havuzdaki soruları nasıl onaylarım?",
+            "Bekleyen soruları onaylamak istiyorum",
+            "Öğrenci sorusunu reddetmek istiyorum",
+            "Soru onaylama nerede?",
+            "Havuzdaki soruları onaylamak istiyorum",
+        ],
+        "must_not_match": ["question_ask", "question_solve"],
+    },
 ]
 
 
@@ -1628,6 +1695,9 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "meal_view": "/meals",
     "meal_book": "/meals",
     "meal_menu_manage": "/meals",
+    "question_ask": "/questions",
+    "question_solve": "/questions",
+    "question_approve": "/questions",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1653,6 +1723,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/messages": "Mesajlar",
     "/appointments": "Randevular",
     "/meals": "Yemekler",
+    "/questions": "Soru havuzu",
     "/studies": "Etüt",
     "/clubs": "Kulüp",
     "/management/settings": "Ayarlar",

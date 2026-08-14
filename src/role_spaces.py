@@ -79,6 +79,10 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "meals.view": _matrix((A, O, "meals"), (A, O, "meals"), (A, O, "meals"), (A, S, "meals"), (A, S, "meals")),
     "meals.book": _matrix((A, O, "meals"), (A, O, "meals"), (D, None, None), (D, None, None), (D, None, None)),
     "meals.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals")),
+    # Soru havuzu: sorma/çözme Öğrenci+ (backend RequireStudent — Veli hariç);
+    # onaylama/reddetme Öğretmen+ (moderatör).
+    "qpool.participate": _matrix((D, None, None), (A, O, "questions"), (A, O, "questions"), (A, S, "questions"), (A, S, "questions")),
+    "qpool.moderate": _matrix((D, None, None), (D, None, None), (A, M, "questions"), (A, S, "questions"), (A, S, "questions")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
     # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
     "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
@@ -160,6 +164,9 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "meal_view": "meals.view",
     "meal_book": "meals.book",
     "meal_menu_manage": "meals.manage",
+    "question_ask": "qpool.participate",
+    "question_solve": "qpool.participate",
+    "question_approve": "qpool.moderate",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {
