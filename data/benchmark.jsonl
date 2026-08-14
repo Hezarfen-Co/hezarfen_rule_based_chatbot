@@ -193,3 +193,12 @@
 {"question": "Öğrencinin ödevine nasıl not veririm", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Ödev teslimini değerlendirmek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Teslim edilen ödeve puan vermek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "Nasıl randevu alabilirim", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "Randevu almak için ne yapmalıyım", "expected_intent": "appointment_book", "role": "veli"}
+{"question": "Yeni bir randevu talebi oluşturayım", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "Öğrencilere randevu saatleri açmak istiyorum", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Müsait saatlerimi nasıl yayınlarım", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Randevu için boş saat eklemek istiyorum", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Gelen randevu taleplerini nasıl onaylarım", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Randevu isteklerini nereden yönetirim", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Bir randevu talebini kabul etmek istiyorum", "expected_intent": "appointment_requests", "role": "ogretmen"}

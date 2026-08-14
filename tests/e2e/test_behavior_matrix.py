@@ -101,6 +101,10 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "mesajlarım nerede", "messages_use"),
     ("ogrenci", "etüt ile ders arasında fark var mı", "study_club_info"),
     ("ogrenci", "veli hesabı ne işe yarar", "parent_info"),
+    # --- randevu ---
+    ("ogrenci", "öğretmenden randevu almak istiyorum", "appointment_book"),
+    ("ogretmen", "randevu saatlerimi açmak istiyorum", "appointment_slot_open"),
+    ("ogretmen", "gelen randevu taleplerini onaylamak istiyorum", "appointment_requests"),
 ]
 
 

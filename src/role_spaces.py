@@ -70,6 +70,10 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "homework.view": _matrix((D, None, None), (A, E, "homework"), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
     "homework.submit": _matrix((D, None, None), (A, E, "homework"), (D, None, None), (D, None, None), (D, None, None)),
     "homework.manage": _matrix((D, None, None), (D, None, None), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
+    # Randevu: alma yalnız Öğrenci+Veli (backend: exactly Student|Parent; personel
+    # alamaz); saat açma/talep onaylama Öğretmen+.
+    "appointments.book": _matrix((A, O, "appointments"), (A, O, "appointments"), (D, None, None), (D, None, None), (D, None, None)),
+    "appointments.manage": _matrix((D, None, None), (D, None, None), (A, O, "appointments"), (A, S, "appointments"), (A, S, "appointments")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
     # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
     "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
@@ -145,6 +149,9 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "messages_use": "messages.use",
     "study_club_info": "platform.help",
     "parent_info": "platform.help",
+    "appointment_book": "appointments.book",
+    "appointment_slot_open": "appointments.manage",
+    "appointment_requests": "appointments.manage",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {

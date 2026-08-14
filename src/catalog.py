@@ -1410,6 +1410,74 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["roles_permissions"],
     },
+    # --- Randevu (T1; frontend /appointments, "Randevular" menüsü) ------------
+    {
+        "intent": "appointment_book",
+        "category": "appointments",
+        "description": "Öğrenci/velinin randevu alması.",
+        "response_id": "appointment_book_instructions",
+        "response_template": (
+            "Randevu almak için **Planlama** grubundaki **Randevular** "
+            "(`/appointments`) sayfasına git. **Öğretmenlerin açık saatleri** "
+            "bölümünden uygun saati seç, **Randevu al**'a bas. Talebin "
+            "**Randevularım** altında görünür ve öğretmen onayına düşer. Randevu "
+            "alma yalnızca Öğrenci ve Veli'ye açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Randevu nasıl alırım?",
+            "Öğretmenden randevu almak istiyorum",
+            "Randevu talebi oluşturmak istiyorum",
+            "Görüşme randevusu talep etmek istiyorum",
+            "Randevu alma nerede?",
+        ],
+        "must_not_match": ["appointment_slot_open", "appointment_requests"],
+    },
+    {
+        "intent": "appointment_slot_open",
+        "category": "appointments",
+        "description": "Öğretmenin müsait randevu saati açması (Öğretmen+).",
+        "response_id": "appointment_slot_instructions",
+        "response_template": (
+            "Ön koşul: Öğretmen+. **Randevular** (`/appointments`) → **Açtığım "
+            "saatler** bölümünde **Saat aç** (veya **Yeni saat**) ile müsait "
+            "randevu saati yayınla. Öğrenci ve veliler bu saatlerden randevu talep "
+            "eder; gelen talepleri **Randevu talepleri**'nden yönetirsin."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Randevu saati nasıl açarım?",
+            "Öğrencilere müsait saat yayınlamak istiyorum",
+            "Randevu için saat açma nerede?",
+            "Müsaitlik saati eklemek istiyorum",
+            "Öğrencilere randevu saati açmak istiyorum",
+        ],
+        "must_not_match": ["appointment_book", "appointment_requests"],
+    },
+    {
+        "intent": "appointment_requests",
+        "category": "appointments",
+        "description": "Öğretmenin randevu taleplerini onaylaması (Öğretmen+).",
+        "response_id": "appointment_requests_instructions",
+        "response_template": (
+            "Ön koşul: Öğretmen+. **Randevular** (`/appointments`) → **Randevu "
+            "talepleri** bölümünde gelen talepleri görürsün; her talepte **Onayla** "
+            "ile kabul et (gerekirse reddet). Onaylanan randevu, ilgili öğrenci/"
+            "velinin **Randevularım**'ında görünür."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Randevu taleplerini nasıl onaylarım?",
+            "Gelen randevu isteklerini nerede görürüm?",
+            "Randevu talebini kabul etmek istiyorum",
+            "Öğrenci randevu talebini onaylama",
+            "Randevu isteklerini yönetmek istiyorum",
+        ],
+        "must_not_match": ["appointment_book", "appointment_slot_open"],
+    },
 ]
 
 
@@ -1487,6 +1555,9 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "messages_use": "/messages",
     "study_club_info": "/studies",
     "parent_info": None,
+    "appointment_book": "/appointments",
+    "appointment_slot_open": "/appointments",
+    "appointment_requests": "/appointments",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1510,6 +1581,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/pomodoro": "Pomodoro",
     "/management/pomodoros": "Pomodorolar",
     "/messages": "Mesajlar",
+    "/appointments": "Randevular",
     "/studies": "Etüt",
     "/clubs": "Kulüp",
     "/management/settings": "Ayarlar",

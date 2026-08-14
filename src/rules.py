@@ -238,6 +238,23 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["ödev", "puan"]},
         {"all": ["ödev", "not", "ver"]}, {"all": ["ödev", "not", "gir"]},
     ]},
+    # --- Randevu (al=öğrenci/veli, saat aç=öğretmen, onayla=öğretmen) ---
+    {"intent": "appointment_book", "groups": [
+        {"all": ["randevu", "al"], "none": [
+            "saat", "onayla", "talepleri", "kabul", "reddet", "istek"]},
+        {"all": ["randevu", "talep", "oluştur"]},
+        {"all": ["randevu", "talep", "et"], "none": ["kabul", "onayla", "reddet"]},
+    ]},
+    {"intent": "appointment_slot_open", "groups": [
+        {"all": ["randevu", "saat"]},
+        {"all": ["müsait", "saat"]},
+        {"all": ["müsait", "yayınla"]},
+    ]},
+    {"intent": "appointment_requests", "groups": [
+        {"all": ["randevu", "onayla"]}, {"all": ["randevu", "kabul"]},
+        {"all": ["randevu", "reddet"]}, {"all": ["randevu", "istek"]},
+        {"all": ["randevu", "talepleri"]},
+    ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
         # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.
