@@ -117,8 +117,8 @@ python -m src.main --evaluate    # benchmark üzerinde tam metrik raporu
 python -m src.main --chat        # etkileşimli terminal asistanı
 python -m src.web                # geliştirici web arayüzü (http://127.0.0.1:8000)
 
-# Docker
-docker compose up --build        # container içinde --validate
+# Podman (Docker uyumlu; motor podman)
+podman compose up --build        # container içinde --validate
 ```
 
 ### Terminal örneği
