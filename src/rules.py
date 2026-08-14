@@ -291,6 +291,18 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["soru", "reddet"]},
         {"all": ["bekleyen", "soru"]}, {"all": ["havuz", "onayla"]},
     ]},
+    # --- Beyaz tahta (aç/nerede=view, oluştur/yeni=create) ---
+    {"intent": "board_view", "groups": [
+        {"all": ["tahta", "aç"]},
+        {"all": ["tahta", "nerede"], "none": ["oluştur", "yeni", "ekle"]},
+        {"all": ["beyaz", "tahta"], "none": ["oluştur", "yeni", "ekle"]},
+        {"all": ["tahta", "gör"]},
+    ]},
+    {"intent": "board_create", "groups": [
+        {"all": ["tahta", "oluştur"]},
+        {"all": ["yeni", "tahta"]},
+        {"all": ["tahta", "ekle"]},
+    ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
         # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.

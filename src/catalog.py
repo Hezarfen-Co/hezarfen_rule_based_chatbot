@@ -1612,6 +1612,52 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["question_ask", "question_solve"],
     },
+    # --- Beyaz tahta (T1; frontend /whiteboards "Beyaz tahtalar"; Veli hariç) --
+    {
+        "intent": "board_view",
+        "category": "boards",
+        "description": "Beyaz tahtaları görüntüleme/açma (Öğrenci+, Veli hariç).",
+        "response_id": "board_view_info",
+        "response_template": (
+            "Beyaz tahtaları **Çalışma alanı** grubundaki **Beyaz tahtalar** "
+            "(`/whiteboards`) sayfasından görürsün. Bir tahtayı açmak için kartında "
+            "**Aç**'a bas (`/whiteboards/$id`); *\"Buraya çizin — tahtadaki herkes "
+            "anlık görür\"* — katılımcılar eşzamanlı çizer. Beyaz tahtalar Öğrenci ve "
+            "üstüne açıktır (Veli hariç)."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Beyaz tahtalar nerede?",
+            "Var olan bir tahtayı nasıl açarım?",
+            "Beyaz tahta sayfası nerede?",
+            "Tahtaları nereden görürüm?",
+            "Ortak çalışma tahtaları nerede?",
+        ],
+        "must_not_match": ["board_create"],
+    },
+    {
+        "intent": "board_create",
+        "category": "boards",
+        "description": "Yeni beyaz tahta oluşturma (Öğrenci+, Veli hariç).",
+        "response_id": "board_create_instructions",
+        "response_template": (
+            "Yeni beyaz tahta için **Beyaz tahtalar** (`/whiteboards`) → **Yeni tahta** "
+            "ile **Başlık** gir, isteğe bağlı **Katılımcılar** ekle, oluştur. Tahta "
+            "içinde **Kilitle/Kilidi aç**, **Temizle** ve **Tahtayı kapat** kontrolleri "
+            "vardır; Öğretmen+ **Toplu davet** ile sınıf/etkinlik katılımcısı çağırabilir."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Yeni beyaz tahta nasıl oluştururum?",
+            "Yeni tahta oluşturmak istiyorum",
+            "Beyaz tahta eklemek istiyorum",
+            "Tahta oluşturma nerede?",
+            "Yeni bir tahta oluşturmak istiyorum",
+        ],
+        "must_not_match": ["board_view"],
+    },
 ]
 
 
@@ -1698,6 +1744,8 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "question_ask": "/questions",
     "question_solve": "/questions",
     "question_approve": "/questions",
+    "board_view": "/whiteboards",
+    "board_create": "/whiteboards",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1724,6 +1772,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/appointments": "Randevular",
     "/meals": "Yemekler",
     "/questions": "Soru havuzu",
+    "/whiteboards": "Beyaz tahtalar",
     "/studies": "Etüt",
     "/clubs": "Kulüp",
     "/management/settings": "Ayarlar",

@@ -220,3 +220,9 @@
 {"question": "Bekleyen havuz sorularını onaylayayım", "expected_intent": "question_approve", "role": "ogretmen"}
 {"question": "Öğrenci sorularını nasıl onaylarım", "expected_intent": "question_approve", "role": "ogretmen"}
 {"question": "Havuzdaki bir soruyu reddetmek istiyorum", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Beyaz tahta listesini nereden görürüm", "expected_intent": "board_view", "role": "ogrenci"}
+{"question": "Bir tahtayı nasıl açarım", "expected_intent": "board_view", "role": "ogrenci"}
+{"question": "Var olan tahtaları nasıl görürüm", "expected_intent": "board_view", "role": "ogretmen"}
+{"question": "Beyaz tahta oluşturmak istiyorum", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "Yeni bir çizim tahtası oluşturayım", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "Yeni beyaz tahta eklemek istiyorum", "expected_intent": "board_create", "role": "ogretmen"}

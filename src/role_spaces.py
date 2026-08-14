@@ -83,6 +83,8 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     # onaylama/reddetme Öğretmen+ (moderatör).
     "qpool.participate": _matrix((D, None, None), (A, O, "questions"), (A, O, "questions"), (A, S, "questions"), (A, S, "questions")),
     "qpool.moderate": _matrix((D, None, None), (D, None, None), (A, M, "questions"), (A, S, "questions"), (A, S, "questions")),
+    # Beyaz tahta: görüntüleme/oluşturma Öğrenci+ (backend student+; Veli hariç).
+    "boards.use": _matrix((D, None, None), (A, O, "whiteboards"), (A, O, "whiteboards"), (A, S, "whiteboards"), (A, S, "whiteboards")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
     # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
     "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
@@ -167,6 +169,8 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "question_ask": "qpool.participate",
     "question_solve": "qpool.participate",
     "question_approve": "qpool.moderate",
+    "board_view": "boards.use",
+    "board_create": "boards.use",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {

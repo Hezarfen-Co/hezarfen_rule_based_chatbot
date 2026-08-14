@@ -40,6 +40,8 @@ CROSS_ROLE: list[tuple[str, list[str], str]] = [
     ("havuzdaki soruları onaylamak istiyorum", ["ogrenci", "veli"], "ogretmen"),
     # Veli soru havuzundan tamamen hariç — soru soramaz.
     ("soru havuzuna soru sormak istiyorum", ["veli"], "ogrenci"),
+    # Veli beyaz tahtalardan da hariç.
+    ("yeni beyaz tahta oluşturmak istiyorum", ["veli"], "ogrenci"),
 ]
 
 # Cevap gövdesinde ASLA görünmemesi gereken, o işlemin adımlarına/rotasına özgü
@@ -56,6 +58,7 @@ STEP_SIGNATURES: dict[str, list[str]] = {
     "yeni yemek menüsü yayınlamak istiyorum": ["Menü yayınla", "Yemek ekle", "/meals"],
     "havuzdaki soruları onaylamak istiyorum": ["/questions", "Reddet", "bekleyen"],
     "soru havuzuna soru sormak istiyorum": ["Soru sor", "Soru detayı", "/questions"],
+    "yeni beyaz tahta oluşturmak istiyorum": ["Yeni tahta", "Başlık", "/whiteboards"],
 }
 
 
