@@ -255,6 +255,26 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["randevu", "reddet"]}, {"all": ["randevu", "istek"]},
         {"all": ["randevu", "talepleri"]},
     ]},
+    # --- Yemek (menü görüntüle=view, yer ayır=book, yayınla/kredi=manage) ---
+    {"intent": "meal_view", "groups": [
+        # "menü" tek başına navigasyon menüsüyle karışır; hep yemek/öğün ister.
+        {"all": ["yemek", "menü"], "none": [
+            "yayınla", "ekle", "oluştur", "kredi", "ayır", "rezerv"]},
+        {"all": ["öğün", "menü"]},
+        {"all": ["yemek", "liste"]},
+        {"all": ["yemek", "nerede"], "none": ["yer", "rezerv", "yayınla", "ekle", "kredi"]},
+    ]},
+    {"intent": "meal_book", "groups": [
+        {"all": ["yer", "ayır"]},
+        {"all": ["yemek", "rezerv"]},
+        {"all": ["öğün", "rezerv"]},
+    ]},
+    {"intent": "meal_menu_manage", "groups": [
+        {"all": ["menü", "yayınla"]},
+        {"all": ["menü", "oluştur"]},
+        {"all": ["yemek", "ekle"], "none": ["yer"]},
+        {"all": ["yemek", "kredi"]}, {"all": ["kredi", "kaydet"]},
+    ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
         # 'odağı' çekiminde ünsüz yumuşar (k->ğ); iki kök de tanınır.

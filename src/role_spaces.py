@@ -74,6 +74,11 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     # alamaz); saat açma/talep onaylama Öğretmen+.
     "appointments.book": _matrix((A, O, "appointments"), (A, O, "appointments"), (D, None, None), (D, None, None), (D, None, None)),
     "appointments.manage": _matrix((D, None, None), (D, None, None), (A, O, "appointments"), (A, S, "appointments"), (A, S, "appointments")),
+    # Yemek: menü görüntüleme herkese açık; yer ayırma yalnız Öğrenci(self)+Veli
+    # (çocuğu); menü/öğün/kredi yönetimi Yönetici+ (öğretmen para/menü yönetmez).
+    "meals.view": _matrix((A, O, "meals"), (A, O, "meals"), (A, O, "meals"), (A, S, "meals"), (A, S, "meals")),
+    "meals.book": _matrix((A, O, "meals"), (A, O, "meals"), (D, None, None), (D, None, None), (D, None, None)),
+    "meals.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
     # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
     "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
@@ -152,6 +157,9 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "appointment_book": "appointments.book",
     "appointment_slot_open": "appointments.manage",
     "appointment_requests": "appointments.manage",
+    "meal_view": "meals.view",
+    "meal_book": "meals.book",
+    "meal_menu_manage": "meals.manage",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {

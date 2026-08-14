@@ -36,6 +36,7 @@ CROSS_ROLE: list[tuple[str, list[str], str]] = [
     ("randevu saatlerimi açmak istiyorum", ["ogrenci", "veli"], "ogretmen"),
     # Ters yön: randevu ALMA yalnız öğrenci/veli — personel yapamaz.
     ("öğretmenden randevu almak istiyorum", ["ogretmen", "admin"], "ogrenci"),
+    ("yeni yemek menüsü yayınlamak istiyorum", ["ogrenci", "ogretmen", "veli"], "yonetici"),
 ]
 
 # Cevap gövdesinde ASLA görünmemesi gereken, o işlemin adımlarına/rotasına özgü
@@ -49,6 +50,7 @@ STEP_SIGNATURES: dict[str, list[str]] = {
     "öğrencilere ödev vermek istiyorum": ["Ödev ekle", "/homework", "Son teslim"],
     "randevu saatlerimi açmak istiyorum": ["Açtığım saatler", "Saat aç", "/appointments"],
     "öğretmenden randevu almak istiyorum": ["Randevu al", "açık saatler", "/appointments"],
+    "yeni yemek menüsü yayınlamak istiyorum": ["Menü yayınla", "Yemek ekle", "/meals"],
 }
 
 

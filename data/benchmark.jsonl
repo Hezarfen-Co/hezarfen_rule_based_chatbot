@@ -202,3 +202,12 @@
 {"question": "Gelen randevu taleplerini nasıl onaylarım", "expected_intent": "appointment_requests", "role": "ogretmen"}
 {"question": "Randevu isteklerini nereden yönetirim", "expected_intent": "appointment_requests", "role": "ogretmen"}
 {"question": "Bir randevu talebini kabul etmek istiyorum", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Yemek menüsünü nereden görebilirim", "expected_intent": "meal_view", "role": "ogrenci"}
+{"question": "Öğün menüsünü görmek istiyorum", "expected_intent": "meal_view", "role": "veli"}
+{"question": "Haftalık yemek listesi nerede", "expected_intent": "meal_view", "role": "ogrenci"}
+{"question": "Öğle yemeği için yer ayırmak istiyorum", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "Menüden yemek rezerve etmek istiyorum", "expected_intent": "meal_book", "role": "veli"}
+{"question": "Öğün için yer ayırtmak istiyorum", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "Yeni yemek menüsü yayınlamak istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Öğüne yeni yemek eklemek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Öğrenci yemek kredisi girmek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}

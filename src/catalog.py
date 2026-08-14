@@ -1478,6 +1478,73 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["appointment_book", "appointment_slot_open"],
     },
+    # --- Yemek (T1; frontend /meals, "Yemekler" menüsü) -----------------------
+    {
+        "intent": "meal_view",
+        "category": "meals",
+        "description": "Yemek menülerini/rezervasyon durumunu görüntüleme.",
+        "response_id": "meal_view_info",
+        "response_template": (
+            "Yemek menülerini **Okul hizmetleri** grubundaki **Yemekler** "
+            "(`/meals`) sayfasından görürsün. Günün **Menü** ve **Öğün**lerini, "
+            "rezervasyon durumunu (**Rezerve edildi** / **Rezervasyon yok**) "
+            "görebilirsin. Detay için menü kartına bas (`/meals/$id`)."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Yemek menüsü nerede?",
+            "Yemek menüsünü görmek istiyorum",
+            "Yemekler sayfası nerede?",
+            "Öğün menüsü nerede?",
+            "Yemek listesi nerede?",
+        ],
+        "must_not_match": ["meal_book", "meal_menu_manage"],
+    },
+    {
+        "intent": "meal_book",
+        "category": "meals",
+        "description": "Öğün için yer ayırma/iptal (Öğrenci/Veli).",
+        "response_id": "meal_book_instructions",
+        "response_template": (
+            "Yemek için yer ayırmak üzere **Yemekler** (`/meals`) → ilgili menü/"
+            "öğüne gir, **Yer ayır**'a bas. Rezervasyonun **Rezerve edildi** olarak "
+            "görünür; **Rezervasyonu iptal et** ile geri alabilirsin. Yer ayırma "
+            "Öğrenci (kendisi) ve Veli'ye (bağlı çocuğu) açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Yemek için yer ayırmak istiyorum",
+            "Öğün rezervasyonu nasıl yapılır?",
+            "Yer ayırma nerede?",
+            "Yemek rezervasyonu yapmak istiyorum",
+            "Yemek rezervasyonumu iptal etmek istiyorum",
+        ],
+        "must_not_match": ["meal_view", "meal_menu_manage"],
+    },
+    {
+        "intent": "meal_menu_manage",
+        "category": "meals",
+        "description": "Menü/öğün/kredi yönetimi (Yönetici+).",
+        "response_id": "meal_menu_instructions",
+        "response_template": (
+            "Ön koşul: Yönetici+. **Yemekler** (`/meals`) → **Menü yayınla** ile "
+            "yeni menü/öğün oluştur, **Yemek ekle** ile öğüne yemek ekle. Öğrenci "
+            "**Kredi** yönetimi için **Kredi kaydet** kullanılır. Menü ve kredi "
+            "yönetimi yalnızca Yönetici ve ADMIN'e açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Menü nasıl yayınlarım?",
+            "Yeni menü oluşturmak istiyorum",
+            "Öğüne yemek eklemek istiyorum",
+            "Yemek kredisi nasıl kaydedilir?",
+            "Kredi kaydetme nerede?",
+        ],
+        "must_not_match": ["meal_book", "meal_view"],
+    },
 ]
 
 
@@ -1558,6 +1625,9 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "appointment_book": "/appointments",
     "appointment_slot_open": "/appointments",
     "appointment_requests": "/appointments",
+    "meal_view": "/meals",
+    "meal_book": "/meals",
+    "meal_menu_manage": "/meals",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1582,6 +1652,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/management/pomodoros": "Pomodorolar",
     "/messages": "Mesajlar",
     "/appointments": "Randevular",
+    "/meals": "Yemekler",
     "/studies": "Etüt",
     "/clubs": "Kulüp",
     "/management/settings": "Ayarlar",
