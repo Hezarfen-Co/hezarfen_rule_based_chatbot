@@ -1,0 +1,43 @@
+# WSL2 kernel'i podman/netavark + rootless için gereken ağ özellikleriyle derler.
+# Microsoft'un varsayılan WSL kernel'i şunları AÇMAZ; onlar olmadan podman ağı
+# kurulamaz (netavark "nft/bridge/tap" hataları):
+#   - NFT_FIB_*       : netavark 2.0 hostport DNAT ("fib daddr type local")
+#   - BRIDGE, VETH    : konteyner köprü ağı
+#   - TUN             : rootless pasta ağı (/dev/net/tun)
+#
+# Kaynak: resmi microsoft/WSL2-Linux-Kernel; yalnız bu config'ler =y yapılır.
+# Derleme: `podman build --network=host -t wslkernel-build .`  (setup-podman-wsl.ps1
+# bunu otomatik yapıp bzImage'ı çıkarır). WSL kernel sürümü ile eşleşmesi şart değil.
+FROM docker.io/library/ubuntu:24.04 AS build
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential flex bison libssl-dev libelf-dev bc dwarves \
+      git ca-certificates cpio kmod python3 rsync \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN git clone --depth 1 --branch linux-msft-wsl-6.6.123.2 \
+      https://github.com/microsoft/WSL2-Linux-Kernel.git k
+WORKDIR /build/k
+# WSL resmi config'i taban al, yalnız netavark/rootless'ın ihtiyaçlarını aç.
+RUN cp Microsoft/config-wsl .config \
+ && for o in BRIDGE VETH BRIDGE_NETFILTER VLAN_8021Q DUMMY MACVLAN \
+            TUN TAP \
+            NETFILTER_ADVANCED NF_CONNTRACK NF_NAT \
+            NF_TABLES NF_TABLES_INET NF_TABLES_IPV4 NF_TABLES_IPV6 \
+            NFT_CT NFT_NAT NFT_MASQ NFT_COUNTER NFT_LOG \
+            NFT_REJECT NFT_REJECT_INET NFT_CHAIN_NAT \
+            NFT_FIB NFT_FIB_INET NFT_FIB_IPV4 NFT_FIB_IPV6 \
+            NETFILTER_XT_MATCH_ADDRTYPE NETFILTER_XT_MATCH_CONNTRACK \
+            NETFILTER_XT_MARK NETFILTER_XT_NAT; do \
+      ./scripts/config --enable CONFIG_$o; \
+    done \
+ && make olddefconfig \
+ && echo "=== netavark/rootless config ===" \
+ && grep -E "^CONFIG_(BRIDGE|VETH|BRIDGE_NETFILTER|TUN|NFT_FIB_IPV4|NF_NAT|NFT_MASQ|NF_CONNTRACK)=" .config \
+ && grep -q "^CONFIG_BRIDGE=y" .config \
+ && grep -q "^CONFIG_VETH=y" .config \
+ && grep -q "^CONFIG_TUN=y" .config \
+ && grep -q "^CONFIG_NFT_FIB_IPV4=y" .config
+RUN make -j"$(nproc)" bzImage \
+ && ls -la arch/x86/boot/bzImage \
+ && cp arch/x86/boot/bzImage /bzImage-fib
+# Çıkarım: `podman create` + `podman cp <c>:/bzImage-fib <hedef>` (network gerektirmez).

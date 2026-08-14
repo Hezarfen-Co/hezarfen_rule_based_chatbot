@@ -118,8 +118,12 @@ python -m src.main --chat        # etkileşimli terminal asistanı
 python -m src.web                # geliştirici web arayüzü (http://127.0.0.1:8000)
 
 # Podman (Docker uyumlu; motor podman)
-podman compose up --build        # container içinde --validate
+podman compose up --build        # yalnız chatbot container'ı (--validate)
 ```
+
+**Tüm yığın (backend + frontend + chatbot) podman'da:** `deploy/PODMAN-WSL-SETUP.md`
+— Windows/WSL2 için özel kernel + rootless machine kurulumu ve `deploy/compose.yaml`
+ile tek komutta ayağa kaldırma (`deploy/setup-podman-wsl.ps1` + `deploy/run-stack.ps1`).
 
 ### Terminal örneği
 ```
