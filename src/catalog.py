@@ -1203,17 +1203,18 @@ INTENTS: Final[list[dict[str, Any]]] = [
     {
         "intent": "pomodoro_use",
         "category": "pomodoro",
-        "description": "Pomodoro odak oturumu başlatma/bitirme (Öğrenci).",
+        "description": "Pomodoro odak oturumu başlatma/bitirme (tüm roller).",
         "response_id": "pomodoro_instructions",
         "response_template": (
-            "Pomodoro, sunucu saatiyle damgalanan kişisel odak kaydıdır (yalnız "
-            "Öğrenci). 1) `/pomodoro` sayfasına git. 2) **Odağı başlat (Start focus)** "
-            "ile oturumu aç — aynı anda tek açık oturum olabilir. 3) Çalışman bitince "
-            "**Odağı bitir (Finish focus)**'a bas. Sayfada **Toplam odak** süreni ve "
-            "**Son oturumlar** geçmişini görürsün; saatler sunucu tarafından damgalanır."
+            "Pomodoro, sunucu saatiyle damgalanan kişisel odak kaydıdır; giriş yapan "
+            "her kullanıcı kendi oturumunu tutabilir. 1) `/pomodoro` sayfasına git. "
+            "2) **Odağı başlat (Start focus)** ile oturumu aç — aynı anda tek açık "
+            "oturum olabilir. 3) Çalışman bitince **Odağı bitir (Finish focus)**'a bas. "
+            "Sayfada **Toplam odak** süreni ve **Son oturumlar** geçmişini görürsün; "
+            "saatler sunucu tarafından damgalanır."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Pomodoro nasıl kullanılır?",
             "Odak oturumu nasıl başlatırım?",

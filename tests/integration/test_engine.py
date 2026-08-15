@@ -67,12 +67,12 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(resp["navigation"]["route"], "/marks")
         self.assertTrue(resp["navigation"]["available"])
 
-    def test_navigation_unavailable_when_role_insufficient(self) -> None:
-        # Öğrenci sınav oluşturamaz -> route yine döner ama available=False.
+    def test_navigation_hidden_when_role_insufficient(self) -> None:
+        # No-leak: öğrenci sınav oluşturamaz -> ret; rota/route SIZDIRILMAZ (None).
         resp = self.engine.handle({"query": "sınav nasıl oluşturulur",
                                    "session": {"role": "ogrenci", "authenticated": True}})
-        self.assertEqual(resp["navigation"]["route"], "/exams")
-        self.assertFalse(resp["navigation"]["available"])
+        self.assertEqual(resp["auth_action"], "role_insufficient")
+        self.assertIsNone(resp["navigation"])
 
     def test_no_navigation_for_info_intent(self) -> None:
         # Selamlama gibi sayfası olmayan intent -> navigation None.
@@ -170,12 +170,11 @@ class MultiIntentTests(unittest.TestCase):
         self.assertIn("3)", resp["text"])
 
     def test_each_answer_has_own_navigation_and_auth(self) -> None:
-        # Öğrencide her parçanın kendi yetki durumu değerlendirilir.
+        # Öğrencide her parçanın kendi yetki durumu; ret'te rota SIZDIRILMAZ.
         resp = self._ask("sınav oluştur ve yoklama al", role="ogrenci")
         for ans in resp["answers"]:
             self.assertEqual(ans["auth_action"], "role_insufficient")
-            self.assertIsNotNone(ans["navigation"])
-            self.assertFalse(ans["navigation"]["available"])
+            self.assertIsNone(ans["navigation"])
 
     def test_natural_ve_is_not_split(self) -> None:
         # 'roller ve yetkiler nedir' TEK sorudur; parçalar kurala çarpmaz -> bölünmez.

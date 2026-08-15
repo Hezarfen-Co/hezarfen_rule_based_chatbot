@@ -140,8 +140,9 @@ GATING_MATRIX: list[tuple[str, str, str | None, bool | None]] = [
     ("okul ayarlarını değiştirmek istiyorum", "ogretmen", "role_insufficient", False),
     ("okul ayarlarını değiştirmek istiyorum", "yonetici", None, True),
     # Veli: salt-okunur gözlemci — öğrenci işlemleri yapamaz, Mesajlar'a erişir.
-    ("sınav odasına nasıl girerim", "veli", "role_insufficient", False),
-    ("pomodoro oturumu nasıl açılır", "veli", "role_insufficient", False),
+    ("sınav odasına nasıl girerim", "veli", "role_insufficient", None),
+    # Pomodoro backend'de her doğrulanmış kullanıcıya açık -> veli de yapabilir.
+    ("pomodoro oturumu nasıl açılır", "veli", None, True),
     ("mesajlarım nerede", "veli", None, True),
 ]
 
@@ -154,14 +155,23 @@ class RoleGatingMatrixTests(unittest.TestCase):
             with self.subTest(query=query, role=role):
                 resp = ask(query, role)
                 self.assertEqual(resp["auth_action"], auth_action)
-                if nav_available is not None and resp["navigation"] is not None:
-                    self.assertEqual(resp["navigation"]["available"], nav_available)
+                if auth_action is None:
+                    # İzinli: gerçek sayfaya aktif yönlendirme.
+                    self.assertIsNotNone(resp["navigation"])
+                    self.assertTrue(resp["navigation"]["available"])
+                else:
+                    # Reddedildi: no-leak -> rota sızdırılmaz (None).
+                    self.assertIsNone(resp["navigation"])
 
-    def test_role_insufficient_response_still_shows_steps(self) -> None:
-        # Tasarım kararı: yetki yetmese de adımlar gösterilir + kibar uyarı eklenir.
+    def test_role_insufficient_hides_steps_and_route(self) -> None:
+        # No-leak kararı: yetki yetmiyorsa adımlar, rota ve ayrıcalıklı rol adı
+        # GÖSTERİLMEZ; yalnız kibar bir ret döner (öğrenci -> öğretmen adımı sızmaz).
         resp = ask("sınav oluşturmak istiyorum", "ogrenci")
-        self.assertIn("Öğretmen", resp["text"])
-        self.assertEqual(resp["response_id"], "exam_create_instructions")
+        self.assertEqual(resp["auth_action"], "role_insufficient")
+        self.assertIsNone(resp["navigation"])
+        self.assertNotIn("Sınav oluştur", resp["text"])   # buton/adım imzası
+        self.assertNotIn("Ders seç", resp["text"])
+        self.assertNotIn("Öğretmen", resp["text"])         # ayrıcalıklı rol adı
 
 
 # =============================================================================

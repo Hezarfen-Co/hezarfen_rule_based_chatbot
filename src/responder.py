@@ -2,9 +2,8 @@
 
 İlkeler (rehber §0):
 - Gerçek etiket/yol içeren `response_template` kullanılır (katalogda hazır).
-- Rol-farkında: seçilen intent oturum/rol gerektiriyor ve kullanıcı yetersizse,
-  cevabın başına kibar bir uyarı eklenir (ama adımlar yine gösterilir; kullanıcı
-  ne gerektiğini görsün).
+- Rol-farkında: cevap gövdesi yalnızca güvenilir oturum rolünün derlenmiş
+  görünümünden gelir. Retlerde işlem adımı ve rota asla gösterilmez.
 - FALLBACK: anlaşılmayan/kapsam dışı sorularda netleştirme metni.
 - `response_id` kararlıdır (testler metne değil id'ye bakar).
 - Varyantlar (opsiyonel `response_variants`): sosyal intent'lerde robotik tekrarı
@@ -21,12 +20,14 @@ from typing import Final
 
 from .catalog import DEFAULT_GREETING_OPENER, FALLBACK, GREETING_OPENERS, get_intent
 from .normalize import fold_accents, normalize
+from .access import AccessOutcome
 from .decision import (
     LOGIN_REQUIRED,
     ROLE_INSUFFICIENT,
     Decision,
     decide,
 )
+from .role_spaces import get_role_space
 
 
 # Rollerin insan-okunur (arayüzdeki) adları.
@@ -111,18 +112,33 @@ def render(decision: Decision, query: str | None = None) -> Response:
             fallback=True,
         )
 
-    body = _select_body(info, query)
+    view = get_role_space(decision.role).view_for(decision.intent)
+    if decision.view_id and view is not None:
+        if (
+            view.outcome is AccessOutcome.ALLOW
+            and view.response_template == info["response_template"]
+        ):
+            # Standart ALLOW: aynalama/varyant sunum katmanı geri devrede
+            # ('günaydın' -> 'Günaydın! ☀️', sosyal varyantlar).
+            body = _select_body(info, query)
+        else:
+            # Ret metni ya da role özel geçersiz kılma (kişisel karne notu gibi):
+            # olduğu gibi kullanılır; ret gövdesine katalog adımları eklenmez.
+            body = view.response_template
+    else:
+        body = _select_body(info, query)
 
-    if decision.auth_action == LOGIN_REQUIRED:
+    # Aşağıdaki dallar yalnız view_id'siz eski çağrı yolu içindir (üretimde her zaman
+    # view_id vardır -> ret metni role-space'ten gelir). Ret hiçbir yolda adım sızdırmaz.
+    if decision.auth_action == LOGIN_REQUIRED and not decision.view_id:
         text = (
-            "Bunun için önce giriş yapmalısın (`/login`). Giriş yaptıktan sonra:\n"
-            + body
+            "Bu konu için önce giriş yapman gerekiyor. `/login` sayfasından "
+            "güvenli biçimde giriş yapabilirsin."
         )
-    elif decision.auth_action == ROLE_INSUFFICIENT:
-        needed = role_display(decision.required_role or "")
+    elif decision.auth_action == ROLE_INSUFFICIENT and not decision.view_id:
         text = (
-            f"Bu işlem için en az **{needed}** yetkisi gerekir; mevcut rolün bunu "
-            f"yapmaya yetmiyor. Yine de adımlar şöyle:\n" + body
+            "Bu işlem senin rolünde yapılamıyor. Yetkisiz işlem adımları ve "
+            "yönlendirme paylaşılmadı."
         )
     else:
         text = body

@@ -50,10 +50,12 @@ class HandleLineTests(unittest.TestCase):
     def test_role_command_gating_effect(self) -> None:
         self.session.handle_line("/rol ogrenci")
         text, _ = self.session.handle_line("yeni ders oluştur")
-        self.assertIn("Öğretmen", text)  # rol yetersiz uyarısı
+        # No-leak: öğrenciye adım/ayrıcalıklı rol adı gösterilmez, kibar ret döner.
+        self.assertNotIn("Öğretmen", text)
+        self.assertNotIn("Yeni ders", text)
         self.session.handle_line("/rol ogretmen")
         text2, _ = self.session.handle_line("yeni ders oluştur")
-        self.assertNotIn("yetmiyor", text2)  # artık izin var
+        self.assertIn("Yeni ders", text2)  # öğretmende gerçek adımlar döner
 
     def test_roles_command(self) -> None:
         text, _ = self.session.handle_line("/roller")

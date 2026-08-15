@@ -19,13 +19,10 @@ from dataclasses import dataclass, replace
 from typing import Final
 
 from . import rules
-from .catalog import (
-    MIN_AUTHENTICATED_ROLE,
-    get_intent,
-    meets_role,
-    role_rank,
-)
+from .access import AccessOutcome
+from .catalog import get_intent
 from .domain import is_in_domain
+from .role_spaces import get_role_space
 from .similarity import ScoredIntent, SimilarityMatcher, get_default_matcher
 
 
@@ -61,6 +58,13 @@ class Decision:
     role_redirect: str | None = None
     auth_action: str | None = None  # None | LOGIN_REQUIRED | ROLE_INSUFFICIENT
     required_role: str | None = None
+    role: str = "ziyaretci"
+    view_id: str | None = None
+    outcome: str | None = None
+    scope: str | None = None
+    reason_code: str | None = None
+    role_space_version: str | None = None
+    role_space_hash: str | None = None
 
 
 def _apply_role_gating(
@@ -71,33 +75,34 @@ def _apply_role_gating(
     if decision.fallback or decision.intent is None:
         return decision
 
-    info = get_intent(decision.intent)
-    if info is None:
-        return decision
-
-    auth_required = bool(info["auth_required"])
-    min_role = info["min_role"]
-
-    if auth_required and not authenticated:
-        return replace(decision, auth_action=LOGIN_REQUIRED, required_role=min_role)
-
     effective_role = role if authenticated else "ziyaretci"
-    if authenticated and not meets_role(effective_role, min_role):
-        return replace(decision, auth_action=ROLE_INSUFFICIENT, required_role=min_role)
-
-    return decision
+    space = get_role_space(effective_role)
+    view = space.view_for(decision.intent)
+    if view is None:
+        return decision
+    action: str | None = None
+    if view.outcome is AccessOutcome.DENY:
+        action = LOGIN_REQUIRED if not authenticated else ROLE_INSUFFICIENT
+    return replace(
+        decision,
+        auth_action=action,
+        required_role=view.required_role,
+        role=effective_role,
+        view_id=view.view_id,
+        outcome=view.outcome.value,
+        scope=view.scope.value if view.scope else None,
+        reason_code=view.reason_code.value,
+        role_space_version=space.version,
+        role_space_hash=space.content_hash,
+    )
 
 
 def _accessible(intent: str, role: str, authenticated: bool) -> bool:
     """Oturum bu intent'i (auth + min_role) gerçekten yapabilir mi?"""
 
-    info = get_intent(intent)
-    if info is None:
-        return True
-    if bool(info["auth_required"]) and not authenticated:
-        return False
     effective_role = role if authenticated else "ziyaretci"
-    return meets_role(effective_role, info["min_role"])
+    view = get_role_space(effective_role).view_for(intent)
+    return view is not None and view.outcome is AccessOutcome.ALLOW
 
 
 def _is_confusable_pair(intent_a: str, intent_b: str) -> bool:
@@ -160,26 +165,11 @@ def decide_core(
         if margin < tie_margin and _is_confusable_pair(top1.intent, ranked[1].intent):
             tie_break = f"{top1.intent}~{ranked[1].intent}"
 
-    # Rol-farkında yönlendirme: top1 oturuma KAPALI ve top-k içinde AÇIKÇA
-    # karışabilir (must_not_match), ERİŞİLEBİLİR, yakın bir aday varsa, kullanıcının
-    # gerçekten yapabileceği yorumu seç ("öğrenci: notumu gör" -> öğretmenin
-    # student_marks_lookup'ı yerine report_card_view). Yalnızca yazar-onaylı
-    # confusable çiftlerde tetiklenir; "sınav oluştur -> yapamazsın" gibi meşru
-    # retleri MASKELEMEZ (o çiftler karışabilir işaretli değildir).
+    # V2 closed-space invariant: candidates were produced inside one concrete
+    # role-space. Never redirect to another candidate based on a global role
+    # hierarchy; the chosen view carries its own allow/deny policy.
     chosen = top1
     role_redirect: str | None = None
-    if authenticated and not _accessible(top1.intent, role, authenticated):
-        for cand in ranked[1:top_k]:
-            if cand.score < threshold:
-                break
-            if (
-                (top1.score - cand.score) <= role_redirect_margin
-                and _is_confusable_pair(top1.intent, cand.intent)
-                and _accessible(cand.intent, role, authenticated)
-            ):
-                chosen = cand
-                role_redirect = f"{top1.intent}->{cand.intent}"
-                break
 
     decision = Decision(
         intent=chosen.intent,
@@ -206,10 +196,24 @@ def decide(
 ) -> Decision:
     """Bir sorgu için nihai kararı üretir."""
 
-    matcher = matcher or get_default_matcher()
-    rule_match = rules.match(query)
+    effective_role = role if authenticated else "ziyaretci"
+    space = get_role_space(effective_role)
+    matcher = matcher or space.similarity_matcher
+    rule_match = space.rule_matcher.match(query)
     ranked = None if rule_match is not None else matcher.rank(query)
-    in_domain = True if rule_match is not None else is_in_domain(query)
+    if ranked is not None:
+        # Legacy injected matchers remain supported, but their candidates are
+        # projected into this role's local view set and tagged accordingly.
+        ranked = [
+            ScoredIntent(item.intent, item.score, space.space_id)
+            for item in ranked
+            if item.intent in space.views
+        ]
+    in_domain = (
+        True
+        if rule_match is not None
+        else is_in_domain(query, set(space.domain_vocab))
+    )
     return decide_core(
         rule_match,
         ranked,
