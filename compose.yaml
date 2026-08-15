@@ -2,7 +2,7 @@ services:
   chatbot:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: rule-based-chatbot:local
+      dockerfile: Containerfile
+    image: localhost/rule-based-chatbot:local
     init: true
     command: ["python", "-m", "src.main", "--validate"]
