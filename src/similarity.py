@@ -62,6 +62,9 @@ def char_ngrams(text: str, ns: Iterable[int] = DEFAULT_NGRAMS) -> Counter[str]:
 class ScoredIntent:
     intent: str
     score: float
+    # The compiled role-space that produced this candidate.  ``None`` is kept
+    # for callers constructing legacy test doubles by hand.
+    space_id: str | None = None
 
 
 @runtime_checkable
@@ -82,11 +85,14 @@ class SimilarityMatcher:
         examples: list[tuple[str, str]],
         ns: Iterable[int] = DEFAULT_NGRAMS,
         word_weight: int = DEFAULT_WORD_WEIGHT,
+        *,
+        space_id: str | None = None,
     ) -> None:
         """examples: (intent, question) çiftleri."""
 
         self._ns = tuple(ns)
         self._word_weight = word_weight
+        self._space_id = space_id
         self._intents: list[str] = []
         self._doc_tfs: list[Counter[str]] = []
 
@@ -175,7 +181,7 @@ class SimilarityMatcher:
                 best[intent] = score
 
         return [
-            ScoredIntent(intent, score)
+            ScoredIntent(intent, score, self._space_id)
             for intent, score in sorted(best.items(), key=lambda kv: kv[1], reverse=True)
         ]
 

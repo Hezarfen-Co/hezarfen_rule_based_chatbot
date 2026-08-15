@@ -277,6 +277,7 @@ class RuleMatch:
     score: int
     matched: tuple[str, ...]
     reason: str
+    space_id: str | None = None
 
 
 def _present(keyword: str, tokens: list[str]) -> bool:
@@ -295,41 +296,63 @@ def _group_matches(group: _Group, tokens: list[str]) -> bool:
     return True
 
 
-def match(query: str) -> RuleMatch | None:
-    """Soruyu kural katmanından geçirir.
+class RuleMatcher:
+    """A rule index compiled for one closed intent space."""
 
-    Returns:
+    def __init__(
+        self,
+        intent_names: set[str] | frozenset[str] | None = None,
+        *,
+        space_id: str | None = None,
+    ) -> None:
+        allowed = None if intent_names is None else frozenset(intent_names)
+        self._rules = tuple(
+            rule for rule in _RULES if allowed is None or rule.intent in allowed
+        )
+        self.space_id = space_id
+
+    def match(self, query: str) -> RuleMatch | None:
+        """Soruyu bu derlenmiş kural uzayından geçirir.
+
         Tek bir intent en yüksek özgüllükle eşleşirse RuleMatch; hiçbir kural
-        eşleşmezse veya birden çok intent aynı en yüksek skorda eşleşirse (belirsiz)
-        None.
-    """
+        eşleşmezse veya eşitlik varsa None döner.
+        """
 
-    tokens = folded_tokens(query)
-    if not tokens:
-        return None
+        tokens = folded_tokens(query)
+        if not tokens:
+            return None
 
-    best_by_intent: dict[str, tuple[int, tuple[str, ...]]] = {}
-    for rule in _RULES:
-        for group in rule.groups:
-            if _group_matches(group, tokens):
-                score = len(group.all_kw)
-                prev = best_by_intent.get(rule.intent)
-                if prev is None or score > prev[0]:
-                    best_by_intent[rule.intent] = (score, group.all_kw)
+        best_by_intent: dict[str, tuple[int, tuple[str, ...]]] = {}
+        for rule in self._rules:
+            for group in rule.groups:
+                if _group_matches(group, tokens):
+                    score = len(group.all_kw)
+                    prev = best_by_intent.get(rule.intent)
+                    if prev is None or score > prev[0]:
+                        best_by_intent[rule.intent] = (score, group.all_kw)
 
-    if not best_by_intent:
-        return None
+        if not best_by_intent:
+            return None
 
-    ranked = sorted(best_by_intent.items(), key=lambda kv: kv[1][0], reverse=True)
-    top_intent, (top_score, matched) = ranked[0]
+        ranked = sorted(best_by_intent.items(), key=lambda kv: kv[1][0], reverse=True)
+        top_intent, (top_score, matched) = ranked[0]
 
-    # Belirsizlik: aynı en yüksek skorda birden çok intent -> karar verme.
-    if len(ranked) > 1 and ranked[1][1][0] == top_score:
-        return None
+        if len(ranked) > 1 and ranked[1][1][0] == top_score:
+            return None
 
-    return RuleMatch(
-        intent=top_intent,
-        score=top_score,
-        matched=matched,
-        reason=f"kural: {top_intent} <- {list(matched)}",
-    )
+        return RuleMatch(
+            intent=top_intent,
+            score=top_score,
+            matched=matched,
+            reason=f"kural: {top_intent} <- {list(matched)}",
+            space_id=self.space_id,
+        )
+
+
+_DEFAULT_RULE_MATCHER: Final[RuleMatcher] = RuleMatcher()
+
+
+def match(query: str) -> RuleMatch | None:
+    """Geriye uyumlu global kural API'si."""
+
+    return _DEFAULT_RULE_MATCHER.match(query)

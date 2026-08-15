@@ -13,7 +13,7 @@ bulunur ve ayırt edici değildir.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, Iterable
 
 from .catalog import INTENTS
 from .normalize import folded_tokens
@@ -55,13 +55,23 @@ def _content_tokens(text: str) -> list[str]:
     ]
 
 
-def build_domain_vocab() -> set[str]:
-    """Katalog örneklerinden ayırt edici alan söz varlığını üretir."""
+def build_domain_vocab(examples: Iterable[str] | None = None) -> set[str]:
+    """Örneklerden ayırt edici alan söz varlığını üretir.
+
+    ``examples=None`` eski public API'yi korur ve tüm kataloğu kullanır. Rol
+    uzayları ise yalnızca kendi derlenmiş örneklerini verir.
+    """
 
     vocab: set[str] = set()
-    for item in INTENTS:
-        for question in item["example_questions"]:
-            vocab.update(_content_tokens(question))
+    source = examples
+    if source is None:
+        source = (
+            question
+            for item in INTENTS
+            for question in item["example_questions"]
+        )
+    for question in source:
+        vocab.update(_content_tokens(question))
     return vocab
 
 

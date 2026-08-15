@@ -1304,7 +1304,9 @@ class RoleScenarios(unittest.TestCase):
         r = answer("yeni ders oluştur", role="ogrenci", authenticated=True)
         self.assertEqual(r.response_id, "course_create_instructions")
         self.assertEqual(r.auth_action, "role_insufficient")
-        self.assertIn("Öğretmen", r.text)
+        # No-leak: adımlar ve ayrıcalıklı rol adı cevap metninde GÖSTERİLMEZ.
+        self.assertNotIn("Öğretmen", r.text)
+        self.assertNotIn("Yeni ders", r.text)
 
     def test_teacher_can_create_course(self) -> None:
         r = answer("yeni ders oluştur", role="ogretmen", authenticated=True)
