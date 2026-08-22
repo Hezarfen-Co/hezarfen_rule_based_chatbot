@@ -31,6 +31,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Benchmark üzerinde tam değerlendirme raporu üretir.",
     )
     parser.add_argument(
+        "--selective",
+        action="store_true",
+        help="Seçici sınıflandırma raporu (risk-coverage, AURC, OOS false-accept).",
+    )
+    parser.add_argument(
+        "--mutation",
+        action="store_true",
+        help="Mutasyon testi: kritik invariant'ların yakalanma gücü (mutation score).",
+    )
+    parser.add_argument(
         "--chat",
         action="store_true",
         help="Etkileşimli terminal sohbetini başlatır.",
@@ -49,6 +59,18 @@ def main() -> int:
         from .evaluation import format_report, run_evaluation
 
         print(format_report(run_evaluation()))
+        return 0
+
+    if args.selective:
+        from .evaluation.selective import compute, format_report as fmt_sel
+
+        print(fmt_sel(compute()))
+        return 0
+
+    if args.mutation:
+        from .evaluation.mutation import compute, format_report as fmt_mut
+
+        print(fmt_mut(compute()))
         return 0
 
     if args.validate:
