@@ -7,15 +7,15 @@
 ## 1. Anlık Durum
 - Son güncelleme: 2026-08-22
 - Aktif branch: `fix/chatbot-adversarial` (push edildi, PR bekliyor)
-- Son commit: `c177e5b feat(eval): seçici-risk + mutasyon ölçüm altyapısı`
+- Son commit: `4797959 feat: Faz 2 dialog-state -> conversation %100, adversarial %99.1`
 - Çalışma ağacı: **temiz** (bu güncelleme hariç)
-- Tek cümle: **adversarial %45.7 → %97.0** (223/230), **357 test yeşil (0 skip)**,
-  macro-F1 0.994, coverage %99, OOS %92.3; 10 suite'ten 7'si %100, conversation **%75**
-  (Faz 1 stateless bitti), negation %95, collision %97.4, critical %100; hard gate'ler
-  privacy_recall=1.0 + kural precision=1.0 + **mutation score %100** + **AURC 0.0000** +
-  seçici risk %0.5. **Kalan:** (1) conversation %75→%85 = 5 turns vakası → **Faz 2
-  dialog-state** (onaylı, sırada); (2) **OOS false-accept %7.69** → ≤%1 optimize. T1
-  kapsamı ayrı iş (deployed podman branch'te hâlâ 57 intent).
+- Tek cümle: **adversarial %45.7 → %99.1** (228/230), **365 test yeşil (0 skip)**,
+  macro-F1 0.994, coverage %99, OOS %92.3; 10 suite'ten **8'i %100** (conversation dahil),
+  collision %97.4, negation %95, critical %100; hard gate'ler privacy=1.0 + kural=1.0 +
+  **mutation %100** + **AURC 0.0000** + seçici risk **%0** + **OOS false-accept %0** (0/46).
+  **CANLIYA-ÇIKIŞ KAPISI AÇIK** — kalan 2 adversarial vakası bilinçli asla-yanlış clarify
+  (hata değil). **Üretim şartı:** bridge `session.user_id` göndermeli (çok-turlu diyalog).
+  T1 kapsamı ayrı iş (deployed podman branch'te hâlâ 57 intent, #15).
 
 ## 2. Hedef ve Kapsam
 - **Ana hedef:** Hezarfen okul-yönetim sitesi için rol-farkında, sızıntısız, offline kullanım asistanı + içerik güvenlik katmanı; backend'e QUIC köprüsüyle bağlı.
@@ -56,26 +56,21 @@ flowchart LR
 - **D6** — Backend parite düzeltmesi: `pomodoro_use` ve `event_attendance_mark` chatbot'ta backend'den fazla izin veriyor (bkz. §9 BUG-04/05). **önerildi**.
 
 ## 6. Aktif Görev
-- **ID:** TASK-CHAT-CONV-FAZ2
-- **Amaç:** `conversation_humanlike` %75 → ≥%85 (kalan 5 **turns/çok-turlu** vakası:
-  CONV-009/010/012/013/014) — canlıya-çıkış kapısının son adımı.
-- **Kapsam:** hafif **dialog-state (frame/slot)** — `handle()` payload'ına opsiyonel
-  `dialog` alanı (client-side taşınır, sunucu durumsuz kalır): `pending_intent`,
-  `pending_slot`, `offered_candidates`, `last_topic`. Çözücü SADECE sunulmuş
-  netleştirmeyi/slotu ÇÖZER (isim "Ahmet", onay/ordinal "Evet ilki", itiraz "orada
-  yok"); asla uydurmaz. Belirsizse mevcut clarify. Asla-yanlış korunur.
-- **İlgili dosyalar:** yeni `dialog_state.py`, `engine.py` (handle giriş/çıkış), `tests/e2e/*`.
-- **Kabul kriterleri:** conversation ≥%85; diğer 9 suite + 357 test + mutation %100 +
-  seçici-risk regresyonsuz; JGA/Slot-F1/Repair@2 ölçümü eklenir (dialog-state açılınca).
-- **Durum:** `READY` (kullanıcı onayladı; tasarım §10'da; ölçüm turu bitti, sıra bunda).
-- **Sonraki kesin işlem:** dialog_state.py tasarımını uygula → her adımda benchmark +
-  0-skip test yeşil.
+- **ID:** TASK-CHAT-LIVE (canlıya-çıkış hazırlığı)
+- **Amaç:** Kalite kapısı GEÇİLDİ; kalan yalnızca canlı-öncesi entegrasyon.
+- **Durum:** `READY-FOR-REVIEW` — kullanıcı yeniden test edecek (kriterleri geçtik).
+- **Kalan (kapıyı engellemez):**
+  1. **Bridge `session.user_id`** — çok-turlu diyalog üretimde çalışsın + kullanıcı
+     izolasyonu. `hezarfen_backend` AI köprüsü her istekte user_id taşımalı. (ZORUNLU)
+  2. Buton/öneri wire (#21 backend+frontend) — "en son"; chip motor tarafı hazır.
+  3. OOS shadow-set büyütme (≤%1 için ~300 near-OOS; rule-of-three) — üretim logları.
+  4. (Ops.) gömme-tabanlı OOS detektörü — kelime-listesi guard yerine (literatür).
+  5. T1 kapsamı landing (#15) — deployed branch'te hâlâ 57 intent.
 
-**PARALEL TASK-CHAT-OOS:** OOS false-accept %7.69 → ≤%1. near-OOS negatif örnek +
-domain-gate/margin sıkılaştırma; `--selective` ile risk-coverage'dan eşik seç.
-
-**TASK-CHAT-FIX + Faz 1 conversation + ölçüm altyapısı: TAMAMLANDI** (%45.7→%97.0,
-selective+mutation eklendi). Detay §8.
+**TAMAMLANDI (bu kampanya, %45.7→%99.1):** denetim düzeltmeleri, RULE_ONLY kapsam,
+safety, negation, tail-batch, **Faz 1 conversation** (stateless), **OOS-sertleştirme**
+(near-OOS false-accept %0), **Faz 2 dialog-state** (conversation %100), **ölçüm
+altyapısı** (selective+mutation). Detay §8.
 
 ## 7. Görev Kuyruğu
 - **TASK-CHAT-CONV** — P1 — conversation_humanlike (dialog-state). **BLOCKED** (kullanıcı onayı). Bkz §6.
