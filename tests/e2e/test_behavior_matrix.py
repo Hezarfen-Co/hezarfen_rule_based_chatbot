@@ -101,6 +101,17 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "mesajlarım nerede", "messages_use"),
     ("ogrenci", "etüt ile ders arasında fark var mı", "study_club_info"),
     ("ogrenci", "veli hesabı ne işe yarar", "parent_info"),
+    # --- kapsam genişletme ---
+    ("ogrenci", "okul ücretlerini nereden görürüm", "fees_info"),
+    ("ogrenci", "şubeler sayfası nerede", "branches_info"),
+    ("ogrenci", "takvim sayfasını nasıl açarım", "calendar_info"),
+    ("ogrenci", "bugün panelinde neleri görürüm", "today_info"),
+    ("ogretmen", "soru bankası ne işe yarar", "question_bank_info"),
+    ("ogrenci", "bildirim ayarlarını nereden değiştiririm", "notification_settings_info"),
+    ("yonetici", "menüde hangi bölümler var", "nav_overview"),
+    ("ogrenci", "etkinlikleri nerede görürüm", "event_view"),
+    ("ogrenci", "sınav tarihleri nerede yazıyor", "exam_schedule_info"),
+    ("ogrenci", "ders notları ve öğretmenin yüklediği pdf nerede", "course_materials_info"),
 ]
 
 

@@ -23,7 +23,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Final, Iterable, Protocol, runtime_checkable
 
-from .catalog import INTENTS
+from .catalog import INTENTS, RULE_ONLY_INTENTS
 from .normalize import fold_accents, folded_tokens, normalize
 
 
@@ -128,6 +128,7 @@ class SimilarityMatcher:
         examples = [
             (item["intent"], question)
             for item in INTENTS
+            if item["intent"] not in RULE_ONLY_INTENTS
             for question in item["example_questions"]
         ]
         return cls(examples, ns=ns)

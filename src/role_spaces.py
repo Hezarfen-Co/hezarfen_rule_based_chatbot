@@ -20,7 +20,7 @@ from .access import (
     ReasonCode,
     RoleIntentView,
 )
-from .catalog import INTENTS, ROLE_HIERARCHY
+from .catalog import INTENTS, ROLE_HIERARCHY, RULE_ONLY_INTENTS
 from .domain import build_domain_vocab
 from .rules import RuleMatcher
 from .similarity import SimilarityMatcher
@@ -147,6 +147,17 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "messages_use": "messages.use",
     "study_club_info": "platform.help",
     "parent_info": "platform.help",
+    # Kapsam genişletme: bilgi/açıklama intent'leri (herkese açık, ALLOW).
+    "fees_info": "platform.help",
+    "branches_info": "platform.help",
+    "calendar_info": "platform.help",
+    "today_info": "platform.help",
+    "question_bank_info": "platform.help",
+    "notification_settings_info": "platform.help",
+    "nav_overview": "platform.help",
+    "event_view": "platform.help",
+    "exam_schedule_info": "platform.help",
+    "course_materials_info": "platform.help",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {
@@ -267,9 +278,12 @@ def get_role_space(role: str) -> CompiledRoleSpace:
     views = {item["intent"]: _view(item, role) for item in INTENTS}
     content_hash = _hash_views(role, views)
     space_id = f"{ROLE_SPACE_VERSION}:{role}:{content_hash[:12]}"
+    # RULE_ONLY_INTENTS benzerlik + domain-vocab havuzuna GİRMEZ (ortak kelimeleri
+    # IDF/OOS ayrımını bozuyordu); yalnız kuralla tetiklenirler.
     examples = [
         (view.intent, question)
         for view in views.values()
+        if view.intent not in RULE_ONLY_INTENTS
         for question in view.examples
     ]
     return CompiledRoleSpace(

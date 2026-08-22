@@ -206,6 +206,29 @@ def _resolve_negation(query: str) -> str:
     return ", ".join(kept)
 
 
+# --- Henüz canlı olmayan / bulunmayan özellikler ----------------------------
+# Bu anahtarlar bir sayfaya YANLIŞ yönlendirmek yerine dürüstçe "henüz
+# kullanılamıyor" der (asla yanlış). T1 (randevu/yemek/soru-havuzu/beyaz-tahta)
+# canlıya alınınca ilgili anahtar bu listeden çıkarılır; duyuru diye bir özellik
+# hiç yoktur.
+_UNAVAILABLE_FEATURES: tuple[tuple[str, str], ...] = (
+    ("randevu", "Randevular"),
+    ("yemek", "Yemekler"),
+    ("havuz", "Soru havuzu"),
+    ("beyaz tahta", "Beyaz tahtalar"),
+    ("tahta", "Beyaz tahtalar"),
+    ("duyuru", "Duyurular"),
+)
+
+
+def _unavailable_feature(query: str) -> str | None:
+    low = query.casefold()
+    for keyword, label in _UNAVAILABLE_FEATURES:
+        if keyword in low:
+            return label
+    return None
+
+
 def _build_navigation(
     intent: str | None,
     auth_action: str | None,
@@ -585,6 +608,29 @@ class Engine:
         pure_negation = _neg_resolved.strip() == ""
         if not pure_negation and _neg_resolved != effective_query:
             effective_query = _neg_resolved
+
+        # 1.57) Henüz canlı olmayan/bulunmayan özellik -> yanlış yönlendirme YOK,
+        # dürüstçe "henüz kullanılamıyor" (intent None, nav yok).
+        _unavail = _unavailable_feature(effective_query)
+        if _unavail is not None:
+            result = {
+                "trace_id": trace_id,
+                "response_id": "feature_unavailable",
+                "text": _with_brand_note(
+                    f"**{_unavail}** özelliği şu an henüz aktif değil; bu sayfa "
+                    "kullanılamıyor. Eklenince burada yardımcı olacağım.", query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": [],
+                "safety": safety_info,
+            }
+            return _attach_assistant_meta(result, role)
 
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)

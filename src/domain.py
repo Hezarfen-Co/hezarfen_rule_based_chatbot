@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Final, Iterable
 
-from .catalog import INTENTS
+from .catalog import INTENTS, RULE_ONLY_INTENTS
 from .normalize import folded_tokens
 
 
@@ -68,6 +68,7 @@ def build_domain_vocab(examples: Iterable[str] | None = None) -> set[str]:
         source = (
             question
             for item in INTENTS
+            if item["intent"] not in RULE_ONLY_INTENTS
             for question in item["example_questions"]
         )
     for question in source:

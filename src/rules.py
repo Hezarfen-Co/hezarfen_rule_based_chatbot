@@ -286,6 +286,46 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "parent_info", "groups": [
         {"all": ["veli"]}, {"all": ["ebeveyn"]},
     ]},
+    # --- Kapsam genişletme: menü sayfa/bölüm açıklama intent'leri ---
+    {"intent": "fees_info", "groups": [
+        {"all": ["ücret"]}, {"all": ["ödeme"], "none": ["sınav", "ödev"]},
+    ]},
+    {"intent": "branches_info", "groups": [
+        {"all": ["şube"]},
+    ]},
+    {"intent": "calendar_info", "groups": [
+        {"all": ["takvim"], "none": ["sınav"]},
+        {"all": ["haftalık", "program"]}, {"all": ["ders", "program"]},
+    ]},
+    {"intent": "today_info", "groups": [
+        {"all": ["bugün", "panel"]}, {"all": ["ana", "panel"]},
+    ]},
+    {"intent": "question_bank_info", "groups": [
+        {"all": ["soru", "banka"]},
+    ]},
+    {"intent": "notification_settings_info", "groups": [
+        {"all": ["bildirim"]},
+    ]},
+    {"intent": "nav_overview", "groups": [
+        {"all": ["akademik"], "none": ["dönem"]},
+        {"all": ["öğrenci", "yönetim", "bölüm"]},
+        {"all": ["yönetim", "menü"]}, {"all": ["admin", "bölüm"]},
+        {"all": ["admin", "sayfa"]}, {"all": ["bölüm", "neler"]},
+        {"all": ["menü", "bölüm", "var"]}, {"all": ["menü", "anlat"]},
+        {"all": ["hangi", "bölüm", "var"]},
+    ]},
+    {"intent": "event_view", "groups": [
+        {"all": ["etkinlik", "nerede"], "none": ["oluştur", "ekle", "planla", "katıl", "yoklama", "işaretle"]},
+        {"all": ["etkinlik", "gör"], "none": ["oluştur", "ekle", "planla", "katıl", "yoklama"]},
+        {"all": ["etkinlik", "liste"], "none": ["oluştur", "ekle"]},
+    ]},
+    {"intent": "exam_schedule_info", "groups": [
+        {"all": ["sınav", "takvim"]}, {"all": ["sınav", "tarih"]},
+    ]},
+    {"intent": "course_materials_info", "groups": [
+        {"all": ["ders", "not", "pdf"]}, {"all": ["ders", "not", "dosya"]},
+        {"all": ["öğretmen", "pdf"]}, {"all": ["ders", "dosya"], "none": ["defter"]},
+    ]},
 ]
 
 

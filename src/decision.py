@@ -27,8 +27,9 @@ from .similarity import ScoredIntent, SimilarityMatcher, get_default_matcher
 
 
 # Varsayılan parametreler (Aşama 11'de benchmark taramasıyla seçildi).
-# 0.18 + domain-gate: coverage %100, acc-on-covered ~%80, OOS recall ~%78,
-# false-fallback 0. (Domain-gate olmadan OOS recall yalnızca ~%44'tü.)
+# 0.18 + domain-gate. Kapsam genişletme intent'leri (catalog.RULE_ONLY_INTENTS)
+# benzerlik (TF-IDF) havuzuna ALINMAZ; bu sayede ortak kelimeleri (bugün/menü/
+# program...) IDF'i kirletmez ve OOS ayrımı bozulmadan eşik 0.18'de kalır.
 DEFAULT_THRESHOLD: Final[float] = 0.18
 DEFAULT_TIE_MARGIN: Final[float] = 0.05
 DEFAULT_TOP_K: Final[int] = 3

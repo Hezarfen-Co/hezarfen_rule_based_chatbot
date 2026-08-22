@@ -33,9 +33,15 @@ class SimilarityMatcherTests(unittest.TestCase):
         cls.matcher = SimilarityMatcher.from_catalog()
 
     def test_indexed_all_examples(self) -> None:
-        from src.catalog import INTENTS
+        # RULE_ONLY_INTENTS benzerlik havuzuna alınmaz (yalnız kuralla tetiklenir);
+        # indeks bu intent'lerin örneklerini içermez.
+        from src.catalog import INTENTS, RULE_ONLY_INTENTS
 
-        expected = sum(len(i["example_questions"]) for i in INTENTS)
+        expected = sum(
+            len(i["example_questions"])
+            for i in INTENTS
+            if i["intent"] not in RULE_ONLY_INTENTS
+        )
         self.assertEqual(self.matcher.size, expected)
 
     def test_rank_sorted_descending(self) -> None:
