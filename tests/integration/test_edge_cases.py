@@ -126,9 +126,18 @@ class KnownLimitTests(unittest.TestCase):
     testler güncellenir. Amaç: sessiz davranış kayması olmasın.
     """
 
-    def test_negation_is_ignored(self) -> None:
-        # Olumsuzlama görülmez: 'gösterme' de report_card_view'a gider.
-        # (Bot işlem yapmadığı için zararsız; embedding/kural iyileştirmesi bekliyor.)
+    def test_negation_contrast_routes_to_affirmed(self) -> None:
+        # Olumsuzluk artık ele alınıyor: "A istemiyorum, B istiyorum" -> olumlu (B).
+        resp = ask("sınav oluşturmak istemiyorum, kayıtlı derslerimi görmek istiyorum")
+        self.assertEqual(resp["intent"], "course_view")
+        # "A değil, B" da B'ye göre yanıtlanır.
+        resp2 = ask("karne değil, kendi devamsızlığımı görmek istiyorum")
+        self.assertEqual(resp2["intent"], "attendance_view")
+
+    def test_pure_imperative_negation_is_known_limit(self) -> None:
+        # BİLİNEN SINIR: '-ma/-me' isim-fiil belirsizliği yüzünden saf olumsuz
+        # komut ('notlarımı gösterme') hâlâ olumlu gibi ele alınır. (Zararsız: bot
+        # veri göstermez.) Açık işaretli ('istemiyorum'/'değil') olumsuzluk çözülür.
         resp = ask("notlarımı gösterme")
         self.assertEqual(resp["intent"], "report_card_view")
 

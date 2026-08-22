@@ -173,6 +173,39 @@ def _declared_role(query: str) -> str | None:
     return found
 
 
+# --- Olumsuzluk (negation) çözümü ------------------------------------------
+# "Sınav oluşturmak istemiyorum, sınava girmek istiyorum" -> olumsuz cümleciği
+# DÜŞÜR, olumlu olanı yanıtla. Saf olumsuz komut ("notlarımı gösterme") -> hiçbir
+# işlem yapma, netleştir (asla yanlış). Bilinçli olarak sağlam/muhafazakâr: yalnız
+# net olumsuzluk işaretlerinde devreye girer, normal sorguları etkilemez.
+_NEG_MARKERS: tuple[str, ...] = (
+    "istemiyorum", "istemem", "istemez", "istemedim", "istemiyor",
+    "sormuyorum", "etmeyeceğim", "yapmayacağım", "vermeyeceğim", "istemiyoruz",
+)
+def _clause_negated(clause: str) -> bool:
+    # Yalnız AÇIK/tek-anlamlı olumsuzluk işaretleri. '-ma/-me' ekli fiiller
+    # (gösterme, oluşturma...) Türkçede aynı zamanda İSİM-FİİLdir (oluşturma =
+    # işlemin adı); bu yüzden BİLİNÇLİ olarak KULLANILMAZ — aksi hâlde "Ders
+    # oluşturma nerede?" yanlışlıkla olumsuz sayılıp netleştirmeye düşüyordu.
+    low = clause.casefold()
+    return any(marker in low for marker in _NEG_MARKERS)
+
+
+def _resolve_negation(query: str) -> str:
+    """Olumsuzluğu çöz. Döner: yanıtlanacak OLUMLU sorgu; olumsuzluk yoksa sorgu
+    aynen; saf olumsuz komutta boş string ("" = uygulama, netleştir)."""
+
+    # "A değil, B" -> son 'değil' sonrasındaki olumlu kısım.
+    matches = list(re.finditer("değil", query, re.IGNORECASE))
+    if matches:
+        return query[matches[-1].end():].lstrip(" ,;:.-").strip()
+    if not _clause_negated(query):
+        return query  # olumsuzluk yok -> değişmez (normal sorgular etkilenmez)
+    kept = [p.strip() for p in re.split(r"[;,]", query)
+            if p.strip() and not _clause_negated(p)]
+    return ", ".join(kept)
+
+
 def _build_navigation(
     intent: str | None,
     auth_action: str | None,
@@ -546,6 +579,13 @@ class Engine:
         if safety.decision == safety_mod.MASK_AND_ALLOW and safety.masked_message:
             effective_query = safety.masked_message
 
+        # 1.55) Olumsuzluk: "A değil/istemiyorum, B istiyorum" -> B'ye göre yanıtla;
+        # saf olumsuz komut ("notlarımı gösterme") -> uygulama, netleştir (asla yanlış).
+        _neg_resolved = _resolve_negation(effective_query)
+        pure_negation = _neg_resolved.strip() == ""
+        if not pure_negation and _neg_resolved != effective_query:
+            effective_query = _neg_resolved
+
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)
         if segments is not None:
@@ -659,7 +699,7 @@ class Engine:
             and topk[0]["intent"] in _SOCIAL_INTENTS
             and topk[1]["intent"] in _SOCIAL_INTENTS
         )
-        ask_mode = (
+        ask_mode = pure_negation or (
             not response.fallback
             and dec["source"] == "similarity"
             and (
