@@ -173,7 +173,7 @@ _SELF_HARM_PATTERNS: Final[tuple[str, ...]] = (
 _INJECTION_PATTERNS: Final[tuple[str, ...]] = (
     "onceki talimat", "talimatlari unut", "kurallari unut", "kurallari yok say",
     "sistem prompt", "gizli kural", "gizli talimat", "beni admin yap",
-    "admin yap", "rolundeymis gibi", "gibi davran", "ignore previous",
+    "rolundeymis gibi", "gibi davran", "ignore previous",
     "disregard previous", "yok say ve", "sistem promptunu", "kurallarini yaz",
     "kurallarini goster", "onceki mesajlari unut",
     # İngilizce/karışık injection ve system-prompt sızdırma:

@@ -116,6 +116,11 @@ def _parse_session(payload: dict[str, Any]) -> tuple[str, bool]:
         raise RequestError(f"Bilinmeyen rol: {role!r}")
     if role == "ziyaretci" and authenticated:
         raise RequestError("Ziyaretçi 'authenticated' olamaz.")
+    # Doğrulanmamış oturum bir rolü ÜSTLENEMEZ: giriş yapılmadan öğrenci/öğretmen/
+    # yönetici/admin işlem yetkisi verilmez -> etkin rol ziyaretçi (login gerekir).
+    # Böylece rol adını taşıyan ama authenticated=false olan oturum, yetki kazanmaz.
+    if not authenticated:
+        role = "ziyaretci"
     return role, authenticated
 
 
