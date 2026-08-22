@@ -193,7 +193,6 @@
 {"question": "Öğrencinin ödevine nasıl not veririm", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Ödev teslimini değerlendirmek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Teslim edilen ödeve puan vermek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
-
 {"question": "Ücret ödemelerimi nerede takip ederim?", "expected_intent": "fees_info", "role": "ogrenci"}
 {"question": "Okul ücreti hangi sayfada?", "expected_intent": "fees_info", "role": "ogrenci"}
 {"question": "Ödeme durumumu nereden görürüm?", "expected_intent": "fees_info", "role": "ogrenci"}

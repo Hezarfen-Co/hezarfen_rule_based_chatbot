@@ -110,7 +110,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["oturum", "kaç", "gün"]}, {"all": ["oturum", "açık", "kal"]},
     ]},
     {"intent": "report_card_view", "groups": [
-        {"all": ["karne"], "none": ["öğrenci", "başka", "birinin"]},
+        {"all": ["karne"], "none": ["öğrenci", "başka", "birinin", "yükselt", "artır", "sil", "kaldır", "düzelt"]},
         {"all": ["harf", "not"]},
         # 1. şahıs "karnem" tek anlamlı (kendi karnem = report_card_view); bu yüzden
         # kural olarak güvenli — "öğrenci olarak karnemi görürüm" de buraya düşer.
@@ -262,7 +262,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["yoklama", "geçmiş"]},
         {"all": ["devam", "yüzde"], "none": ["formül", "hesap", "nasıl"]},
         # 'devamsız...' kökü (devamsızlığımı) yazım hatalarına dayanıklı; öğrenci-3.şahıs hariç.
-        {"all": ["devamsız"], "none": ["öğrenci", "başka", "birinin", "yazıl", "sayıl", "kural", "geç"]},
+        {"all": ["devamsız"], "none": ["öğrenci", "başka", "birinin", "yazıl", "sayıl", "kural", "geç", "sil", "kaldır", "düzelt", "yükselt"]},
     ]},
     {"intent": "attendance_rate_info", "groups": [
         # Devam ORANININ HESABI (formül) — devamsızlık görüntülemeden ayrıdır.
@@ -348,7 +348,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "calendar_info", "groups": [
         {"all": ["takvim"], "none": ["sınav"]},
-        {"all": ["haftalık", "program"]}, {"all": ["ders", "program"]},
+        {"all": ["haftalık", "program"]},
+        {"all": ["ders", "program"], "none": ["sen", "ayarla", "kur"]},
     ]},
     {"intent": "today_info", "groups": [
         {"all": ["bugün", "panel"]}, {"all": ["ana", "panel"]},

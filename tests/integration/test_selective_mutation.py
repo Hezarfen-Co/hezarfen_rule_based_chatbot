@@ -10,7 +10,31 @@ Bu testler ölçüm altyapısının kendisini de korur (harness bozulursa fark e
 
 import unittest
 
+from src.engine import Engine
 from src.evaluation import mutation, selective
+
+
+class NearOOSAbstentionTests(unittest.TestCase):
+    """near_oos.jsonl: in-scope'a BENZEYEN kapsam-dışı sorgularda motor ASLA somut
+    cevap vermez (abstain: clarify/scope-boundary). 'asla yanlış' engine-katmanı guard'ı."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.engine = Engine()
+        cls.cases = selective.load_near_oos()
+
+    def test_near_oos_all_abstain(self) -> None:
+        self.assertGreater(len(self.cases), 0, "near_oos.jsonl boş")
+        leaked = []
+        for c in self.cases:
+            role = c.get("role", "ogrenci")
+            resp = self.engine.handle({
+                "query": c["question"],
+                "session": {"role": role, "authenticated": role != "ziyaretci"},
+            })
+            if resp["intent"] is not None:
+                leaked.append((c["question"], resp["intent"]))
+        self.assertEqual(leaked, [], f"near-OOS sızıntısı (somut cevap verildi): {leaked}")
 
 
 class MutationScoreTests(unittest.TestCase):
@@ -41,11 +65,11 @@ class SelectiveRiskTests(unittest.TestCase):
         # Risk-coverage eğrisi altındaki alan küçük (iyi ayrışma).
         self.assertLessEqual(self.report["aurc"], 0.02)
 
-    def test_oos_false_accept_reported(self) -> None:
-        # Ölçülüyor ve mantıklı aralıkta (regresyonda artışı yakalamak için üst sınır).
+    def test_oos_false_accept_near_zero(self) -> None:
+        # Gerçek motor kararıyla OOS false-accept ≈ 0 (near-OOS dahil hepsi abstain).
+        # Bir sızıntı yeniden açılırsa bu kırılır (asla-yanlış guard'ı).
         fa = self.report["oos_false_accept"]
-        self.assertGreaterEqual(fa, 0.0)
-        self.assertLessEqual(fa, 0.20, "OOS false-accept beklenenden yüksek — gerileme?")
+        self.assertLessEqual(fa, 0.02, "OOS false-accept arttı — near-OOS sızıntısı geri geldi?")
 
 
 if __name__ == "__main__":

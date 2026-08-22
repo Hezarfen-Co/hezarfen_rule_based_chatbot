@@ -68,6 +68,18 @@ ASK_CONFIDENCE: float = 0.30
 # (Metrikler etkilenmez: evaluate karar katmanını ölçer, bu sunum katmanıdır.)
 ASK_LOW_MARGIN_CONFIDENCE: float = 0.45
 ASK_LOW_MARGIN: float = 0.05
+# Top-1 ile Top-2 neredeyse EŞİTse (fark bu değerin altında) model iki intent'i
+# ayıramıyor demektir -> yüksek skor olsa bile tam cevap verme, netleştir (asla
+# yanlış). Yakın-eş yanlış cevabı önler (kullanıcının 'top1-top2 skor farkı' yöntemi).
+ASK_TIE_MARGIN: float = 0.02
+# Okul-dışı, net kapsam-dışı konu kelimeleri (FOLD edilmiş). Yalnızca KURAL
+# çarpmayıp benzerlik zayıf-eşleşme verdiğinde (ör. 'öğretmenime hediye ne alayım'
+# -> messages_use FP) netleştirmeye zorlar. Kısa ve gerçekten alan-dışı tutulur;
+# okul terimleriyle çakışmaz. Kalıcı çözüm: gömme-tabanlı OOS (bkz. kriterler.md).
+_FAR_OOS_TOPICS: frozenset[str] = frozenset({
+    "hediye", "diyet", "kilo", "burc", "fal", "kripto", "bitcoin", "tarif",
+    "siir", "fikra", "mac", "sevgili", "flort",
+})
 
 # Düşük-margin "emin değilim" YALNIZCA ilk iki aday da sosyal/meta intent iken
 # tetiklenir ('ben kimim' -> farewell ~ bot_identity, gerçek görev yok). Görev
@@ -357,6 +369,32 @@ _DATA_FETCH_PATTERNS: tuple[re.Pattern[str], ...] = (
 
 def _is_data_fetch_request(query: str) -> bool:
     return any(p.search(query) for p in _DATA_FETCH_PATTERNS)
+
+
+# --- Kapsam sınırı: bot adına İŞ YAPMA / VERİ DEĞİŞTİRME isteği ---------------
+# Çelebi ne kullanıcı adına ödev/işlem yapar ne de veriyi (not/devamsızlık/yoklama)
+# değiştirir/siler; yalnızca "nasıl yaparım" anlatır. "Ödevimi sen yap", "notumu
+# yükselt", "devamsızlığımı sil", "sınav cevaplarını ver" gibi manipülasyon/do-for-me
+# istekleri yanlış bir sayfaya yönlendirilmez -> dürüstçe "bunu yapamam" (asla yanlış).
+_MANIPULATION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(yerime|yerine)\b", re.IGNORECASE),
+    re.compile(r"\bsen\s+(yap|ayarla|çöz|hallet|doldur|gir|oluştur|tamamla)\b", re.IGNORECASE),
+    re.compile(r"\bbenim\s+için\s+(yap|çöz|doldur|hallet|tamamla)\b", re.IGNORECASE),
+    re.compile(r"(sınav|soru|test)\w*.*\bcevap\w*.*\b(ver|söyle|sızdır|göster)\b", re.IGNORECASE),
+    re.compile(r"\bcevap(ları|larını|ını)\b\s*\b(ver|söyle|sızdır)\b", re.IGNORECASE),
+    # 1. şahıs korunan veri + değiştirme fiili (öğrenci kendi notunu/devamsızlığını
+    # değiştiremez/silemez/yükseltemez). 'göster/gör/bak' DEĞİL -> onlar meşru görüntüleme.
+    re.compile(r"\b(notum|notumu|notlarım\w*|karnem|karnemi|ortalamam\w*|puanım\w*|"
+               r"devamsızlığım\w*|yoklamam\w*)\b.*\b(sil|kaldır|yükselt|artır|düzelt|değiştir)\b",
+               re.IGNORECASE),
+    re.compile(r"\b(sil|kaldır|yükselt|artır|düzelt)\b.*\b(notum|notumu|karnem|karnemi|"
+               r"devamsızlığım\w*|yoklamam\w*|puanım\w*)\b", re.IGNORECASE),
+    re.compile(r"\bvar\s+göster\b", re.IGNORECASE),
+)
+
+
+def _is_manipulation_request(query: str) -> bool:
+    return any(p.search(query) for p in _MANIPULATION_PATTERNS)
 
 
 def _build_navigation(
@@ -776,24 +814,40 @@ class Engine:
             }
             return _attach_assistant_meta(result, role)
 
-        # 1.58) Kapsam sınırı: canlı VERİ çekme/sayım isteği -> yanlış sayfaya
-        # yönlendirme YOK; dürüstçe "gerçek veriyi getiremem, yalnızca nasıl".
-        if _is_data_fetch_request(effective_query):
-            text = (
-                "Ben gerçek veriyi getiremem, gösteremem ya da göremem; sistemdeki "
-                "canlı kayıtları bilemiyorum 🙂 Yalnızca nasıl yapılacağını adım adım "
-                "anlatabilirim. Örneğin \"öğrenci listesini nereden görürüm?\" diye "
-                "sorarsan, ilgili sayfayı ve adımları söyleyeyim."
-            )
+        # 1.58) Kapsam sınırı: canlı VERİ çekme/sayım VEYA bot adına iş yapma/veri
+        # değiştirme isteği -> yanlış sayfaya yönlendirme YOK; dürüstçe "yapamam,
+        # yalnızca nasıl". Manipülasyon (ödevi yap, notu yükselt, devamsızlığı sil)
+        # önce kontrol edilir; ikisi de intent=None döndürür (asla yanlış).
+        _scope_kind = None
+        if _is_manipulation_request(effective_query):
+            _scope_kind = "action"
+        elif _is_data_fetch_request(effective_query):
+            _scope_kind = "data"
+        if _scope_kind is not None:
+            if _scope_kind == "action":
+                text = (
+                    "Bunu senin yerine yapamam ve verini (not, devamsızlık, yoklama, "
+                    "ödev) değiştiremem/silemem 🙂 Ben yalnızca nasıl yapılacağını adım "
+                    "adım anlatabilirim. Örneğin \"ödevimi nasıl teslim ederim?\" ya da "
+                    "\"notlarımı nereden görürüm?\" diye sorabilirsin."
+                )
+            else:
+                text = (
+                    "Ben gerçek veriyi getiremem, gösteremem ya da göremem; sistemdeki "
+                    "canlı kayıtları bilemiyorum 🙂 Yalnızca nasıl yapılacağını adım adım "
+                    "anlatabilirim. Örneğin \"öğrenci listesini nereden görürüm?\" diye "
+                    "sorarsan, ilgili sayfayı ve adımları söyleyeyim."
+                )
             if self._log_sink is not None:
                 self._log_sink({
                     "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
                     "role": role, "authenticated": authenticated,
-                    "short_circuit": "data_fetch_scope", "response_id": "data_fetch_unsupported",
+                    "short_circuit": "scope_boundary_" + _scope_kind,
+                    "response_id": "out_of_scope_action",
                 })
             return _attach_assistant_meta({
                 "trace_id": trace_id,
-                "response_id": "data_fetch_unsupported",
+                "response_id": "out_of_scope_action",
                 "text": _with_brand_note(text, query),
                 "intent": None,
                 "confidence": 0.0,
@@ -968,6 +1022,10 @@ class Engine:
                     and margin < ASK_LOW_MARGIN
                     and top2_social
                 )
+                # Top-1 ≈ Top-2: skor yüksek olsa da ayırt edilemiyor -> netleştir.
+                or (margin is not None and margin < ASK_TIE_MARGIN)
+                # Net okul-dışı konu (yalnız benzerlik) -> zayıf-eşleşme FP'sini kes.
+                or bool(_FAR_OOS_TOPICS.intersection(folded_tokens(effective_query)))
             )
         )
         if ask_mode:
