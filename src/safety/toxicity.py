@@ -60,14 +60,37 @@ def _apply_leet(text: str) -> str:
     return "".join(_LEET_MAP.get(ch, ch) for ch in text)
 
 
+# Homoglyph (confusable) harfler: saldırganlar Latin harf yerine görsel aynısı
+# Kiril/Yunan harf koyar ('sаlаk' <- Kiril а, 'ignоre' <- Kiril о). Latin'e çevir.
+_CONFUSABLES: Final[dict[str, str]] = {
+    "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "у": "y", "х": "x",
+    "і": "i", "ј": "j", "ѕ": "s", "к": "k", "м": "m", "т": "t", "н": "h",
+    "в": "b", "ԁ": "d", "ɡ": "g", "ν": "v", "ο": "o", "α": "a", " е": "e",
+}
+
+
+def _defancy(text: str) -> str:
+    """Fullwidth ASCII (ＳＡＬＡＫ) ve homoglyph (Kiril/Yunan) harfleri Latin'e indirger."""
+
+    out: list[str] = []
+    for ch in text:
+        code = ord(ch)
+        if 0xFF01 <= code <= 0xFF5E:  # fullwidth ASCII -> normal ASCII
+            out.append(chr(code - 0xFEE0))
+        else:
+            out.append(_CONFUSABLES.get(ch, ch))
+    return "".join(out)
+
+
 def safety_normalize(message: str) -> str:
     """Agresif normalizasyon: gizlenmiş ihlalleri açığa çıkarır.
 
-    Adımlar: görünmez unicode temizliği -> Türkçe küçük harf -> leetspeak ->
-    3+ tekrar harfi teke indir -> aksan katla.
+    Adımlar: görünmez unicode temizliği -> fullwidth/homoglyph indirgeme ->
+    Türkçe küçük harf -> leetspeak -> 3+ tekrar harfi teke indir -> aksan katla.
     """
 
     text = _INVISIBLE_RE.sub("", message)
+    text = _defancy(text)
     text = turkish_lower(text)
     text = _apply_leet(text)
     text = _REPEAT_RE.sub(r"\1", text)
@@ -134,11 +157,18 @@ _THREAT_PATTERNS: Final[tuple[str, ...]] = (
     "vuracagim", "yakacagim", "patlatacagim", "zarar verecegim", "zarar verecem",
     "canina okuyacagim", "silahla gelecegim", "biçaklayacagim", "bicaklayacagim",
     "kafani kiracagim",
+    # Geniş zaman/şimdiki zaman çekimleri (döverim, pataklarım, gebertirim...):
+    "doverim", "doveriz", "doverm", "pataklar", "gebertir", "oldururum",
+    "oldururz", "bicaklar", "kafani kir", "kemiklerini kir", "canini ok",
+    "vururum", "gebertirim",
 )
 _SELF_HARM_PATTERNS: Final[tuple[str, ...]] = (
     "kendime zarar", "intihar", "olmek istiyorum", "yasamak istemiyorum",
     "canima kiymak", "kendimi oldur", "hayatima son", "yasamak istemiyor",
     "intihar etmek",
+    # Yöntem/dolaylı ifadeler (kendimi asacağım, ölsem daha iyi, yok olsam...):
+    "kendimi as", "kendimi kes", "bileklerimi kes", "olsem daha", "yok olsam",
+    "keske olmesem", "keske yok", "canima kiy", "kendime kiy",
 )
 _INJECTION_PATTERNS: Final[tuple[str, ...]] = (
     "onceki talimat", "talimatlari unut", "kurallari unut", "kurallari yok say",
@@ -146,6 +176,9 @@ _INJECTION_PATTERNS: Final[tuple[str, ...]] = (
     "admin yap", "rolundeymis gibi", "gibi davran", "ignore previous",
     "disregard previous", "yok say ve", "sistem promptunu", "kurallarini yaz",
     "kurallarini goster", "onceki mesajlari unut",
+    # İngilizce/karışık injection ve system-prompt sızdırma:
+    "prior instruction", "all prior", "ignore all", "system prompt",
+    "reveal the system", "reveal system", "onceki tum talimat",
 )
 _SEXUAL_TERMS: Final[frozenset[str]] = frozenset(
     {"seks", "porno", "ciplak", "cinsel", "tecavuz"}

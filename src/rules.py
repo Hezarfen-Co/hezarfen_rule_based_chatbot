@@ -89,7 +89,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "login_how", "groups": [
         {"all": ["giriş", "yap"], "none": ["yapamıyor", "giremiyor", "mesai"]},
-        {"all": ["log", "in"]},
+        {"all": ["log", "in"]}, {"all": ["giriş", "ekran"]},
     ]},
     {"intent": "logout_how", "groups": [
         {"all": ["oturum", "kapat"]}, {"all": ["sistemden", "çık"]},
@@ -97,6 +97,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "session_info", "groups": [
         {"all": ["oturum", "süre"]}, {"all": ["kaç", "gün", "geçerli"]},
+        {"all": ["oturum", "kaç", "gün"]}, {"all": ["oturum", "açık", "kal"]},
     ]},
     {"intent": "report_card_view", "groups": [
         {"all": ["karne"], "none": ["öğrenci", "başka", "birinin"]},
@@ -127,9 +128,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
     ]},
     {"intent": "course_create", "groups": [
-        {"all": ["yeni", "ders"], "none": ["saat", "oturum", "sınav"]},
-        {"all": ["ders", "oluştur"], "none": ["saat", "oturum", "sınav"]},
-        {"all": ["ders", "aç"], "none": ["saat", "oturum", "sınav"]},
+        {"all": ["yeni", "ders"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
+        {"all": ["ders", "oluştur"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
+        {"all": ["ders", "aç"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
         {"all": ["sınıf", "oluştur"]},
     ]},
     {"intent": "lesson_session_add", "groups": [
@@ -153,6 +154,11 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["öğrenci", "not", "gir"]}, {"all": ["notlandır"]},
         {"all": ["sınav", "puanla"]},
     ]},
+    {"intent": "exam_finish_result", "groups": [
+        # 'Sınav sonucu/sonucum' dönem karnesinden (report_card_view) AYRIDIR.
+        {"all": ["sınav", "sonuc"]}, {"all": ["sınav", "aldı"], "none": ["ödev"]},
+        {"all": ["sınav", "bitir", "kaç"]},
+    ]},
     {"intent": "event_create", "groups": [
         {"all": ["etkinlik", "oluştur"]}, {"all": ["etkinlik", "ekle"]},
         {"all": ["etkinlik", "planla"]},
@@ -173,16 +179,25 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["okul", "ayar"]}, {"all": ["not", "bant"]},
         {"all": ["sınav", "tür", "ağırlık"]},
     ]},
+    {"intent": "language_theme", "groups": [
+        # 'Dil/tema ayarı' kişiseldir; okul ayarından (school_settings 'okul' ister) AYRI.
+        {"all": ["dil", "ayar"]}, {"all": ["dil", "değiştir"], "none": ["okul"]},
+        {"all": ["dil", "seç"]}, {"all": ["tema"]}, {"all": ["ingilizce", "çevir"]},
+    ]},
     {"intent": "work_checkin_out", "groups": [
         {"all": ["mesai", "giriş"]}, {"all": ["mesai", "çık"]},
         {"all": ["işe", "gel"]},
-        # 'mesai kaydımı başlatırım' benzerlikte exam_enter_room'a kayıyordu.
+        # 'mesai kaydımı başlatırım/girerim' benzerlikte exam_enter_room'a kayıyordu.
         {"all": ["mesai", "başlat"]}, {"all": ["mesai", "başla"]},
+        {"all": ["mesai", "gir"]},
+        {"all": ["mesai", "kayd"], "none": ["düzenle", "personel", "yönet"]},
     ]},
     {"intent": "course_enroll_student", "groups": [
         {"all": ["derse", "kaydet"]}, {"all": ["öğrenci", "kaydet"]},
         {"all": ["derse", "öğrenci"], "none": ["çıkar", "sil"]},
         {"all": ["sınıfa", "öğrenci"]},
+        {"all": ["derse", "kaydol"]}, {"all": ["ders", "kaydol"]},
+        {"all": ["öğrenci", "kayd"], "none": ["çıkar", "sil", "iptal", "kaldır", "başka", "birinin"]},
     ]},
     # --- Aşama 11: kapsamı olmayan/karışan intent'ler için hedefli kurallar ---
     {"intent": "guide_info", "groups": [
@@ -199,7 +214,13 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "attendance_view", "groups": [
         {"all": ["devamsızlık", "gör"]}, {"all": ["devamsızlık", "durum"]},
-        {"all": ["yoklama", "geçmiş"]}, {"all": ["devam", "yüzde"]},
+        {"all": ["yoklama", "geçmiş"]},
+        {"all": ["devam", "yüzde"], "none": ["formül", "hesap", "nasıl"]},
+    ]},
+    {"intent": "attendance_rate_info", "groups": [
+        # Devam ORANININ HESABI (formül) — devamsızlık görüntülemeden ayrıdır.
+        {"all": ["devam", "hesap"]}, {"all": ["devam", "formül"]},
+        {"all": ["devam", "oran", "nasıl"]},
     ]},
     {"intent": "student_attendance_lookup", "groups": [
         {"all": ["öğrenci", "yoklama"]}, {"all": ["öğrenci", "devamsızlık"]},
@@ -255,6 +276,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "messages_use", "groups": [
         {"all": ["mesaj"]}, {"all": ["gelen", "kutusu"]},
+        {"all": ["öğretmen", "soru", "sor"]}, {"all": ["öğretmene", "sor"]},
     ]},
     {"intent": "study_club_info", "groups": [
         # 'etüde/kulübe' çekimlerinde ünsüz yumuşar (t->d, p->b); iki kök de tanınır.
