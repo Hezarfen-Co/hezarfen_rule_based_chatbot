@@ -69,17 +69,13 @@ ASK_CONFIDENCE: float = 0.30
 # (Metrikler etkilenmez: evaluate karar katmanını ölçer, bu sunum katmanıdır.)
 ASK_LOW_MARGIN_CONFIDENCE: float = 0.45
 ASK_LOW_MARGIN: float = 0.05
-# Top-1 ile Top-2 neredeyse EŞİTse (fark bu değerin altında) model iki intent'i
-# ayıramıyor demektir -> yüksek skor olsa bile tam cevap verme, netleştir (asla
-# yanlış). Yakın-eş yanlış cevabı önler (kullanıcının 'top1-top2 skor farkı' yöntemi).
-ASK_TIE_MARGIN: float = 0.02
 # Okul-dışı, net kapsam-dışı konu kelimeleri (FOLD edilmiş). Yalnızca KURAL
 # çarpmayıp benzerlik zayıf-eşleşme verdiğinde (ör. 'öğretmenime hediye ne alayım'
 # -> messages_use FP) netleştirmeye zorlar. Kısa ve gerçekten alan-dışı tutulur;
 # okul terimleriyle çakışmaz. Kalıcı çözüm: gömme-tabanlı OOS (bkz. kriterler.md).
 _FAR_OOS_TOPICS: frozenset[str] = frozenset({
     "hediye", "diyet", "kilo", "burc", "fal", "kripto", "bitcoin", "tarif",
-    "siir", "fikra", "mac", "sevgili", "flort",
+    "siir", "fikra", "mac", "sevgili", "flort", "mezun", "meslek", "kariyer",
 })
 
 # Düşük-margin "emin değilim" YALNIZCA ilk iki aday da sosyal/meta intent iken
@@ -1060,8 +1056,6 @@ class Engine:
                     and margin < ASK_LOW_MARGIN
                     and top2_social
                 )
-                # Top-1 ≈ Top-2: skor yüksek olsa da ayırt edilemiyor -> netleştir.
-                or (margin is not None and margin < ASK_TIE_MARGIN)
                 # Net okul-dışı konu (yalnız benzerlik) -> zayıf-eşleşme FP'sini kes.
                 or bool(_FAR_OOS_TOPICS.intersection(folded_tokens(effective_query)))
             )
