@@ -745,7 +745,14 @@ class Engine:
             and topk[0]["intent"] in _SOCIAL_INTENTS
             and topk[1]["intent"] in _SOCIAL_INTENTS
         )
-        ask_mode = pure_negation or (
+        # Tek kelimelik belirsiz sorgu (ör. "Ayarlar", "Sınav") KURAL değil similarity
+        # ile eşleşiyorsa tam cevap verme -> netleştir + öneri (asla yanlış).
+        single_word_similarity = (
+            not response.fallback
+            and dec["source"] == "similarity"
+            and len(effective_query.split()) == 1
+        )
+        ask_mode = pure_negation or single_word_similarity or (
             not response.fallback
             and dec["source"] == "similarity"
             and (

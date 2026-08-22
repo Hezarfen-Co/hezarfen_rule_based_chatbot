@@ -414,7 +414,9 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
     profanity = _matched_root(prof_tokens, STRONG_PROFANITY)
     if insult or profanity:
         # Eğitim/alıntı bağlamı -> izin.
-        educational = any(m in tokens for m in _EDU_MARKERS) or "'" in message or '"' in message
+        educational = any(m in tokens for m in _EDU_MARKERS) or any(
+            q in message for q in ("'", '"', "‘", "’", "“", "”")
+        )
         if educational:
             return _make(ALLOW, "PROFANITY_EDUCATIONAL", 0, "SAFE-PROF-000",
                          "", matched=[insult or profanity])

@@ -130,7 +130,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "course_create", "groups": [
         {"all": ["yeni", "ders"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
         {"all": ["ders", "oluştur"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
-        {"all": ["ders", "aç"], "none": ["saat", "oturum", "sınav", "öğrenci"]},
+        {"all": ["ders", "aç"], "none": ["saat", "oturum", "sınav", "öğrenci", "liste"]},
         {"all": ["sınıf", "oluştur"]},
     ]},
     {"intent": "lesson_session_add", "groups": [
@@ -149,6 +149,20 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "exam_add_question", "groups": [
         {"all": ["soru", "ekle"]}, {"all": ["soru", "oluştur"]},
         {"all": ["seçmeli", "soru"]},
+        # Öğretmenin doğru şıkkı belirlemesi = soru tanımlama (cevap kaydetme DEĞİL).
+        {"all": ["doğru", "şık"]},
+    ]},
+    {"intent": "exam_save_answer", "groups": [
+        {"all": ["cevab", "kaydet"]}, {"all": ["cevap", "kaydet"]},
+        {"all": ["şık", "seç"]}, {"all": ["işaretle", "cevab"]},
+    ]},
+    {"intent": "exam_live_monitor", "groups": [
+        {"all": ["sınav", "takip"]}, {"all": ["anlık", "takip"]},
+        {"all": ["sınav", "izle"]}, {"all": ["canlı", "izle"]},
+    ]},
+    {"intent": "course_view", "groups": [
+        {"all": ["ders", "liste"], "none": ["oluştur", "yeni", "öğrenci", "not"]},
+        {"all": ["derslerim"], "none": ["oluştur", "not"]},
     ]},
     {"intent": "exam_grade_student", "groups": [
         {"all": ["öğrenci", "not", "gir"]}, {"all": ["notlandır"]},
@@ -170,6 +184,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "user_role_change", "groups": [
         {"all": ["rol", "değiştir"]}, {"all": ["rol", "ata"]},
         {"all": ["yetki", "yükselt"]}, {"all": ["kullanıcı", "rol"]},
+        {"all": ["kullanıcı", "admin"]}, {"all": ["admin", "yap"], "none": ["beni"]},
     ]},
     {"intent": "term_manage", "groups": [
         {"all": ["dönem", "oluştur"]}, {"all": ["akademik", "dönem"]},
@@ -257,7 +272,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "homework_grade", "groups": [
         {"all": ["ödev", "notland"]}, {"all": ["ödev", "değerlendir"]},
         {"all": ["ödev", "puan"]},
-        {"all": ["ödev", "not", "ver"]}, {"all": ["ödev", "not", "gir"]},
+        {"all": ["ödev", "not", "ver"], "none": ["bak", "aldı", "nereden"]},
+        {"all": ["ödev", "not", "gir"], "none": ["bak", "aldı"]},
     ]},
     # --- Backend v2: pomodoro / mesajlar / etüt-kulüp / veli ---
     {"intent": "pomodoro_use", "groups": [
