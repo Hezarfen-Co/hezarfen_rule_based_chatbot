@@ -134,19 +134,22 @@ class KnownLimitTests(unittest.TestCase):
         resp2 = ask("karne değil, kendi devamsızlığımı görmek istiyorum")
         self.assertEqual(resp2["intent"], "attendance_view")
 
-    def test_pure_imperative_negation_is_known_limit(self) -> None:
-        # BİLİNEN SINIR: '-ma/-me' isim-fiil belirsizliği yüzünden saf olumsuz
-        # komut ('notlarımı gösterme') hâlâ olumlu gibi ele alınır. (Zararsız: bot
-        # veri göstermez.) Açık işaretli ('istemiyorum'/'değil') olumsuzluk çözülür.
+    def test_pure_imperative_negation_clarifies(self) -> None:
+        # Dar saf-olumsuz komut ('gösterme'/'gizleme') artık uygulanmaz -> netleştir
+        # (asla yanlış). Yaygın isim-fiiller (oluşturma/ekleme) HARİÇ bırakıldığı
+        # için 'Ders oluşturma nerede?' etkilenmez.
         resp = ask("notlarımı gösterme")
-        self.assertEqual(resp["intent"], "report_card_view")
+        self.assertIsNone(resp["intent"])
 
-    def test_multi_intent_needs_rule_backed_segments(self) -> None:
-        # Çoklu-istek desteği KURAL tabanlı parçalarla sınırlı: 'sınav modları
-        # nelerdir' parçası kurala çarpmaz (yalnız benzerlik intent'i) -> bu cümle
-        # tek cevap alır. Kural-tabanlı parçalar ('sınav oluştur ve yoklama al' ya
-        # da 'sınav oluştur ve öğrenci kaydet') hepsi yanıtlanır (bkz.
-        # test_engine.MultiIntentTests).
+    def test_multi_intent_both_rule_backed_answered(self) -> None:
+        # İki parça da KURAL-tabanlı olduğunda çoklu-istek hepsini yanıtlar
+        # ('sınav modları' artık exam_modes_info kuralına çarpıyor).
+        resp = ask("sınav oluştur ve sınav modları nelerdir", "ogretmen")
+        self.assertIsNotNone(resp["answers"])
+        intents = {a["intent"] for a in resp["answers"]}
+        self.assertIn("exam_create", intents)
+        self.assertIn("exam_modes_info", intents)
+        return
         resp = ask("sınav oluştur ve sınav modları nelerdir", "ogretmen")
         self.assertIsNone(resp["answers"])
         self.assertEqual(resp["intent"], "exam_create")

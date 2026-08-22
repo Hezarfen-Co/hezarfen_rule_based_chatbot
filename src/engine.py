@@ -107,11 +107,20 @@ _ROLE_NAME_ALIASES: dict[str, str] = {
 
 
 def _parse_session(payload: dict[str, Any]) -> tuple[str, bool]:
-    session = payload.get("session") or {}
+    session = payload.get("session")
+    if session is None:
+        session = {}
+    if not isinstance(session, dict):
+        raise RequestError(f"session bir sözlük olmalı, {type(session).__name__} geldi.")
     role = session.get("role", "ziyaretci")
     if isinstance(role, str):
         role = _ROLE_NAME_ALIASES.get(role.lower(), role)
-    authenticated = bool(session.get("authenticated", role != "ziyaretci"))
+    # authenticated KESİN boolean olmalı: string "false" bool("false")=True ile auth
+    # bypass'ı yaratmasın -> bozuk tip temiz RequestError.
+    auth_raw = session.get("authenticated", role != "ziyaretci")
+    if not isinstance(auth_raw, bool):
+        raise RequestError("session.authenticated bir boolean olmalı.")
+    authenticated = auth_raw
     if role not in ROLE_HIERARCHY:
         raise RequestError(f"Bilinmeyen rol: {role!r}")
     if role == "ziyaretci" and authenticated:
@@ -187,6 +196,16 @@ _NEG_MARKERS: tuple[str, ...] = (
     "istemiyorum", "istemem", "istemez", "istemedim", "istemiyor",
     "sormuyorum", "etmeyeceğim", "yapmayacağım", "vermeyeceğim", "istemiyoruz",
 )
+# Dar/tek-anlamlı saf-olumsuz komutlar ('notlarımı gösterme'): '-ma/-me' isim-fiil
+# belirsizliği DÜŞÜK olanlar (oluşturma/ekleme gibi yaygın isim-fiiller HARİÇ) +
+# soru kelimesi yoksa -> saf olumsuz kabul edilir (uygula-ma, netleştir).
+_PURE_NEG_IMPERATIVES: frozenset[str] = frozenset({"gösterme", "gizleme"})
+_QUESTION_WORDS: frozenset[str] = frozenset({
+    "nerede", "nereden", "nasıl", "nedir", "ne", "hangi", "kaç", "mi", "mı",
+    "mu", "mü", "neden", "kim", "sayfa", "var",
+})
+
+
 def _clause_negated(clause: str) -> bool:
     # Yalnız AÇIK/tek-anlamlı olumsuzluk işaretleri. '-ma/-me' ekli fiiller
     # (gösterme, oluşturma...) Türkçede aynı zamanda İSİM-FİİLdir (oluşturma =
@@ -204,6 +223,11 @@ def _resolve_negation(query: str) -> str:
     matches = list(re.finditer("değil", query, re.IGNORECASE))
     if matches:
         return query[matches[-1].end():].lstrip(" ,;:.-").strip()
+    # Dar saf-olumsuz komut ('notlarımı gösterme') + soru kelimesi yok -> uygulama.
+    low_toks = re.findall(r"[a-zçğıöşü]+", query.casefold())
+    if (any(t in _PURE_NEG_IMPERATIVES for t in low_toks)
+            and not any(t in _QUESTION_WORDS for t in low_toks)):
+        return ""
     if not _clause_negated(query):
         return query  # olumsuzluk yok -> değişmez (normal sorgular etkilenmez)
     kept = [p.strip() for p in re.split(r"[;,]", query)

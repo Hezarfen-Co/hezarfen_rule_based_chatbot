@@ -57,7 +57,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["hezarfen", "nedir"]}, {"all": ["hezarfen", "ne"]},
         {"all": ["hezarfen", "tanıt"]}, {"all": ["hazerfen"]},
         {"all": ["bu", "site", "nedir"]}, {"all": ["bu", "uygulama", "nedir"]},
-        {"all": ["bu", "platform"]},
+        {"all": ["bu", "platform"]}, {"all": ["hezafen"]},
     ]},
     {"intent": "help_capabilities", "groups": [
         {"all": ["neler", "yapabil"], "none": ["yönetici", "öğretmen", "rol", "yetki"]},
@@ -71,7 +71,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["rol", "nedir"]}, {"all": ["kim", "yetki"]},
         # 'Rolüm ne?' — kendi rolünü sorma ('rolümü değiştir' user_role_change'in
         # 2'lik kuralına takılır, o kazanır).
-        {"all": ["rolüm"]},
+        {"all": ["rolüm"]}, {"all": ["rol", "fark"]},
     ]},
     {"intent": "privacy_security", "groups": [
         {"all": ["arkadaş"]}, {"all": ["başka", "öğrenci"]},
@@ -79,6 +79,16 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["başka", "karne"]}, {"all": ["başka", "telefon"]},
         {"all": ["öğretmen", "telefon"]}, {"all": ["herkes", "not"]},
         {"all": ["birinin", "karne"]},
+        # 3. şahıs iyelik + veri kelimesi = gizlilik; spec-2 ile benzerlik/attendance
+        # beraberliğini bozup DAİMA privacy'ye götürür (hard gate, asla kaçmaz).
+        {"all": ["arkadaş", "devamsız"]}, {"all": ["arkadaş", "yoklama"]},
+        {"all": ["arkadaş", "not"]}, {"all": ["arkadaş", "karne"]},
+        {"all": ["arkadaş", "ortalama"]}, {"all": ["arkadaş", "puan"]},
+        {"all": ["başka", "devamsız"]}, {"all": ["başka", "yoklama"]},
+        {"all": ["başka", "not"]}, {"all": ["başka", "ortalama"]},
+        {"all": ["başka", "puan"]},
+        {"all": ["birinin", "devamsız"]}, {"all": ["birinin", "yoklama"]},
+        {"all": ["birinin", "not"]}, {"all": ["birinin", "ortalama"]},
     ]},
     {"intent": "account_access_problem", "groups": [
         {"all": ["şifre", "unut"]}, {"all": ["şifre", "yanlış"]},
@@ -124,8 +134,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin", "notum", "notlarım"]},
         {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin", "notum", "notlarım"]},
         # İsimli 3. şahıs how-to ("Ali'nin notlarına nasıl bakarım") — öğretmen+; 1. şahıs hariç.
-        {"all": ["not", "nasıl", "bak"], "none": ["notum", "notlarım", "karnem", "kendi", "benim"]},
-        {"all": ["dönem", "not", "bak"], "none": ["notum", "notlarım", "karnem", "benim"]},
+        {"all": ["not", "nasıl", "bak"], "none": ["notum", "notlarım", "karnem", "kendi", "benim", "başka", "birinin", "arkadaş"]},
+        {"all": ["dönem", "not", "bak"], "none": ["notum", "notlarım", "karnem", "benim", "başka", "birinin", "arkadaş"]},
     ]},
     {"intent": "note_create", "groups": [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
@@ -146,7 +156,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["devam", "kontrol"]},
     ]},
     {"intent": "exam_create", "groups": [
-        {"all": ["sınav", "oluştur"]}, {"all": ["yeni", "sınav"]},
+        {"all": ["sınav", "oluştur"], "none": ["mod", "anlat"]}, {"all": ["yeni", "sınav"]},
         {"all": ["sınav", "hazırla"]}, {"all": ["yazılı", "oluştur"]},
     ]},
     {"intent": "exam_add_question", "groups": [
@@ -167,6 +177,17 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["ders", "liste"], "none": ["oluştur", "yeni", "öğrenci", "not"]},
         {"all": ["derslerim"], "none": ["oluştur", "not"]},
     ]},
+    {"intent": "exam_enter_room", "groups": [
+        {"all": ["sınav", "gir"], "none": ["oluştur", "sonuc", "aldı", "takvim", "tarih", "geri", "ikinci", "kez", "tekrar", "yeniden", "hak"]},
+        {"all": ["exam", "gir"]}, {"all": ["exam", "nasıl"]},
+    ]},
+    {"intent": "exam_modes_info", "groups": [
+        {"all": ["sınav", "mod"]}, {"all": ["senkron", "sınav"]}, {"all": ["asenkron", "sınav"]},
+    ]},
+    {"intent": "exam_rejoin_retake", "groups": [
+        {"all": ["geri", "gir"], "none": ["mesai"]}, {"all": ["yeniden", "gir"]},
+        {"all": ["bağlantı", "kop"]}, {"all": ["tekrar", "gir"], "none": ["mesai"]},
+    ]},
     {"intent": "exam_grade_student", "groups": [
         {"all": ["öğrenci", "not", "gir"]}, {"all": ["notlandır"]},
         {"all": ["sınav", "puanla"]},
@@ -183,6 +204,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         # 'etkinlik' önekiyle EŞLEŞMEZ (g!=k); bu morfolojik varyantı tamamla.
         {"all": ["etkinliğ", "oluştur"]}, {"all": ["etkinliğ", "ekle"]},
         {"all": ["etkinliğ", "planla"]},
+        {"all": ["etkinlik", "ekl"]}, {"all": ["etkinliğ", "ekl"]},
     ]},
     {"intent": "user_role_change", "groups": [
         {"all": ["rol", "değiştir"]}, {"all": ["rol", "ata"]},
@@ -207,8 +229,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["işe", "gel"]},
         # 'mesai kaydımı başlatırım/girerim' benzerlikte exam_enter_room'a kayıyordu.
         {"all": ["mesai", "başlat"]}, {"all": ["mesai", "başla"]},
-        {"all": ["mesai", "gir"]},
+        {"all": ["mesai", "gir"]}, {"all": ["mesai", "aç"], "none": ["personel", "yönet", "düzenle"]},
         {"all": ["mesai", "kayd"], "none": ["düzenle", "personel", "yönet"]},
+        {"all": ["mesay"], "none": ["personel", "yönet", "düzenle"]},
     ]},
     {"intent": "course_enroll_student", "groups": [
         {"all": ["derse", "kaydet"]}, {"all": ["öğrenci", "kaydet"]},
@@ -216,6 +239,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["sınıfa", "öğrenci"]},
         {"all": ["derse", "kaydol"]}, {"all": ["ders", "kaydol"]},
         {"all": ["öğrenci", "kayd"], "none": ["çıkar", "sil", "iptal", "kaldır", "başka", "birinin"]},
+        {"all": ["derse", "ekle"], "none": ["oluştur", "çıkar", "sil"]},
     ]},
     # --- Aşama 11: kapsamı olmayan/karışan intent'ler için hedefli kurallar ---
     {"intent": "guide_info", "groups": [
@@ -234,6 +258,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["devamsızlık", "gör"]}, {"all": ["devamsızlık", "durum"]},
         {"all": ["yoklama", "geçmiş"]},
         {"all": ["devam", "yüzde"], "none": ["formül", "hesap", "nasıl"]},
+        # 'devamsız...' kökü (devamsızlığımı) yazım hatalarına dayanıklı; öğrenci-3.şahıs hariç.
+        {"all": ["devamsız"], "none": ["öğrenci", "başka", "birinin", "yazıl", "sayıl", "kural", "geç"]},
     ]},
     {"intent": "attendance_rate_info", "groups": [
         # Devam ORANININ HESABI (formül) — devamsızlık görüntülemeden ayrıdır.
@@ -244,8 +270,8 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["öğrenci", "yoklama"]}, {"all": ["öğrenci", "devamsızlık"]},
         {"all": ["öğrenci", "devam", "durum"]},
         # İsimli 3. şahıs how-to ("Ayşe'nin devamsızlık kaydına nasıl bakarım") — öğretmen+.
-        {"all": ["devamsız", "nasıl", "bak"], "none": ["devamsızlığım", "kendi", "benim"]},
-        {"all": ["yoklama", "nasıl", "bak"], "none": ["yoklamam", "kendi", "benim"]},
+        {"all": ["devamsız", "nasıl", "bak"], "none": ["devamsızlığım", "kendi", "benim", "başka", "birinin", "arkadaş"]},
+        {"all": ["yoklama", "nasıl", "bak"], "none": ["yoklamam", "kendi", "benim", "başka", "birinin", "arkadaş"]},
     ]},
     {"intent": "event_attendance_mark", "groups": [
         {"all": ["etkinlik", "katıl"]}, {"all": ["etkinlik", "yoklama"]},
@@ -267,6 +293,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["ödev", "gönder"]}, {"all": ["ödev", "yükle"]},
         {"all": ["ödev", "teslim"], "none": [
             "takip", "notland", "değerlendir", "puan", "not"]},
+        {"all": ["ödev", "yol"], "none": ["notland", "değerlendir", "puan"]},
     ]},
     {"intent": "homework_assign", "groups": [
         {"all": ["ödev", "oluştur"]}, {"all": ["ödev", "ekle"]},
@@ -299,6 +326,7 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "messages_use", "groups": [
         {"all": ["mesaj"]}, {"all": ["gelen", "kutusu"]},
         {"all": ["öğretmen", "soru", "sor"]}, {"all": ["öğretmene", "sor"]},
+        {"all": ["msj"]}, {"all": ["mesj"]},
     ]},
     {"intent": "study_club_info", "groups": [
         # 'etüde/kulübe' çekimlerinde ünsüz yumuşar (t->d, p->b); iki kök de tanınır.
