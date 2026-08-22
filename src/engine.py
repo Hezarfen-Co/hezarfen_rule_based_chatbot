@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
+from . import dialog_state
 from . import rules
 from . import safety as safety_mod
 from .catalog import (
@@ -648,8 +649,30 @@ class Engine:
         self._matcher = matcher
         self._log_sink = log_sink
         self._rate_limiter = rate_limiter
+        # Çok-turlu diyalog durumu, session.user_id ile anahtarlanır (üretimde her
+        # kullanıcı ayrı). user_id yoksa durum tutulmaz -> stateless (paylaşılan
+        # motorda kullanıcılar arası sızıntı olmaz). Bkz. dialog_state.py.
+        self._dialog: dict[str, "dialog_state.DialogState"] = {}
 
     def handle(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Diyalog-durumu sarmalayıcısı: önceki durumu okur, işler, durumu günceller.
+
+        Durum güncellemesi burada TEK yerde yapılır (``_run`` içindeki çok sayıda
+        erken-return'ü etkilemeden); ``_run`` prior durumu okur, biz sonra yazarız."""
+
+        session = payload.get("session")
+        user_id = session.get("user_id") if isinstance(session, dict) else None
+        result = self._run(payload)
+        if user_id is not None:
+            key = str(user_id)
+            prior = self._dialog.get(key)
+            query = payload.get("query")
+            self._dialog[key] = dialog_state.next_state(
+                prior, query if isinstance(query, str) else "", result
+            )
+        return result
+
+    def _run(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Bir istek payload'ını işleyip yanıt sözleşmesi döndürür.
 
         Akış: içerik-güvenliği giriş kapısı -> (gerekirse kısa devre) -> boru hattı
@@ -774,6 +797,21 @@ class Engine:
         effective_query = query
         if safety.decision == safety_mod.MASK_AND_ALLOW and safety.masked_message:
             effective_query = safety.masked_message
+
+        # 1.51) Çok-turlu diyalog takibi: önceki tura göre çöz (onay/sıra "ilki",
+        # devam "peki sonra?", itiraz "orada yok", not/karne bağlamında çıplak ad).
+        # Çözülürse ilgili intent'in KANONİK sorgusuna çevrilir; kalan adımlar (sosyal
+        # önek/olumsuzluk/kapsam/çoklu) kanonikten zararsız geçer. Yalnız user_id varsa.
+        _uid = (payload.get("session") or {}).get("user_id")
+        if _uid is not None:
+            _prior = self._dialog.get(str(_uid))
+            if _prior is not None:
+                _rule_hit = get_role_space(role).rule_matcher.match(query) is not None
+                _resolved = dialog_state.resolve(_prior, query, role, _rule_hit)
+                if _resolved is not None:
+                    _canon = dialog_state.canonical_query(_resolved)
+                    if _canon:
+                        effective_query = _canon
 
         # 1.52) Sosyal önek: "Merhaba, karnemi nerede görürüm?" -> selam kısmını soy,
         # görevi yönlendir. YALNIZCA kalan görev KURAL katmanına (yüksek-kesinlik)
