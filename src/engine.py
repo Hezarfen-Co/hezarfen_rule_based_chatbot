@@ -136,6 +136,61 @@ def _parse_session(payload: dict[str, Any]) -> tuple[str, bool]:
 # Çoklu-istek ayracı: 've', 'ayrıca' bağlaçları + virgül/noktalı virgül.
 _MULTI_SPLIT_RE: re.Pattern[str] = re.compile(r"\s+(?:ve|ayrıca)\s+|[;,]", re.IGNORECASE)
 
+# --- Sosyal önek soyma ------------------------------------------------------
+# "Merhaba, karnemi nerede görürüm?" -> selam kısmı GÖREVİ gizlememeli. Baştaki
+# yalnızca-sosyal cümlecikleri + söylem belirteçlerini soyup kalan görev cümlesini
+# yönlendiririz. Kalan boşsa (saf selam/teşekkür) sorgu aynen döner -> greeting/thanks
+# doğru cevaptır. Anahtarlar FOLD edilmiş (aksansız) biçimde tutulur (folded_tokens).
+_SOCIAL_LEAD: frozenset[str] = frozenset({
+    "merhaba", "merhabalar", "selam", "selamlar", "selamun", "aleykum", "aleykm",
+    "naber", "nbr", "napiyorsun", "napiyosun", "nasilsin", "hey", "alo", "sa", "as",
+    "gunaydin", "iyi", "gunler", "aksamlar", "sabahlar", "gun",
+    "tesekkur", "tesekkurler", "tesekkurederim", "sagol", "sagolun", "sag", "ol",
+    "eyvallah", "rica", "ederim", "etsem", "lutfen", "acaba", "pardon",
+    "affedersin", "affedersiniz", "dostum", "hocam", "kanka", "kardesim", "kardes",
+    "abi", "abicim", "peki", "ee", "eee", "sey", "yani", "birde", "de", "da", "bi",
+})
+# Token bazlı baştan-soyma için DAHA MUHAFAZAKÂR küme (tek başına anlamı görev
+# olabilecek 'iyi/gunler/de/da/bi/sag/ol' hariç -> yanlış soyma yok).
+_SOCIAL_LEAD_TOKEN: frozenset[str] = frozenset({
+    "merhaba", "merhabalar", "selam", "selamlar", "naber", "nbr", "hey", "alo",
+    "gunaydin", "tesekkur", "tesekkurler", "tesekkurederim", "sagol", "sagolun",
+    "eyvallah", "rica", "etsem", "lutfen", "pardon", "affedersin", "affedersiniz",
+    "dostum", "hocam", "kanka", "kardesim", "abi", "abicim", "peki", "ee", "eee",
+    "sey", "yani", "acaba",
+})
+
+
+def _strip_social_prefix(query: str) -> str:
+    """Baştaki sosyal/nezaket önekini soyup kalan görev cümlesini döndürür.
+
+    Yalnızca sorgunun BAŞINDAki yalnızca-sosyal cümlecikleri ve söylem kelimelerini
+    atar; görev kısmı hiç değiştirilmez. Kalan boşsa sorgu aynen döner.
+    """
+
+    # 1) Baştaki yalnızca-sosyal cümlecikleri (virgül/;) at.
+    clauses = [c for c in re.split(r"\s*[;,]\s*", query.strip())]
+    while len(clauses) > 1:
+        toks = folded_tokens(clauses[0])
+        if toks and all(t in _SOCIAL_LEAD for t in toks):
+            clauses.pop(0)
+        else:
+            break
+    residual = ", ".join(clauses).strip()
+
+    # 2) Baştaki sosyal/söylem KELİMELERİNİ tek tek at; ilk görev kelimesinde dur.
+    words = residual.split()
+    i = 0
+    while i < len(words):
+        folded = folded_tokens(words[i])
+        key = folded[0] if folded else ""
+        if key in _SOCIAL_LEAD_TOKEN:
+            i += 1
+        else:
+            break
+    stripped = " ".join(words[i:]).strip()
+    return stripped if stripped else query
+
 
 def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[str, str]] | None:
     """Sorgu birden çok BAĞIMSIZ isteğe bölünüyor mu? -> [(parça, intent), ...].
@@ -157,8 +212,8 @@ def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[st
         if match is not None and match.intent not in seen:
             seen.add(match.intent)
             hits.append((segment, match.intent))
-        if len(hits) == 3:
-            break
+    # >3 farklı işlem: tek yanıtta net anlatmak güç -> çağıran netleştirmeye düşürür
+    # (asla yarım/yanlış cevap). 2-3 parça yanıtlanır. <2 -> çoklu değil (None).
     return hits if len(hits) >= 2 else None
 
 
@@ -185,6 +240,33 @@ def _declared_role(query: str) -> str | None:
         elif tok not in _ROLE_DECL_FILLER:
             return None  # rol/doldurma olmayan bir kelime -> beyan değil
     return found
+
+
+def _role_correction(query: str) -> str | None:
+    """Rol DÜZELTMESİ ('Öğretmen değilim, öğrenciyim') -> onaylanan (son) rol.
+
+    Yalnız kısa, salt rol+olumsuzluk cümlelerinde devreye girer; görev içeren
+    sorgular ('öğretmen değil öğrenci kaydını sil') HARİÇ (rol/olumsuzluk/doldurma
+    dışı bir kelime görülünce None). Böylece yanlış işleme YOK; kullanıcının rolünü
+    bilgi olarak alır (intent None)."""
+
+    toks = folded_tokens(query)
+    if not toks or len(toks) > 6:
+        return None
+    if not any(t.startswith("degil") for t in toks):
+        return None
+    roles: list[str] = []
+    for tok in toks:
+        matched = None
+        for stem, canonical in ROLE_ALIASES.items():
+            if tok == stem or (len(stem) >= 4 and tok.startswith(stem)):
+                matched = canonical
+                break
+        if matched is not None:
+            roles.append(matched)
+        elif not (tok.startswith("degil") or tok in _ROLE_DECL_FILLER):
+            return None  # rol/olumsuzluk/doldurma dışı kelime -> düzeltme değil
+    return roles[-1] if roles else None
 
 
 # --- Olumsuzluk (negation) çözümü ------------------------------------------
@@ -256,6 +338,25 @@ def _unavailable_feature(query: str) -> str | None:
         if keyword in low:
             return label
     return None
+
+
+# --- Kapsam sınırı: canlı VERİ çekme isteği ---------------------------------
+# Çelebi gerçek veriyi getirmez/göstermez; yalnızca "nasıl yaparım" anlatır (bkz.
+# PROJECT_STATE kapsam-dışı). "Öğrenci listemi buraya getir", "toplam kaç kullanıcı
+# var" gibi VERİ-çekme/sayım istekleri yanlış bir sayfaya yönlendirilmez; dürüstçe
+# "gerçek veriyi getiremem, yalnızca nasıl yapılacağını anlatırım" denir (asla yanlış).
+_DATA_FETCH_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"gerçek\b.*\b(getir|göster|listele|ver\b|çek)", re.IGNORECASE),
+    re.compile(r"\b(buraya|bana)\s+getir", re.IGNORECASE),
+    re.compile(r"liste(m|mi|sini|yi)\b.*\b(getir|çıkar|ver|göster)", re.IGNORECASE),
+    re.compile(r"\btoplam\s+kaç\b", re.IGNORECASE),
+    re.compile(r"\bkaç\s+(kullanıcı|öğrenci|öğretmen|kişi|veli)\b.*\bvar\b", re.IGNORECASE),
+    re.compile(r"\b(sistemde|veritabanında|kayıtlı)\b.*\bkaç\b", re.IGNORECASE),
+)
+
+
+def _is_data_fetch_request(query: str) -> bool:
+    return any(p.search(query) for p in _DATA_FETCH_PATTERNS)
 
 
 def _build_navigation(
@@ -336,11 +437,16 @@ def assistant_meta_from_result(result: dict[str, Any], role: str) -> dict[str, A
     clarification = None
     existing_clarification = result.get("clarification")
     if outcome == "clarify" and isinstance(existing_clarification, dict):
-        options = [
-            str(candidate.get("intent"))
-            for candidate in existing_clarification.get("candidates", [])
-            if isinstance(candidate, dict) and candidate.get("intent")
-        ]
+        # Seçenekler kullanıcıya İNSANİ etiketle sunulur; ham intent id (snake_case)
+        # ASLA yayımlanmaz (frontend çipe basınca 'anlamadım'a düşerdi -> B07/#12).
+        # Çip tıklaması etiket/soruyla yeniden sorulur; action_id yalnız yönlendirme
+        # metadatasıdır (kullanıcı-görünür değil).
+        options = []
+        for candidate in existing_clarification.get("candidates", []):
+            if not (isinstance(candidate, dict) and candidate.get("intent")):
+                continue
+            label = candidate.get("label") or str(candidate["intent"]).replace("_", " ")
+            options.append({"action_id": candidate["intent"], "label": label})
         clarification = {"prompt": CLARIFICATION_PROMPT_TEXT, "options": options}
 
     return {
@@ -599,7 +705,7 @@ class Engine:
         # Rol beyanı/sorusu BİLGİ amaçlıdır: sorulan rolün yeteneklerini anlatır,
         # oturumun gerçek yetkisini (gating) ASLA değiştirmez. Doğrulanmış bir öğrenci
         # 'admin' yazarsa admin yeteneklerini bilgi olarak görür, admin OLMAZ.
-        declared = _declared_role(query)
+        declared = _declared_role(query) or _role_correction(query)
         served_declaration = declared
         caps = capabilities_for(served_declaration) if served_declaration else None
         if caps:
@@ -631,6 +737,15 @@ class Engine:
         if safety.decision == safety_mod.MASK_AND_ALLOW and safety.masked_message:
             effective_query = safety.masked_message
 
+        # 1.52) Sosyal önek: "Merhaba, karnemi nerede görürüm?" -> selam kısmını soy,
+        # görevi yönlendir. YALNIZCA kalan görev KURAL katmanına (yüksek-kesinlik)
+        # çarpıyorsa soyulur; aksi halde 'naber nasıl gidiyor' / 'teşekkür ederim'
+        # gibi saf sosyal ifadeler yanlışlıkla bölünmez -> greeting/thanks kalır.
+        _stripped = _strip_social_prefix(effective_query)
+        if (_stripped != effective_query
+                and get_role_space(role).rule_matcher.match(_stripped) is not None):
+            effective_query = _stripped
+
         # 1.55) Olumsuzluk: "A değil/istemiyorum, B istiyorum" -> B'ye göre yanıtla;
         # saf olumsuz komut ("notlarımı gösterme") -> uygulama, netleştir (asla yanlış).
         _neg_resolved = _resolve_negation(effective_query)
@@ -661,9 +776,70 @@ class Engine:
             }
             return _attach_assistant_meta(result, role)
 
+        # 1.58) Kapsam sınırı: canlı VERİ çekme/sayım isteği -> yanlış sayfaya
+        # yönlendirme YOK; dürüstçe "gerçek veriyi getiremem, yalnızca nasıl".
+        if _is_data_fetch_request(effective_query):
+            text = (
+                "Ben gerçek veriyi getiremem, gösteremem ya da göremem; sistemdeki "
+                "canlı kayıtları bilemiyorum 🙂 Yalnızca nasıl yapılacağını adım adım "
+                "anlatabilirim. Örneğin \"öğrenci listesini nereden görürüm?\" diye "
+                "sorarsan, ilgili sayfayı ve adımları söyleyeyim."
+            )
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "data_fetch_scope", "response_id": "data_fetch_unsupported",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "data_fetch_unsupported",
+                "text": _with_brand_note(text, query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)
+        # >4 farklı işlem tek turda: net anlatmak güç -> netleştir (asla yarım cevap).
+        if segments is not None and len(segments) > 4:
+            text = (
+                "Aynı anda birkaç işlem istedin gibi 🙂 Her birini net anlatabilmem "
+                "için tek tek sorar mısın? Örneğin önce \"sınav nasıl oluşturulur?\" "
+                "diye başlayabilir, sonra diğerlerini sırayla sorabilirsin."
+            )
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "multi_intent_overflow",
+                    "intents": [i for _s, i in segments], "response_id": "clarification_prompt",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "clarification_prompt",
+                "text": _with_brand_note(text, query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
         if segments is not None:
+            segments = segments[:4]
             answers: list[dict[str, Any]] = []
             parts: list[str] = []
             for order, (segment, _intent) in enumerate(segments, start=1):

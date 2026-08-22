@@ -118,6 +118,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         # (exam_finish_result) gibi belirsizlikler var; onları similarity + rol
         # tie-break çözer (kural katmanı yüksek-kesinlik kalsın).
         {"all": ["karnem"], "none": ["başka", "birinin"]},
+        # "notum kaç / notum ne" = kendi not değerini soruyor -> karne akışı (net;
+        # 'notumu sınavdan sonra görürüm' gibi belirsizlerde 'kaç/ne' yok, muaf kalır).
+        {"all": ["notum", "kaç"]}, {"all": ["notum", "ne"], "none": ["nereden", "nasıl"]},
     ]},
     {"intent": "weighted_average_info", "groups": [
         {"all": ["ortalama", "hesap"]}, {"all": ["ağırlık", "ortalama"]},
