@@ -123,6 +123,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["öğrenci", "not", "gör"], "none": ["başka", "birinin", "notum", "notlarım"]},
         {"all": ["öğrenci", "not", "sorgu"], "none": ["başka", "birinin", "notum", "notlarım"]},
         {"all": ["öğrenci", "not", "bak"], "none": ["başka", "birinin", "notum", "notlarım"]},
+        # İsimli 3. şahıs how-to ("Ali'nin notlarına nasıl bakarım") — öğretmen+; 1. şahıs hariç.
+        {"all": ["not", "nasıl", "bak"], "none": ["notum", "notlarım", "karnem", "kendi", "benim"]},
+        {"all": ["dönem", "not", "bak"], "none": ["notum", "notlarım", "karnem", "benim"]},
     ]},
     {"intent": "note_create", "groups": [
         {"all": ["defter"]}, {"all": ["yeni", "not"]}, {"all": ["not", "oluştur"]},
@@ -240,6 +243,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "student_attendance_lookup", "groups": [
         {"all": ["öğrenci", "yoklama"]}, {"all": ["öğrenci", "devamsızlık"]},
         {"all": ["öğrenci", "devam", "durum"]},
+        # İsimli 3. şahıs how-to ("Ayşe'nin devamsızlık kaydına nasıl bakarım") — öğretmen+.
+        {"all": ["devamsız", "nasıl", "bak"], "none": ["devamsızlığım", "kendi", "benim"]},
+        {"all": ["yoklama", "nasıl", "bak"], "none": ["yoklamam", "kendi", "benim"]},
     ]},
     {"intent": "event_attendance_mark", "groups": [
         {"all": ["etkinlik", "katıl"]}, {"all": ["etkinlik", "yoklama"]},

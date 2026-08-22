@@ -320,18 +320,25 @@ def _has_studly_caps(message: str) -> bool:
 
 
 _POSSESSIVE_NAME_RE: Final[re.Pattern[str]] = re.compile(
-    r"\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}(?:['’]\w+|nin|nın|nun|nün|['’]?in|['’]?ın)\b"
+    # Büyük harfli isim: kesme'li ya da bitişik iyelik ('Ali'nin', 'Ahmetin').
+    # Küçük harfli isim: YALNIZ kesme'li ('ali'nin') — bitişik lowercase FP yapmasın.
+    r"\b(?:[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}(?:['’]\w+|nin|nın|nun|nün|['’]?in|['’]?ın)"
+    r"|[a-zçğıöşü]{2,}['’](?:nin|nın|nun|nün|in|ın))\b"
 )
 
 
 def _has_possessive_name(message: str) -> bool:
     """Orijinal mesajda iyelik ekli özel isim var mı? ('Ali'nin', 'Ahmet'in')."""
 
+    from ..domain import get_domain_vocab
+
+    excluded = _COMMON_TITLE | _SYSTEM_TERMS | get_domain_vocab()
     for m in _POSSESSIVE_NAME_RE.finditer(message):
-        base = re.match(r"[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}", m.group(0))
+        base = re.match(r"[A-Za-zÇĞİÖŞÜçğıöşü]{2,}", m.group(0))
         if base:
             folded = fold_accents(turkish_lower(base.group(0)))
-            if folded not in _COMMON_TITLE and folded not in _SYSTEM_TERMS:
+            # Alan/ortak kelimeler ('ders'in', 'karne'nin') isim SAYILMAZ.
+            if folded not in excluded:
                 return True
     return False
 
@@ -408,6 +415,16 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
         return _make(BLOCK, "HATE_SPEECH", 5, "SAFE-HATE-001",
                      "Bu içerik nefret söylemi içeriyor ve engellendi.", review=True, matched=[group])
 
+    # 5.5) Kişiye yönelik HAKARET NİYETİ ("öğretmenime hakaret etmek istiyorum").
+    # Eğitim/tanım bağlamı ("hakaret ne demek") hariç tutulur.
+    if "hakaret" in normalized and (
+        any(rt in normalized for rt in _ROLE_TARGETS) or _has_proper_name(message)
+    ):
+        if not any(m in tokens for m in _EDU_MARKERS):
+            return _make(BLOCK, "TARGETED_HARASSMENT", 3, "SAFE-HARASS-002",
+                         "Başkasına yönelik hakaret veya aşağılamaya yardımcı olamam; "
+                         "lütfen saygılı bir dil kullanalım.", matched=["hakaret"])
+
     # 6) Küfür / hakaret (hedef-farkında). Aksan-katlama FP'lerini (şık/sık->sik) düş.
     prof_tokens = _profanity_safe_tokens(message)
     insult = _matched_root(prof_tokens, MILD_INSULTS)
@@ -446,8 +463,11 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
     # 7) Başkasının kişisel verisi (isimli talep) -> yetki gerekir.
     # İYELİK EKLİ isim aranır ('Ali'nin notları'); 'Bir öğrencinin' / 'Yeni not'
     # gibi masum how-to soruları yanlışlıkla engellenmesin.
+    # Öğretmen+ öğrenci verisine (yönettiği kapsamda) YETKİLİDİR; isimli how-to
+    # sorusu engellenmez -> student_marks/attendance akışına bırakılır. Öğrenci/veli/
+    # ziyaretçi için isimli başkası-verisi engellenir.
     if _matched_root(tokens, _DATA_TERMS) and not any(t in _SELF_REF for t in tokens):
-        if _has_possessive_name(message):
+        if _has_possessive_name(message) and role not in ("ogretmen", "yonetici", "admin"):
             return _make(REQUIRE_AUTHORIZATION, "OTHER_PERSON_DATA", 3, "SAFE-AUTHZ-001",
                          "Başka bir kişinin bilgilerini gösteremem. Yalnızca kendi bilgilerine erişebilirsin.")
 
