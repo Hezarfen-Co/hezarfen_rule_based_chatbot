@@ -5,11 +5,16 @@
 > PROJECT_STATE.md'si var). Bu repo, büyük projenin **aktif geliştirme** ucudur.
 
 ## 1. Anlık Durum
-- Son güncelleme: 2026-08-16 (saat: DOĞRULANMADI)
-- Aktif branch: `chore/podman-deploy`
-- Son commit: `37653c6 chore(deploy): .dockerignore ekle`
-- Çalışma ağacı: **temiz** (`git status --porcelain` boş)
-- Tek cümle: Role-space V2 canlı (57 intent), **351 test yeşil**; 5-boyutlu "açık" denetimi bitti ve bulgular çıkarıldı, ancak düzeltmeler **henüz uygulanmadı**; T1 kapsamı (68 intent) `feat/t1-coverage`'ta **MERGE EDİLMEMİŞ**.
+- Son güncelleme: 2026-08-22
+- Aktif branch: `fix/chatbot-adversarial` (push edildi, PR bekliyor)
+- Son commit: `03870a1 docs: PROJECT_STATE.md handoff` (öncesi `825a779` tail-batch fix)
+- Çalışma ağacı: **temiz** (bu güncelleme hariç)
+- Tek cümle: Denetim bulguları + adversarial benchmark düzeltmeleri **uygulandı**;
+  **adversarial %45.7 → %93.0** (214/230), **352 test yeşil (0 skip)**, macro-F1 0.994,
+  coverage %99, OOS %92.3; 10 suite'ten 7'si %100, negation %95, collision %97.4,
+  critical %100; hard gate'ler privacy_recall=1.0 + kural precision=1.0. **Tek kalan:**
+  `conversation_humanlike` %30 → hafif dialog-state (mimari değişiklik, kullanıcı
+  onayı bekliyor). T1 kapsamı ayrı iş (deployed podman branch'te hâlâ 57 intent).
 
 ## 2. Hedef ve Kapsam
 - **Ana hedef:** Hezarfen okul-yönetim sitesi için rol-farkında, sızıntısız, offline kullanım asistanı + içerik güvenlik katmanı; backend'e QUIC köprüsüyle bağlı.
@@ -50,46 +55,81 @@ flowchart LR
 - **D6** — Backend parite düzeltmesi: `pomodoro_use` ve `event_attendance_mark` chatbot'ta backend'den fazla izin veriyor (bkz. §9 BUG-04/05). **önerildi**.
 
 ## 6. Aktif Görev
-- **ID:** TASK-CHAT-FIX
-- **Amaç:** denetimde çıkan açıkları kapat + menü kapsamını tamamla.
-- **Kapsam:** (a) T1 kapsamını canlı hatta getir → (b) dead-end/çakışma/sızıntı/parite/güvenlik düzeltmeleri → (c/d) eksik yaprak + bölüm-özeti intent'leri.
-- **İlgili dosyalar:** `role_spaces.py`, `engine.py`, `responder.py`, `catalog.py`, `rules.py`, `safety/*`, `tests/e2e/*`, `data/benchmark.jsonl`.
-- **Bağımlılıklar:** T1'in git'te nasıl indirileceği kararı (kullanıcıdan) — bkz. §10 açık soru.
-- **Kabul kriterleri:** Critical/High bulgular kapalı; `unittest discover` ≥351 yeşil kalır; `behavior_matrix` + `benchmark.jsonl` güncellenir; no-leak testi multi-request'i de kapsar.
-- **Doğrulama komutları:** `python -m src.main --validate`; `python -m unittest discover -s tests -t .`; `python -m src.main --evaluate`.
-- **Gerçek test sonucu:** BAZ 351 test yeşil (2026-08-16). Düzeltme kodu **HENÜZ BAŞLAMADI**.
-- **Kalan iş:** tümü (a→b→c/d).
-- **Durum:** `ACTIVE` (kullanıcı a+b'yi onayladı; sırayı ben belirledim: a→b).
-- **Sonraki kesin işlem:** T1 landing hedefini netleştir (`feat/t1-coverage` → `main` merge mi, yoksa ayrı `integration/*` branch mi), sonra o branch'te `unittest discover` çalıştırıp yeşil doğrula, ardından TASK-CHAT-B'ye geç.
+- **ID:** TASK-CHAT-CONV
+- **Amaç:** `conversation_humanlike` suite'ini %30 → ≥%85'e çıkararak canlıya-çıkış
+  kapısını AÇ (son kalan kriter).
+- **Kapsam:** hafif **dialog-state (frame/slot)** katmanı — selam+görev tek turda
+  yanıt; belirsiz çok-turlu takipte clarify; bağlam taşıma. Mevcut stateless motoru
+  bozmadan, kaliteyi (%93 + 352 test) koruyarak.
+- **İlgili dosyalar:** `engine.py` (oturum durumu), `responder.py`, muhtemelen yeni
+  `dialog_state.py`, `tests/e2e/*`.
+- **Bağımlılıklar:** **KULLANICI ONAYI** — mimari değişiklik; kullanıcı "conversation'a
+  geçmeden önce onay isterim" dedi. ONAY GELMEDEN BAŞLAMA.
+- **Kabul kriterleri:** conversation_humanlike ≥%85; diğer 9 suite ve 352 test regresyonsuz;
+  asla-yanlış korunur (belirsiz → clarify).
+- **Doğrulama:** adversarial benchmark + `unittest discover` + `--evaluate`.
+- **Durum:** `BLOCKED` (kullanıcı onayı bekliyor).
+- **Sonraki kesin işlem:** kullanıcı onayını al → dialog-state tasarımını sun → uygula →
+  her adımda benchmark + 0-skip test yeşil doğrula.
+
+**TASK-CHAT-FIX (önceki aktif görev): TAMAMLANDI.** Denetim açıkları + adversarial
+düzeltmeleri uygulandı; %45.7→%93.0. Detay §8.
 
 ## 7. Görev Kuyruğu
-- **TASK-CHAT-A** — P1 — T1 kapsamını canlı hatta getir (Randevular/Yemekler/Soru havuzu/Beyaz tahtalar). dep: landing kararı. **TODO**. kabul: 68 intent canlı + testler yeşil.
-- **TASK-CHAT-B** — P1 — Düzeltmeler: dead-end `_OWN_REPORT_RESPONSES` (#1-5), suggestion-chip→fallback (#10), multi-request rol sızıntısı, report_card/attendance nav butonu, pomodoro/event parite. dep: A. **TODO**.
-- **TASK-CHAT-C** — P2 — Eksik yaprak intent'leri: Ücretler, Şubeler, Takvim, Bugün, Soru bankası. dep: A. **TODO**.
-- **TASK-CHAT-D** — P2 — Bölüm-özeti intent'leri (9 üst başlık; help_capabilities çakışmasını çöz). dep: C. **TODO**.
-- **TASK-CHAT-E** — P3 — Safety sertleştirme: homoglyph/mixed-script, dotted-phone PII, threat/self-harm kökleri, authz wiring. **TODO**.
+- **TASK-CHAT-CONV** — P1 — conversation_humanlike (dialog-state). **BLOCKED** (kullanıcı onayı). Bkz §6.
+- **TASK-CHAT-UI** — P1 — Buton/öneri wire: `chat.reply` köprüsü yalnız `text` taşıyor,
+  `navigation`(buton)+`suggestions`(öneri) köprüde düşüyor. backend #29 + frontend #55 +
+  chatbot #21. **TODO** (kullanıcı "en son yaparız" dedi; issue'lar açık, kullanıcı atayacak).
+- **TASK-CHAT-CHIP** — P2 — Önerilen soruya tıklayınca fallback (#12/B07): çip ham intent
+  id yayınlıyor. **TODO**.
+- **TASK-CHAT-B/C/D/E — TAMAMLANDI** (adversarial turlarında): dead-end metinler, nav
+  sızıntısı, parite, 10 kapsam intent'i, bölüm-özeti (nav_overview), safety sertleştirme
+  hepsi uygulandı (#8-#13,#16-#19 kapalı).
+- **TASK-CHAT-A (T1 landing)** — P1 — deployed podman branch'te hâlâ 57 intent; T1 (68)
+  `feat/t1-coverage`'ta merge edilmemiş. #15 açık. Ayrı deployment kararı (§10).
 
 ## 8. Tamamlanan İşler (son 10)
-- Role-space V2 (`feat/role-space-v2`, 53 intent, no-leak) — test yeşil — commit serisi role-space-v2.
-- Podman-on-WSL2 deploy paketi (`chore/podman-deploy`: Containerfile + custom kernel + rootless) — `deploy/`.
-- **5-boyutlu açık denetimi (bu oturum):** A dead-end **11**, B izolasyon **7**, C çakışma **~7** (engine probe ile doğrulandı), D parite **2** (backend kanıtlı), E safety **14**. Kanıt: sohbet + `~/.claude/.../memory`.
-- **Chatbot test tabanı doğrulandı:** 351 test yeşil (2026-08-16).
+- **Adversarial düzeltme kampanyası (`fix/chatbot-adversarial`, 7 tur, 2026-08-22):**
+  %45.7 → **%93.0** (214/230). Turlar: parite/no-leak/şık-FP → safety_recall+collision →
+  negation → coverage(10 intent+rule-only) → gate-blocker'lar → tail-batch. Commit'ler:
+  `c32580b`,`beaa8ac`,`d75e3d8`,`ec4d3b0`,`6f2764b`,`1acd660`,`125ccd8`,`825a779`.
+- **Kapatılan issue'lar:** #8 (collision), #9/#10/#11 (parite+sızıntı), #13 (zararlı-niyet),
+  #16/#17 (kapsam intent'leri), #18 (safety), #19 (kök/prefix).
+- **RULE_ONLY_INTENTS mimarisi:** 10 kapsam intent'i similarity/domain/role_spaces
+  vocab'ına girmez → IDF/OOS kirlenmeden coverage_gap %5→%100.
+- **Test tabanı:** 351 (1 skip) → **352 (0 skip), OK**; embedding skip kaldırıldı.
+- Role-space V2 (`feat/role-space-v2`, 57 intent, no-leak) + Podman-on-WSL2 deploy paketi.
 
 ## 9. Bilinen Hatalar ve Riskler
-- **BUG-01** (Critical) — Multi-request'te bölüm başlığı üst-rol adını sızdırıyor ("(Öğretmen+)"). Tekrar: ogrenci → "sınav oluştur ve ders aç". Neden: `engine.py:~563` `info["description"]` kullanıyor. Bölge: engine multi-request. Durum: AÇIK.
-- **BUG-02** (High) — report_card/attendance: non-student rollere öğrenci-özel `/marks`,`/attendance` nav butonu basılıyor. Neden: `reports.read_own` ALLOW + override outcome ALLOW kalıyor (`role_spaces.py:219`). Durum: AÇIK.
-- **BUG-03** (High/UX) — `_OWN_REPORT_RESPONSES` "Hangi öğrenciyi belirt" der ama bot stateless → çıkmaz; ayrıca doğru rota (`/management/student-marks`) gizli. Durum: AÇIK.
-- **BUG-04** (High parite) — `event_attendance_mark` öğrenciye "kendini işaretle" der, backend Teacher+ only (`hezarfen_backend/src/web/events.rs:481-500` "students never mark"). Durum: AÇIK.
-- **BUG-05** (High parite) — `pomodoro_use` 5 role izin verir, backend Student-only (`hezarfen_backend/src/web/pomodoro.rs:30,117-131`). Durum: AÇIK.
-- **BUG-06** (High çakışma) — "soru sormak istiyorum" → `exam_add_question` (öğrenci DENY); "dersim var mı" → `exam_rejoin_retake` (DENY); "ayarlar"/"dil-tema" → `school_settings` (DENY); "derse kaydolmak" → `register_how`. Neden: benzerlik/prefix çakışması. Durum: AÇIK.
-- **BUG-07** (High safety) — homoglyph/mixed-script hakaret + noktalı telefon PII gate'i atlıyor. Bölge: `safety/toxicity.py`, `safety/pii.py`. Durum: AÇIK.
-- **KAPSAM** — 5 yaprak (Ücretler/Şubeler/Takvim/Bugün/Soru bankası) + 9 bölüm başlığı için intent YOK → fallback. T1 4 yaprağı ekler ama merge edilmedi.
-- Ayrıntılı kütük: bkz. memory `hezarfen-chatbot-nav-coverage-gaps` + bu oturumun denetim çıktıları.
+- **BUG-01..07: FİXLENDİ** (`fix/chatbot-adversarial`). Multi-request nötr başlık;
+  non-student nav suppress; dead-end metin yeniden yazıldı; event Teacher+ / pomodoro
+  Student-only parite; collision none-guard'ları (soru/dersim/ayarlar/kaydol); homoglyph/
+  fullwidth fold + separatör-toleranslı PII. Doğrulama: adversarial + 352 test yeşil.
+- **KAPSAM: FİXLENDİ** — 10 kapsam intent'i (fees/branches/calendar/today/qbank/nav_overview
+  vb.) + "henüz canlı değil" → coverage_gap %100.
+- **AÇIK — B07/#12** (Orta) — önerilen soruya tıklayınca fallback (çip ham intent id). TASK-CHAT-CHIP.
+- **AÇIK — B14/#21** (Yüksek UX) — `chat.reply` köprüsü text-only; buton+öneri düşüyor.
+  backend+frontend wire gerek (kullanıcı "en son"). TASK-CHAT-UI.
+- **KALAN GATE — conversation_humanlike %30** — dialog-state (mimari, onay bekliyor).
+- **RİSK — bilinçli sınırlar:** NEG-003 (saf-olumsuz+"sadece") ve RC-022 ("oturum"
+  belirsiz→clarify) asla-yanlış ilkesi gereği bırakıldı; kapıyı engellemez.
+- Ayrıntı: [[chatbot/buglar]] (Obsidian) + memory `hezarfen-chatbot-nav-coverage-gaps`.
 
 ## 10. Son Oturum Devri
-- **Bu oturumda:** RAG-kaynağı sorusu araştırıldı; 5-boyutlu açık denetimi yürütüldü (3 ajan tamamlandı, 2'si kendi probe/grep'imle yapıldı); C çakışmaları `scratchpad/probe_c.py` ile deterministik doğrulandı; backend paritesi (pomodoro/event) kanıtlandı; PROJECT_STATE.md dosyaları oluşturuldu.
-- **Değiştirilen dosyalar (bu repo):** yalnız `PROJECT_STATE.md` (yeni). Kaynak koda dokunulmadı.
-- **Çalıştırılan komutlar:** `--validate` (OK), `unittest discover` (351 yeşil), engine probe (çakışmalar doğrulandı), git durum incelemeleri.
-- **Tamamlanmamış:** TASK-CHAT-A/B/C/D/E — hiçbiri başlamadı.
-- **Açık soru:** T1 nasıl indirilecek? `feat/t1-coverage` → `main` merge mi, yoksa `chore/podman-deploy` üstüne yeni bir `integration/*` branch mi? Kullanıcı "never straight to integration branch" diyor → merge/PR yolu tercih edilmeli.
-- **Yeni sohbetin ilk kesin adımı:** bu dosyayı + `git status` + `git log -3`'ü oku; `python -m unittest discover -s tests -t .` ile 351 yeşil'i teyit et; sonra §10 açık sorusunu kullanıcıya sor ve TASK-CHAT-A'yı başlat.
+- **Bu oturumda:** adversarial benchmark düzeltme kampanyası (%45.7→%93.0, 7 tur);
+  RULE_ONLY_INTENTS mimarisi; safety sertleştirme; negation katmanı; tail-batch
+  (noise/negation/protocol) + 5 test/kural düzeltmesi; privacy_security spec-2 komboları
+  (hard gate). Obsidian dokümanları (deneme-gunlugu/buglar/kriterler/konusma-notu)
+  güncellendi. Issue #8-#19 kapatıldı.
+- **Değiştirilen dosyalar:** `engine.py`, `rules.py`, `catalog.py`, `similarity.py`,
+  `domain.py`, `role_spaces.py`, `decision.py`, `safety/{toxicity,pii}.py`, `tests/*`,
+  `data/benchmark.jsonl`, `PROJECT_STATE.md`.
+- **Çalıştırılan komutlar:** `unittest discover` (**352 OK, 0 skip**), `--evaluate`
+  (macro-F1 0.994), adversarial `run_benchmark.py` (**%93.0**). Push: `fix/chatbot-adversarial`.
+- **Tamamlanmamış / bekleyen:** TASK-CHAT-CONV (dialog-state — **kullanıcı onayı**);
+  TASK-CHAT-UI (#21 wire, "en son"); TASK-CHAT-CHIP (#12); TASK-CHAT-A (T1 landing, #15).
+- **Açık soru:** (1) conversation için dialog-state'e geçiş onayı? (2) T1 nasıl indirilecek
+  (merge/PR; kullanıcı "never straight to integration branch")?
+- **Yeni sohbetin ilk kesin adımı:** bu dosyayı + `git status` + `git log -3`'ü oku;
+  `unittest discover` ile 352 yeşil'i teyit et; conversation onayını al, sonra dialog-state
+  tasarımını sun. Onay yoksa TASK-CHAT-CHIP (#12) güvenle yapılabilir.
