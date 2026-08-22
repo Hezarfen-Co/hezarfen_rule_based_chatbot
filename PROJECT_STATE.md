@@ -7,14 +7,15 @@
 ## 1. Anlık Durum
 - Son güncelleme: 2026-08-22
 - Aktif branch: `fix/chatbot-adversarial` (push edildi, PR bekliyor)
-- Son commit: `03870a1 docs: PROJECT_STATE.md handoff` (öncesi `825a779` tail-batch fix)
+- Son commit: `c177e5b feat(eval): seçici-risk + mutasyon ölçüm altyapısı`
 - Çalışma ağacı: **temiz** (bu güncelleme hariç)
-- Tek cümle: Denetim bulguları + adversarial benchmark düzeltmeleri **uygulandı**;
-  **adversarial %45.7 → %93.0** (214/230), **352 test yeşil (0 skip)**, macro-F1 0.994,
-  coverage %99, OOS %92.3; 10 suite'ten 7'si %100, negation %95, collision %97.4,
-  critical %100; hard gate'ler privacy_recall=1.0 + kural precision=1.0. **Tek kalan:**
-  `conversation_humanlike` %30 → hafif dialog-state (mimari değişiklik, kullanıcı
-  onayı bekliyor). T1 kapsamı ayrı iş (deployed podman branch'te hâlâ 57 intent).
+- Tek cümle: **adversarial %45.7 → %97.0** (223/230), **357 test yeşil (0 skip)**,
+  macro-F1 0.994, coverage %99, OOS %92.3; 10 suite'ten 7'si %100, conversation **%75**
+  (Faz 1 stateless bitti), negation %95, collision %97.4, critical %100; hard gate'ler
+  privacy_recall=1.0 + kural precision=1.0 + **mutation score %100** + **AURC 0.0000** +
+  seçici risk %0.5. **Kalan:** (1) conversation %75→%85 = 5 turns vakası → **Faz 2
+  dialog-state** (onaylı, sırada); (2) **OOS false-accept %7.69** → ≤%1 optimize. T1
+  kapsamı ayrı iş (deployed podman branch'te hâlâ 57 intent).
 
 ## 2. Hedef ve Kapsam
 - **Ana hedef:** Hezarfen okul-yönetim sitesi için rol-farkında, sızıntısız, offline kullanım asistanı + içerik güvenlik katmanı; backend'e QUIC köprüsüyle bağlı.
@@ -55,25 +56,26 @@ flowchart LR
 - **D6** — Backend parite düzeltmesi: `pomodoro_use` ve `event_attendance_mark` chatbot'ta backend'den fazla izin veriyor (bkz. §9 BUG-04/05). **önerildi**.
 
 ## 6. Aktif Görev
-- **ID:** TASK-CHAT-CONV
-- **Amaç:** `conversation_humanlike` suite'ini %30 → ≥%85'e çıkararak canlıya-çıkış
-  kapısını AÇ (son kalan kriter).
-- **Kapsam:** hafif **dialog-state (frame/slot)** katmanı — selam+görev tek turda
-  yanıt; belirsiz çok-turlu takipte clarify; bağlam taşıma. Mevcut stateless motoru
-  bozmadan, kaliteyi (%93 + 352 test) koruyarak.
-- **İlgili dosyalar:** `engine.py` (oturum durumu), `responder.py`, muhtemelen yeni
-  `dialog_state.py`, `tests/e2e/*`.
-- **Bağımlılıklar:** **KULLANICI ONAYI** — mimari değişiklik; kullanıcı "conversation'a
-  geçmeden önce onay isterim" dedi. ONAY GELMEDEN BAŞLAMA.
-- **Kabul kriterleri:** conversation_humanlike ≥%85; diğer 9 suite ve 352 test regresyonsuz;
-  asla-yanlış korunur (belirsiz → clarify).
-- **Doğrulama:** adversarial benchmark + `unittest discover` + `--evaluate`.
-- **Durum:** `BLOCKED` (kullanıcı onayı bekliyor).
-- **Sonraki kesin işlem:** kullanıcı onayını al → dialog-state tasarımını sun → uygula →
-  her adımda benchmark + 0-skip test yeşil doğrula.
+- **ID:** TASK-CHAT-CONV-FAZ2
+- **Amaç:** `conversation_humanlike` %75 → ≥%85 (kalan 5 **turns/çok-turlu** vakası:
+  CONV-009/010/012/013/014) — canlıya-çıkış kapısının son adımı.
+- **Kapsam:** hafif **dialog-state (frame/slot)** — `handle()` payload'ına opsiyonel
+  `dialog` alanı (client-side taşınır, sunucu durumsuz kalır): `pending_intent`,
+  `pending_slot`, `offered_candidates`, `last_topic`. Çözücü SADECE sunulmuş
+  netleştirmeyi/slotu ÇÖZER (isim "Ahmet", onay/ordinal "Evet ilki", itiraz "orada
+  yok"); asla uydurmaz. Belirsizse mevcut clarify. Asla-yanlış korunur.
+- **İlgili dosyalar:** yeni `dialog_state.py`, `engine.py` (handle giriş/çıkış), `tests/e2e/*`.
+- **Kabul kriterleri:** conversation ≥%85; diğer 9 suite + 357 test + mutation %100 +
+  seçici-risk regresyonsuz; JGA/Slot-F1/Repair@2 ölçümü eklenir (dialog-state açılınca).
+- **Durum:** `READY` (kullanıcı onayladı; tasarım §10'da; ölçüm turu bitti, sıra bunda).
+- **Sonraki kesin işlem:** dialog_state.py tasarımını uygula → her adımda benchmark +
+  0-skip test yeşil.
 
-**TASK-CHAT-FIX (önceki aktif görev): TAMAMLANDI.** Denetim açıkları + adversarial
-düzeltmeleri uygulandı; %45.7→%93.0. Detay §8.
+**PARALEL TASK-CHAT-OOS:** OOS false-accept %7.69 → ≤%1. near-OOS negatif örnek +
+domain-gate/margin sıkılaştırma; `--selective` ile risk-coverage'dan eşik seç.
+
+**TASK-CHAT-FIX + Faz 1 conversation + ölçüm altyapısı: TAMAMLANDI** (%45.7→%97.0,
+selective+mutation eklendi). Detay §8.
 
 ## 7. Görev Kuyruğu
 - **TASK-CHAT-CONV** — P1 — conversation_humanlike (dialog-state). **BLOCKED** (kullanıcı onayı). Bkz §6.
