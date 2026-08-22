@@ -182,6 +182,61 @@ def _matched_root(tokens: list[str], roots: frozenset[str]) -> str | None:
     return None
 
 
+# Aksan katlaması bazı masum TR kelimelerini profaniteye çevirir:
+#   'şık' (seçenek) / 'sık' (sıkça)  --fold-->  'sik' (profanite).
+# Bu masum-kaynaklı tokenlar profanite eşleşmesinden düşülür; gerçek 'sik' ya da
+# leet 's1k' (aksansız kaynak) etkilenmez.
+_FOLD_SAFE: Final[dict[str, frozenset[str]]] = {
+    "sik": frozenset({"şık", "sık"}),
+}
+
+
+def _lower_tokens(message: str) -> list[str]:
+    """`safety_tokens` ile HİZALI, fakat aksanı KATLANMAMIŞ tokenlar (TR harfleri korunur).
+
+    Aynı adımlar (görünmez unicode, TR küçük harf, leet, tekrar) uygulanır; yalnız
+    `fold_accents` atlanır. fold_accents birebir (1:1) karakter eşlemesi olduğundan
+    token sınırları `safety_tokens` ile aynı kalır -> pozisyonel hizalama korunur.
+    """
+
+    text = _INVISIBLE_RE.sub("", message)
+    text = turkish_lower(text)
+    text = _apply_leet(text)
+    text = _REPEAT_RE.sub(r"\1", text)
+    raw = re.findall(r"[a-z0-9çğıöşü]+", text)
+    tokens: list[str] = []
+    buffer: list[str] = []
+    for tok in raw:
+        if len(tok) == 1 and tok.isalpha():
+            buffer.append(tok)
+            continue
+        if buffer:
+            tokens.append("".join(buffer))
+            buffer = []
+        tokens.append(tok)
+    if buffer:
+        tokens.append("".join(buffer))
+    return tokens
+
+
+def _profanity_safe_tokens(message: str) -> list[str]:
+    """Profanite/hakaret eşleşmesi için tokenlar; aksan-katlama yanlış-pozitiflerini
+    (şık/sık -> sik) düşer. Hizalama bir sebeple bozulursa güvenli tarafta kalır
+    (katlanmış tokenları aynen döndürür)."""
+
+    folded = safety_tokens(message)
+    lower = _lower_tokens(message)
+    if len(folded) != len(lower):
+        return folded
+    kept: list[str] = []
+    for folded_tok, lower_tok in zip(folded, lower):
+        safe_sources = _FOLD_SAFE.get(folded_tok)
+        if safe_sources is not None and lower_tok in safe_sources:
+            continue
+        kept.append(folded_tok)
+    return kept
+
+
 def _contains_any(normalized: str, patterns) -> str | None:
     for pat in patterns:
         if pat in normalized:
@@ -320,9 +375,10 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
         return _make(BLOCK, "HATE_SPEECH", 5, "SAFE-HATE-001",
                      "Bu içerik nefret söylemi içeriyor ve engellendi.", review=True, matched=[group])
 
-    # 6) Küfür / hakaret (hedef-farkında).
-    insult = _matched_root(tokens, MILD_INSULTS)
-    profanity = _matched_root(tokens, STRONG_PROFANITY)
+    # 6) Küfür / hakaret (hedef-farkında). Aksan-katlama FP'lerini (şık/sık->sik) düş.
+    prof_tokens = _profanity_safe_tokens(message)
+    insult = _matched_root(prof_tokens, MILD_INSULTS)
+    profanity = _matched_root(prof_tokens, STRONG_PROFANITY)
     if insult or profanity:
         # Eğitim/alıntı bağlamı -> izin.
         educational = any(m in tokens for m in _EDU_MARKERS) or "'" in message or '"' in message
@@ -373,8 +429,8 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
 def evaluate_output(text: str) -> SafetyDecision:
     """Chatbot cevabını gönderilmeden önce kontrol eder (PII/token/küfür sızıntısı)."""
 
-    tokens = safety_tokens(text)
-    leak = _matched_root(tokens, STRONG_PROFANITY) or _matched_root(tokens, MILD_INSULTS)
+    prof_tokens = _profanity_safe_tokens(text)
+    leak = _matched_root(prof_tokens, STRONG_PROFANITY) or _matched_root(prof_tokens, MILD_INSULTS)
     if leak:
         return _make(BLOCK, "OUTPUT_PROFANITY", 3, "SAFE-OUT-001",
                      "Cevap güvenlik kontrolünden geçemedi.", matched=[leak])

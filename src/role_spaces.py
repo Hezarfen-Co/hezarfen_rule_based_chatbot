@@ -71,14 +71,16 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "homework.submit": _matrix((D, None, None), (A, E, "homework"), (D, None, None), (D, None, None), (D, None, None)),
     "homework.manage": _matrix((D, None, None), (D, None, None), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
-    # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
-    "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
+    # Yoklama işaretleme yalnız Öğretmen+ (backend events.rs:481-500 "students never
+    # mark, not even themselves"). Öğrenci ve Veli için DENY -> backend paritesi.
+    "events.mark_attendance": _matrix((D, None, None), (D, None, None), (A, V, "events"), (A, V, "events"), (A, V, "events")),
     "reports.read_own": _matrix((A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self")),
     # Öğrenci not/yoklama arama = Öğretmen yönetim sayfası (Öğretmen+). Veli bu sayfayı
     # kullanmaz (çocuğunun verisini ayrı akıştan görür) -> DENY.
     "reports.observe_student": _matrix((D, None, None), (D, None, None), (A, M, "student_marks"), (A, S, "student_marks"), (A, S, "student_marks")),
-    # Pomodoro backend'de her doğrulanmış kullanıcıya açık (CurrentUser) -> hepsi ALLOW.
-    "pomodoro.start": _matrix((A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro")),
+    # Pomodoro backend'de yalnız Student (pomodoro.rs:30,117-131 "Requires the student
+    # role"). Sadece öğrenci ALLOW; veli/öğretmen/yönetici/admin DENY -> backend paritesi.
+    "pomodoro.start": _matrix((D, None, None), (A, O, "pomodoro"), (D, None, None), (D, None, None), (D, None, None)),
     "pomodoro.observe_student": _matrix((D, None, None), (D, None, None), (A, S, "student_pomodoro"), (A, S, "student_pomodoro"), (A, S, "student_pomodoro")),
     "work.self": _matrix((D, None, None), (D, None, None), (A, O, "work"), (A, O, "work"), (A, O, "work")),
     "work.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "staff_work"), (A, S, "staff_work")),
@@ -149,22 +151,22 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {
     "veli": (
-        "Veli hesabının kendi öğrenci karnesi veya yoklama kaydı yoktur. Bağlı bir "
-        "çocuğun kaydını soruyorsan bunu açıkça belirt; erişim yalnız doğrulanmış "
-        "veli–öğrenci bağlantısıyla mümkündür."
+        "Veli hesabının kendine ait bir karne veya yoklama kaydı yoktur. Bağlı "
+        "olduğun öğrencinin karne ve yoklama bilgilerini uygulamadaki öğrenci "
+        "takip ekranından izleyebilirsin."
     ),
     "ogretmen": (
-        "Öğretmen hesabının kendi öğrenci karnesi/yoklama raporu yerine, yalnız "
-        "yönettiğin derslerdeki öğrencilerin raporlarını görüntüleme kapsamı vardır. "
-        "Hangi öğrenciyi ve dersi kastettiğini belirtmelisin."
+        "Öğretmen hesabında kişisel karne/yoklama yoktur. Yönettiğin derslerdeki "
+        "öğrencilerin raporlarını Öğrenci notları ve Öğrenci yoklaması sayfalarından "
+        "görüntülersin."
     ),
     "yonetici": (
-        "Yönetici hesabında kişisel öğrenci karnesi yerine okul kapsamındaki öğrenci "
-        "raporları yönetim ekranlarından görüntülenir. Hangi öğrenciyi kastettiğini belirt."
+        "Yönetici hesabında kişisel karne yoktur. Okul genelindeki öğrenci raporları "
+        "yönetim ekranlarından görüntülenir."
     ),
     "admin": (
-        "ADMIN hesabında kişisel öğrenci karnesi yerine okul kapsamındaki öğrenci "
-        "raporları görüntülenir. Hangi öğrenciyi kastettiğini belirt."
+        "ADMIN hesabında kişisel karne yoktur. Okul genelindeki öğrenci raporları "
+        "yönetim ekranlarından görüntülenir."
     ),
 }
 

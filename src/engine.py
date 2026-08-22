@@ -189,6 +189,11 @@ def _build_navigation(
     view = get_role_space(role).view_for(intent)
     if view is None or view.outcome is not AccessOutcome.ALLOW:
         return None
+    # Karne/yoklama sayfası öğrenciye özeldir. Üst roller `reports.read_own` ile ALLOW
+    # (kapsam notu metni) alsa da kişisel /marks,/attendance butonu BASILMAZ — aksi
+    # halde öğrenci-özel sayfaya giden bir nav sızar (ISO-020..023).
+    if intent in {"report_card_view", "attendance_view"} and role != "ogrenci":
+        return None
     # Rota, izin verilen intent'in gerçek sayfasıdır (rehber §4). Reddedilen/CLARIFY
     # görünümlerde buraya gelinmez -> ret'te rota sızmaz. Bilgi intent'lerinde
     # (route_for None) navigasyon yoktur.
@@ -560,8 +565,17 @@ class Engine:
                         seg_response.intent, seg_response.auth_action, role
                     ),
                 })
-                info = get_intent(seg_response.intent) if seg_response.intent else None
-                title = (info["description"].rstrip(".") if info else segment)
+                # Reddedilen parçada intent açıklaması KULLANILMAZ: açıklama üst-rol
+                # etiketi ("(Öğretmen+)") ve ayrıcalıklı eylem adını ("... oluşturma")
+                # içerir; deny gövdesinin üstüne basılınca no-leak sözleşmesi kırılır
+                # (ISO-017..019). Reddedilene nötr başlık ver.
+                if seg_response.auth_action:
+                    title = f"İstek {order}"
+                else:
+                    info = get_intent(seg_response.intent) if seg_response.intent else None
+                    title = (info["description"].rstrip(".") if info else segment)
+                    if title.endswith(")") and "(" in title:  # sondaki "(...)" rol etiketini at
+                        title = title[: title.rfind("(")].rstrip()
                 parts.append(f"**{order}) {title}**\n{seg_response.text}")
 
             text = "Birkaç şey sormuşsun, sırayla cevaplayayım:\n\n" + "\n\n".join(parts)

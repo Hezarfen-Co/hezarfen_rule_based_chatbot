@@ -146,8 +146,13 @@ GATING_MATRIX: list[tuple[str, str, str | None, bool | None]] = [
     ("okul ayarlarını değiştirmek istiyorum", "yonetici", None, True),
     # Veli: salt-okunur gözlemci — öğrenci işlemleri yapamaz, Mesajlar'a erişir.
     ("sınav odasına nasıl girerim", "veli", "role_insufficient", None),
-    # Pomodoro backend'de her doğrulanmış kullanıcıya açık -> veli de yapabilir.
-    ("pomodoro oturumu nasıl açılır", "veli", None, True),
+    # Pomodoro backend'de yalnız Student -> öğrenci ALLOW; veli/öğretmen+ denied (parite).
+    ("pomodoro oturumu nasıl açılır", "ogrenci", None, True),
+    ("pomodoro oturumu nasıl açılır", "veli", "role_insufficient", None),
+    ("pomodoro oturumu nasıl açılır", "ogretmen", "role_insufficient", None),
+    # Etkinlik yoklaması işaretleme backend'de Öğretmen+ -> öğrenci denied, öğretmen ALLOW.
+    ("etkinlik yoklamamı işaretlemek istiyorum", "ogrenci", "role_insufficient", None),
+    ("etkinlik yoklamamı işaretlemek istiyorum", "ogretmen", None, True),
     ("mesajlarım nerede", "veli", None, True),
 ]
 

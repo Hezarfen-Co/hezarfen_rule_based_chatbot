@@ -245,6 +245,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["odak", "başlat"]}, {"all": ["odağ", "başlat"]},
         {"all": ["odak", "bitir"]}, {"all": ["odağ", "bitir"]},
         {"all": ["odak", "oturum"], "none": ["öğrenci"]},
+        # 'odak sayacı/sayacımı' (ör. "Odak sayacımı aç") da pomodoro'dur.
+        {"all": ["odak", "say"], "none": ["öğrenci"]},
+        {"all": ["odağ", "say"], "none": ["öğrenci"]},
     ]},
     {"intent": "student_pomodoro_lookup", "groups": [
         {"all": ["öğrenci", "pomodoro"]}, {"all": ["öğrenci", "odak"]},

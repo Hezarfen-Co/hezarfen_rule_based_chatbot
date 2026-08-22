@@ -1,7 +1,9 @@
 """Aşama 17 birim testleri: backend protokolü + opsiyonel embedding backend'i."""
 
 import importlib.util
+import sys
 import unittest
+from unittest import mock
 
 from src.similarity import SimilarityBackend, SimilarityMatcher
 
@@ -16,12 +18,14 @@ class BackendProtocolTests(unittest.TestCase):
 
 class EmbeddingMatcherTests(unittest.TestCase):
     def test_import_error_when_lib_absent(self) -> None:
-        if _HAS_ST:
-            self.skipTest("sentence-transformers kurulu; hata yolu test edilemez.")
+        # sentence-transformers kurulu olsa BİLE hata yolunu deterministik test
+        # et: sys.modules'a None koyunca `from sentence_transformers import ...`
+        # ImportError verir. Böylece test hiçbir ortamda skip olmaz.
         from src.embedding import EmbeddingMatcher
 
-        with self.assertRaises(ImportError):
-            EmbeddingMatcher(examples=[("greeting", "merhaba")])
+        with mock.patch.dict(sys.modules, {"sentence_transformers": None}):
+            with self.assertRaises(ImportError):
+                EmbeddingMatcher(examples=[("greeting", "merhaba")])
 
     @unittest.skipUnless(_HAS_ST, "sentence-transformers kurulu değil.")
     def test_embedding_backend_ranks(self) -> None:  # pragma: no cover
