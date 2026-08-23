@@ -190,6 +190,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "course_view", "groups": [
         {"all": ["ders", "liste"], "none": ["oluştur", "yeni", "öğrenci", "not"]},
         {"all": ["derslerim"], "none": ["oluştur", "not"]},
+        # "Eğitim" = /courses sayfası (dersler+etüt+kulüp); menüde nav.classes="Eğitim".
+        # (Etüt/Kulüp'ün kendisi study_club_info'da /studies olarak karşılanır.)
+        {"all": ["eğitim"], "none": ["oluştur", "ödev", "sınav", "yoklama", "not", "randevu"]},
     ]},
     {"intent": "exam_enter_room", "groups": [
         {"all": ["sınav", "gir"], "none": ["oluştur", "sonuc", "aldı", "takvim", "tarih", "geri", "ikinci", "kez", "tekrar", "yeniden", "hak"]},

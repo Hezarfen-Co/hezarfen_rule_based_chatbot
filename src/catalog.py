@@ -492,11 +492,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Dersleri listeleme / ders detayına gitme.",
         "response_id": "course_view_info",
         "response_template": (
-            "Dersler `/courses` sayfasında listelenir; arama ve döneme göre filtreleme "
-            "yapabilirsin. Öğrenci yalnızca kayıtlı olduğu dersleri görür ('Kayıtlı' "
-            "rozeti). Bir dersi açmak için satırda **Görüntüle (View)**'ye bas; detay "
-            "`/courses/$id`'de sınavları, ders oturumlarını ve (yetkiliysen) sınıf "
-            "listesini gösterir."
+            "**Eğitim** sayfası (`/courses`): dersler, **etütler** ve **kulüpler** tek "
+            "yerde (üstteki **Tümü / Dersler / Etüt / Kulüp** sekmeleriyle süz). Arama "
+            "ve döneme göre filtreleme yapabilirsin; öğrenci yalnızca kayıtlı olduklarını "
+            "görür ('Kayıtlı' rozeti). Bir öğeyi açmak için **Görüntüle (View)**'ye bas; "
+            "detay `/courses/$id`'de sınavları, oturumları ve (yetkiliysen) katılımcı "
+            "listesini gösterir. Öğretmen+ sağ üstten **Yeni** oluşturabilir."
         ),
         "auth_required": True,
         "min_role": "ogrenci",

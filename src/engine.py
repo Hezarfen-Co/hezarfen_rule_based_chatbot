@@ -399,7 +399,7 @@ _SECTION_OVERVIEWS: tuple[tuple[str, str, tuple[tuple[str, str, str], ...]], ...
         ("Mesai", "/work", "öğretmen–yönetici"),
     )),
     ("akademik", "Akademik", (
-        ("Dersler", "/courses", ""),
+        ("Eğitim (dersler/etüt/kulüp)", "/courses", ""),
         ("Ödevler", "/homework", ""),
         ("Sınavlar", "/exams", ""),
         ("Soru bankası", "/question-bank", "öğretmen+"),
@@ -423,11 +423,10 @@ _SECTION_TRIGGERS: frozenset[str] = frozenset({
 })
 
 
-# Halk dilindeki bölüm adları -> menüdeki resmi grup adı (folded). Ör. kullanıcı
-# "Eğitim" der; menü grubu "Akademik"tir.
-_SECTION_ALIASES: tuple[tuple[str, str], ...] = (
-    ("egitim", "akademik"),
-)
+# Halk dilindeki bölüm adları -> menüdeki resmi grup adı (folded).
+# Not: "Eğitim" bir BÖLÜM değil, /courses SAYFASIDIR (nav.classes; dersler+etüt+kulüp);
+# onu course_view karşılar (bkz. rules {eğitim}). Burada alias YOK.
+_SECTION_ALIASES: tuple[tuple[str, str], ...] = ()
 
 
 def _section_overview(query: str) -> str | None:
@@ -464,6 +463,8 @@ def _section_overview(query: str) -> str | None:
 # (folded_anahtar_önek, kanonik sorgu). 'sınav' rol-bağımlı (aşağıda ayrı ele alınır).
 _TOPIC_HELP: tuple[tuple[str, str], ...] = (
     ("etkinlik", "etkinlikler nerede"),
+    # "Eğitim" = /courses sayfası (dersler+etüt+kulüp) -> course_view.
+    ("egitim", "derslerim nerede"),
     ("ders", "derslerim nerede"),
     ("odev", "ödevler nerede"),
     ("takvim", "takvim nerede"),
