@@ -84,9 +84,9 @@ Ya da elle (her repo kendi compose'uyla; sıra önemli — backend ağı yaratı
 ```powershell
 cd ..\hezarfen_backend            ; & $P compose up -d --build   # surrealdb + backend (:8080,:8090)
 cd ..\hezarfen_frontend           ; & $P compose up -d --build   # frontend (:5173)
-cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose --profile product up -d --build bridge  # chatbot köprüsü
+cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose up -d --build   # yalnız chatbot köprüsü
 ```
-> Chatbot'u backend'siz **tek başına** denemek için: `cd Hezarfen-Rule-Based-Chatbot; & $P compose up -d` → `http://localhost:8000` (izole dev sohbet UI).
+> Chatbot compose yalnız ürün köprüsünü çalıştırır; demo web container'ı ve host port yayını yoktur.
 > **Linux/macOS:** kernel/machine adımları gerekmez; sadece bu bölümü çalıştır. Portlar zaten host'a iletilir.
 
 ---
@@ -103,7 +103,7 @@ cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose --profile product up -d --build
 
 ## Durdurma / temizlik (her repo kendi dizininde)
 ```powershell
-cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose --profile product down
+cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose down
 cd ..\hezarfen_frontend           ; & $P compose down
 cd ..\hezarfen_backend            ; & $P compose down        # volume kalır
 cd ..\hezarfen_backend            ; & $P compose down -v     # volume'ları da sil

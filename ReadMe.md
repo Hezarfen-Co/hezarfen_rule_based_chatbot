@@ -117,8 +117,8 @@ python -m src.main --evaluate    # benchmark üzerinde tam metrik raporu
 python -m src.main --chat        # etkileşimli terminal asistanı
 python -m src.web                # geliştirici web arayüzü (http://127.0.0.1:8000)
 
-# Podman (motor podman; sadece bu chatbot, tek başına)
-podman compose up -d --build     # izole geliştirici sohbet UI -> http://localhost:8000
+# Podman ürün köprüsü (önce backend compose ayakta olmalı)
+podman compose up -d --build     # yalnız hezarfen-chatbot-bridge
 ```
 
 **Tüm yığın (backend + frontend + chatbot) — PROJE-BAZLI (all-in-one compose yok):**

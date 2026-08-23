@@ -47,8 +47,7 @@ function Compose-Up([string]$dir, [string[]]$extra) {
 }
 Compose-Up $backend  @()                                  # ağı (hezarfen_backend_default) yaratır
 Compose-Up $frontend @()                                  # backend ağına bağlanır
-Compose-Up $chatbot  @("--profile", "product")            # bridge; backend ağına dial-in eder
-# (Not: chatbot'u backend'siz TEK BAŞINA denemek için: cd $chatbot; podman compose up -d  -> :8000)
+Compose-Up $chatbot  @()                                  # yalnız bridge; backend ağına dial-in eder
 
 Write-Host "`n[3/3] Doğrulama..."
 Start-Sleep -Seconds 6
