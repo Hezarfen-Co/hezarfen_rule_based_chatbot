@@ -1,23 +1,24 @@
-# Çelebi kural-tabanlı chatbot — TEK BAŞINA (standalone) çalıştırma.
+# Çelebi kural-tabanlı chatbot — proje-bazlı çalıştırma (kök compose GEREKMEZ).
 #
-#   podman compose up --build        -> http://localhost:8000 (geliştirici sohbet arayüzü)
+# 1) TEK BAŞINA (backend olmadan) — geliştirici sohbet arayüzü:
+#      podman compose up -d --build            -> http://localhost:8000
+#    Bu her makinede (Linux/WSL) sorunsuz çalışır; hiçbir dış servise bağlı değildir.
 #
-# Not: Bu compose chatbot'u TEK BAŞINA (backend olmadan) çalıştırır — offline motoru
-# denemek için dev web arayüzü açar ve AÇIK KALIR. Backend'e bağlı QUIC köprüsü ve
-# tam ürün (backend + frontend + surrealdb) için KÖK dizindeki compose'u kullan:
-#   cd ..  &&  podman compose up -d --build
+# 2) ÜRÜN modu (backend'e bağlı köprü) — önce backend ayakta olmalı:
+#      cd ../hezarfen_backend && podman compose up -d
+#      cd ../Hezarfen-Rule-Based-Chatbot && podman compose --profile product up -d
+#    'bridge' servisi backend'in ağına (hezarfen_backend_default) dial-in eder.
 #
-# Yalnızca katalog doğrulaması (tek-seferlik, çıkar) istersen:
-#   podman compose run --rm chatbot python -m src.main --validate
+# Not: 'web' profilsizdir -> 'up' her zaman onu başlatır ve TEK BAŞINA yeter.
+# 'bridge' yalnız '--profile product' ile gelir (backend ağı gerektiği için).
 services:
-  chatbot:
+  web:
     build:
       context: .
       dockerfile: Containerfile
     image: localhost/rule-based-chatbot:local
+    container_name: hezarfen-chatbot-web
     init: true
-    # Uzun-çalışan servis: geliştirici web arayüzü. Container içinde host'tan
-    # erişilebilmesi için 0.0.0.0'a bind eder.
     command: ["python", "-m", "src.web", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
@@ -29,3 +30,30 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  bridge:
+    profiles: ["product"]
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/rule-based-chatbot:local
+    container_name: hezarfen-chatbot-bridge
+    init: true
+    command: ["python", "-m", "src.bridge"]
+    environment:
+      AI_BRIDGE_HOST: hezarfen-backend      # backend container'ının adı
+      AI_BRIDGE_PORT: "8090"
+      AI_BACKEND_URL: http://hezarfen-backend:8080
+      AI_SHARED_TOKEN: change-me            # backend ile AYNI olmalı
+      AI_TLS_SERVER_NAME: localhost         # self-signed sertifikanın SAN'ı
+      AI_SERVICE_NAME: celebi
+      HEZARFEN_ASSISTANT_ROLE: ogrenci
+    restart: unless-stopped
+    networks:
+      - backend_net
+
+# Ürün modunda backend'in ağına dışarıdan bağlanılır (backend compose bu ağı yaratır).
+networks:
+  backend_net:
+    external: true
+    name: hezarfen_backend_default
