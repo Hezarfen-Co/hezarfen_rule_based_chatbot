@@ -1599,6 +1599,253 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["note_create", "report_card_view"],
     },
+    # --- Randevu (T1; frontend /appointments, "Randevular" menüsü) ------------
+    {
+        "intent": "appointment_book",
+        "category": "appointments",
+        "description": "Öğrenci/velinin randevu alması.",
+        "response_id": "appointment_book_instructions",
+        "response_template": (
+            "Randevu almak için **Planlama** grubundaki **Randevular** "
+            "(`/appointments`) sayfasına git. **Öğretmenlerin açık saatleri** "
+            "bölümünden uygun saati seç, **Randevu al**'a bas. Talebin "
+            "**Randevularım** altında görünür ve öğretmen onayına düşer. Randevu "
+            "alma yalnızca Öğrenci ve Veli'ye açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Randevu nasıl alırım?",
+            "Öğretmenden randevu almak istiyorum",
+            "Randevu talebi oluşturmak istiyorum",
+            "Görüşme randevusu talep etmek istiyorum",
+            "Randevu alma nerede?",
+        ],
+        "must_not_match": ["appointment_slot_open", "appointment_requests"],
+    },
+    {
+        "intent": "appointment_slot_open",
+        "category": "appointments",
+        "description": "Öğretmenin müsait randevu saati açması (Öğretmen+).",
+        "response_id": "appointment_slot_instructions",
+        "response_template": (
+            "**Randevular** (`/appointments`) → **Açtığım "
+            "saatler** bölümünde **Saat aç** (veya **Yeni saat**) ile müsait "
+            "randevu saati yayınla. Öğrenci ve veliler bu saatlerden randevu talep "
+            "eder; gelen talepleri **Randevu talepleri**'nden yönetirsin."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Randevu saati nasıl açarım?",
+            "Öğrencilere müsait saat yayınlamak istiyorum",
+            "Randevu için saat açma nerede?",
+            "Müsaitlik saati eklemek istiyorum",
+            "Öğrencilere randevu saati açmak istiyorum",
+        ],
+        "must_not_match": ["appointment_book", "appointment_requests"],
+    },
+    {
+        "intent": "appointment_requests",
+        "category": "appointments",
+        "description": "Öğretmenin randevu taleplerini onaylaması (Öğretmen+).",
+        "response_id": "appointment_requests_instructions",
+        "response_template": (
+            "**Randevular** (`/appointments`) → **Randevu "
+            "talepleri** bölümünde gelen talepleri görürsün; her talepte **Onayla** "
+            "ile kabul et (gerekirse reddet). Onaylanan randevu, ilgili öğrenci/"
+            "velinin **Randevularım**'ında görünür."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Randevu taleplerini nasıl onaylarım?",
+            "Gelen randevu isteklerini nerede görürüm?",
+            "Randevu talebini kabul etmek istiyorum",
+            "Öğrenci randevu talebini onaylama",
+            "Randevu isteklerini yönetmek istiyorum",
+        ],
+        "must_not_match": ["appointment_book", "appointment_slot_open"],
+    },
+    # --- Yemek (T1; frontend /meals, "Yemekler" menüsü) -----------------------
+    {
+        "intent": "meal_view",
+        "category": "meals",
+        "description": "Yemek menülerini/rezervasyon durumunu görüntüleme.",
+        "response_id": "meal_view_info",
+        "response_template": (
+            "Yemek menülerini **Okul hizmetleri** grubundaki **Yemekler** "
+            "(`/meals`) sayfasından görürsün. Günün **Menü** ve **Öğün**lerini, "
+            "rezervasyon durumunu (**Rezerve edildi** / **Rezervasyon yok**) "
+            "görebilirsin. Detay için menü kartına bas (`/meals/$id`)."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Yemek menüsü nerede?",
+            "Yemek menüsünü görmek istiyorum",
+            "Yemekler sayfası nerede?",
+            "Öğün menüsü nerede?",
+            "Yemek listesi nerede?",
+        ],
+        "must_not_match": ["meal_book", "meal_menu_manage"],
+    },
+    {
+        "intent": "meal_book",
+        "category": "meals",
+        "description": "Öğün için yer ayırma/iptal (Öğrenci/Veli).",
+        "response_id": "meal_book_instructions",
+        "response_template": (
+            "Yemek için yer ayırmak üzere **Yemekler** (`/meals`) → ilgili menü/"
+            "öğüne gir, **Yer ayır**'a bas. Rezervasyonun **Rezerve edildi** olarak "
+            "görünür; **Rezervasyonu iptal et** ile geri alabilirsin. Yer ayırma "
+            "Öğrenci (kendisi) ve Veli'ye (bağlı çocuğu) açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Yemek için yer ayırmak istiyorum",
+            "Öğün rezervasyonu nasıl yapılır?",
+            "Yer ayırma nerede?",
+            "Yemek rezervasyonu yapmak istiyorum",
+            "Yemek rezervasyonumu iptal etmek istiyorum",
+        ],
+        "must_not_match": ["meal_view", "meal_menu_manage"],
+    },
+    {
+        "intent": "meal_menu_manage",
+        "category": "meals",
+        "description": "Menü/öğün/kredi yönetimi (Yönetici+).",
+        "response_id": "meal_menu_instructions",
+        "response_template": (
+            "**Yemekler** (`/meals`) → **Menü yayınla** ile "
+            "yeni menü/öğün oluştur, **Yemek ekle** ile öğüne yemek ekle. Öğrenci "
+            "**Kredi** yönetimi için **Kredi kaydet** kullanılır. Menü ve kredi "
+            "yönetimi yalnızca Yönetici ve ADMIN'e açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Menü nasıl yayınlarım?",
+            "Yeni menü oluşturmak istiyorum",
+            "Öğüne yemek eklemek istiyorum",
+            "Yemek kredisi nasıl kaydedilir?",
+            "Kredi kaydetme nerede?",
+        ],
+        "must_not_match": ["meal_book", "meal_view"],
+    },
+    # --- Soru havuzu (T1; frontend /questions "Soru havuzu"; sınav "Soru
+    # bankası"/question-bank'ten AYRI. Veli havuzdan hariç) --------------------
+    {
+        "intent": "question_ask",
+        "category": "questions",
+        "description": "Soru havuzuna soru sorma (Öğrenci+, Veli hariç).",
+        "response_id": "question_ask_instructions",
+        "response_template": (
+            "**Topluluk** grubundaki **Soru havuzu** (`/questions`) sayfasına git. "
+            "**Soru sor**'a bas; **Konu**, **Soru detayı** ve isteğe bağlı **Görsel** "
+            "ekleyip gönder. Sorun önce **Bekliyor** durumundadır; bir öğretmen "
+            "onaylayınca **Onaylandı** olur ve herkese görünür. Soru havuzu Öğrenci "
+            "ve üstüne açıktır (Veli hariç)."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Soru havuzuna nasıl soru sorarım?",
+            "Soru havuzu nedir?",
+            "Havuza yeni soru sormak istiyorum",
+            "Soru havuzunda soru sorma nerede?",
+            "Soru havuzuna bir soru sormak istiyorum",
+        ],
+        "must_not_match": ["question_solve", "question_approve", "exam_add_question"],
+    },
+    {
+        "intent": "question_solve",
+        "category": "questions",
+        "description": "Havuzdaki bir soruya çözüm gönderme (Öğrenci+).",
+        "response_id": "question_solve_instructions",
+        "response_template": (
+            "Bir soruya çözüm göndermek için **Soru havuzu** (`/questions`) → soruyu "
+            "aç (`/questions/$id`) → **Çözümler** bölümünde **Çözüm gönder** ile "
+            "çözümünü yaz ve paylaş. Çözüm gönderme Öğrenci ve üstüne açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Bir soruya nasıl çözüm gönderirim?",
+            "Çözüm önermek istiyorum",
+            "Soruya çözüm yazmak istiyorum",
+            "Çözüm paylaşmak istiyorum",
+            "Soruyu nasıl çözerim?",
+        ],
+        "must_not_match": ["question_ask", "question_approve"],
+    },
+    {
+        "intent": "question_approve",
+        "category": "questions",
+        "description": "Havuzdaki soruları onaylama/reddetme (Öğretmen+).",
+        "response_id": "question_approve_instructions",
+        "response_template": (
+            "**Soru havuzu** (`/questions`) → soru detayında "
+            "**Onayla** ile bekleyen soruyu yayınla, gerekirse **Reddet**. Onaylanan "
+            "soru **Onaylandı** olur ve herkese görünür. Onaylama Öğretmen ve üstüne açıktır."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Havuzdaki soruları nasıl onaylarım?",
+            "Bekleyen soruları onaylamak istiyorum",
+            "Öğrenci sorusunu reddetmek istiyorum",
+            "Soru onaylama nerede?",
+            "Havuzdaki soruları onaylamak istiyorum",
+        ],
+        "must_not_match": ["question_ask", "question_solve"],
+    },
+    # --- Beyaz tahta (T1; frontend /whiteboards "Beyaz tahtalar"; Veli hariç) --
+    {
+        "intent": "board_view",
+        "category": "boards",
+        "description": "Beyaz tahtaları görüntüleme/açma (Öğrenci+, Veli hariç).",
+        "response_id": "board_view_info",
+        "response_template": (
+            "Beyaz tahtaları **Çalışma alanı** grubundaki **Beyaz tahtalar** "
+            "(`/whiteboards`) sayfasından görürsün. Bir tahtayı açmak için kartında "
+            "**Aç**'a bas (`/whiteboards/$id`); katılımcılar eşzamanlı çizer. Beyaz "
+            "tahtalar Öğrenci ve üstüne açıktır (Veli hariç)."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Beyaz tahtalar nerede?",
+            "Var olan bir tahtayı nasıl açarım?",
+            "Beyaz tahta sayfası nerede?",
+            "Tahtaları nereden görürüm?",
+            "Ortak çalışma tahtaları nerede?",
+        ],
+        "must_not_match": ["board_create"],
+    },
+    {
+        "intent": "board_create",
+        "category": "boards",
+        "description": "Yeni beyaz tahta oluşturma (Öğrenci+, Veli hariç).",
+        "response_id": "board_create_instructions",
+        "response_template": (
+            "Yeni beyaz tahta için **Beyaz tahtalar** (`/whiteboards`) → **Yeni tahta** "
+            "ile **Başlık** gir, isteğe bağlı **Katılımcılar** ekle, oluştur. Tahta "
+            "içinde **Kilitle/Kilidi aç**, **Temizle** ve **Tahtayı kapat** kontrolleri "
+            "vardır; Öğretmen+ **Toplu davet** ile sınıf/etkinlik katılımcısı çağırabilir."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Yeni beyaz tahta nasıl oluştururum?",
+            "Yeni tahta oluşturmak istiyorum",
+            "Beyaz tahta eklemek istiyorum",
+            "Tahta oluşturma nerede?",
+            "Yeni bir tahta oluşturmak istiyorum",
+        ],
+        "must_not_match": ["board_view"],
+    },
 ]
 
 
@@ -1609,6 +1856,12 @@ RULE_ONLY_INTENTS: Final[frozenset[str]] = frozenset({
     "fees_info", "branches_info", "calendar_info", "today_info",
     "question_bank_info", "notification_settings_info", "nav_overview",
     "event_view", "exam_schedule_info", "course_materials_info",
+    # T1 özellikleri: kural-tetikli; örnek soruları similarity/domain havuzuna
+    # ALINMAZ (yeni intent'ler TF-IDF/OOS'u kirletmesin — coverage intent'leri gibi).
+    "appointment_book", "appointment_slot_open", "appointment_requests",
+    "meal_view", "meal_book", "meal_menu_manage",
+    "question_ask", "question_solve", "question_approve",
+    "board_view", "board_create",
 })
 
 
@@ -1697,6 +1950,18 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "event_view": "/events",
     "exam_schedule_info": "/exams",
     "course_materials_info": "/courses",
+    # T1 özellikleri (frontend rotalarıyla birebir)
+    "appointment_book": "/appointments",
+    "appointment_slot_open": "/appointments",
+    "appointment_requests": "/appointments",
+    "meal_view": "/meals",
+    "meal_book": "/meals",
+    "meal_menu_manage": "/meals",
+    "question_ask": "/questions",
+    "question_solve": "/questions",
+    "question_approve": "/questions",
+    "board_view": "/whiteboards",
+    "board_create": "/whiteboards",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1708,6 +1973,10 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/exams": "Sınavlar",
     "/homework": "Ödevler",
     "/events": "Etkinlikler",
+    "/appointments": "Randevular",
+    "/meals": "Yemekler",
+    "/questions": "Soru havuzu",
+    "/whiteboards": "Beyaz tahtalar",
     "/marks": "Karnem",
     "/attendance": "Yoklama",
     "/notes": "Defter",

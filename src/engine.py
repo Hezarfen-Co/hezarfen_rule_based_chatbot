@@ -346,32 +346,8 @@ def _unavailable_feature(query: str) -> str | None:
     return None
 
 
-# Üründe MEVCUT olan (frontend'de tam sayfa) ama chatbot kataloğunda ayrı intent'i
-# olmayan özellikler -> doğru bilgi + sayfa butonu (yanlış "aktif değil" demez).
-# (folded_anahtar, path, Başlık, açıklama)
-_FEATURE_INFO: tuple[tuple[str, str, str, str], ...] = (
-    ("randevu", "/appointments", "Randevular",
-     "Randevular sayfasında öğretmenler görüşme saatleri (slot) açar; öğrenci/veli "
-     "uygun saate randevu alır. Randevular onaylanır, ertelenir ya da iptal edilir."),
-    ("yemek", "/meals", "Yemekler",
-     "Yemekler sayfasında günlük yemek menüsü görüntülenir ve yemek rezervasyonu yapılır."),
-    ("beyaz tahta", "/whiteboards", "Beyaz tahtalar",
-     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
-     "çizim ve not paylaşabilirsin."),
-    ("tahta", "/whiteboards", "Beyaz tahtalar",
-     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
-     "çizim ve not paylaşabilirsin."),
-)
-
-
-def _feature_info(query: str) -> tuple[str, dict[str, Any]] | None:
-    """Mevcut ama ayrı intent'i olmayan özellik -> (açıklama, sayfa butonu)."""
-
-    low = query.casefold()
-    for keyword, path, label, desc in _FEATURE_INFO:
-        if keyword in low:
-            return desc, {"route": path, "label": label, "available": True}
-    return None
+# (T1 özellikleri — randevu/yemek/beyaz tahta/soru havuzu — artık gerçek intent'lerdir;
+#  eski _FEATURE_INFO stopgap'i kaldırıldı, boru hattı bunları normal karşılar.)
 
 
 # --- Kapsam sınırı: canlı VERİ çekme isteği ---------------------------------
@@ -493,8 +469,11 @@ _TOPIC_HELP: tuple[tuple[str, str], ...] = (
     ("takvim", "takvim nerede"),
     ("defter", "defterlerim nerede"),
     ("pomodoro", "pomodoro nedir"),
-    ("soru", "soru bankası nedir"),
     ("mesaj", "mesaj nasıl gönderirim"),
+    # T1: 'randevu/yemek/tahta ne işe yarar' -> ilgili T1 intent'ine götür
+    ("randevu", "randevu nasıl alırım"),
+    ("yemek", "yemek menüsü nerede"),
+    ("tahta", "beyaz tahtalar nerede"),
     ("yoklama", "yoklamam nerede"),
     ("devamsiz", "devamsızlığımı nasıl görürüm"),
 )
@@ -1052,27 +1031,6 @@ class Engine:
         pure_negation = _neg_resolved.strip() == ""
         if not pure_negation and _neg_resolved != effective_query:
             effective_query = _neg_resolved
-
-        # 1.56) Üründe MEVCUT ama ayrı intent'i olmayan özellik (randevu/yemek/beyaz
-        # tahta) -> doğru bilgi + sayfa butonu (yanlış "aktif değil" DEMEZ).
-        _feat = _feature_info(effective_query)
-        if _feat is not None:
-            _feat_text, _feat_nav = _feat
-            return _attach_assistant_meta({
-                "trace_id": trace_id,
-                "response_id": "feature_info",
-                "text": _with_brand_note(_feat_text, query),
-                "intent": None,
-                "confidence": 1.0,
-                "fallback": False,
-                "auth_action": None,
-                "required_role": None,
-                "navigation": _feat_nav,
-                "clarification": None,
-                "answers": None,
-                "suggestions": suggestions,
-                "safety": safety_info,
-            }, role)
 
         # 1.57) Henüz canlı olmayan/bulunmayan özellik -> yanlış yönlendirme YOK,
         # dürüstçe "henüz kullanılamıyor" (intent None, nav yok).

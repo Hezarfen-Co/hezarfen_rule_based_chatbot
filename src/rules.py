@@ -366,10 +366,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["bugün", "panel"]}, {"all": ["ana", "panel"]},
     ]},
     {"intent": "question_bank_info", "groups": [
+        # Yalnız 'soru bankası' (sınav şablon deposu). 'Soru havuzu' AYRI bir özellik
+        # (/questions, question_ask) -> ona bırakılır (havuz burada YOK).
         {"all": ["soru", "banka"]},
-        # 'soru havuzu' = soru bankası (halk dilinde); tek 'havuz' okul bağlamında da
-        # soru havuzunu ifade eder -> question_bank_info.
-        {"all": ["soru", "havuz"]}, {"all": ["havuz"]},
     ]},
     {"intent": "notification_settings_info", "groups": [
         {"all": ["bildirim"]},
@@ -393,6 +392,72 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     {"intent": "course_materials_info", "groups": [
         {"all": ["ders", "not", "pdf"]}, {"all": ["ders", "not", "dosya"]},
         {"all": ["öğretmen", "pdf"]}, {"all": ["ders", "dosya"], "none": ["defter"]},
+    ]},
+    # --- T1: Randevu (al=öğrenci/veli, saat aç=öğretmen, onayla=öğretmen) ---
+    {"intent": "appointment_book", "groups": [
+        {"all": ["randevu", "al"], "none": [
+            "saat", "onayla", "talepleri", "kabul", "reddet", "istek"]},
+        {"all": ["randevu", "talep", "oluştur"]},
+        {"all": ["randevu", "talep", "et"], "none": ["kabul", "onayla", "reddet"]},
+        # "Randevular nerede" = randevu sayfası (öğrenci/veli için randevu alma).
+        {"all": ["randevu", "nerede"], "none": ["saat", "onayla", "talepleri"]},
+    ]},
+    {"intent": "appointment_slot_open", "groups": [
+        {"all": ["randevu", "saat"]},
+        {"all": ["müsait", "saat"]},
+        {"all": ["müsait", "yayınla"]},
+    ]},
+    {"intent": "appointment_requests", "groups": [
+        {"all": ["randevu", "onayla"]}, {"all": ["randevu", "kabul"]},
+        {"all": ["randevu", "reddet"]}, {"all": ["randevu", "istek"]},
+        {"all": ["randevu", "talepleri"]},
+    ]},
+    # --- T1: Yemek (menü görüntüle=view, yer ayır=book, yayınla/kredi=manage) ---
+    {"intent": "meal_view", "groups": [
+        {"all": ["yemek", "menü"], "none": [
+            "yayınla", "ekle", "oluştur", "kredi", "ayır", "rezerv"]},
+        {"all": ["öğün", "menü"]},
+        {"all": ["yemek", "liste"]},
+        {"all": ["yemek", "nerede"], "none": ["yer", "rezerv", "yayınla", "ekle", "kredi"]},
+    ]},
+    {"intent": "meal_book", "groups": [
+        {"all": ["yer", "ayır"]},
+        {"all": ["yemek", "rezerv"]},
+        {"all": ["öğün", "rezerv"]},
+    ]},
+    {"intent": "meal_menu_manage", "groups": [
+        {"all": ["menü", "yayınla"]},
+        {"all": ["menü", "oluştur"]},
+        {"all": ["yemek", "ekle"], "none": ["yer"]},
+        {"all": ["yemek", "kredi"]}, {"all": ["kredi", "kaydet"]},
+    ]},
+    # --- T1: Soru havuzu (sor=ask, çöz=solve, onayla=approve; sınav soru ekle'den ayrı) ---
+    {"intent": "question_ask", "groups": [
+        # 'onayla/reddet/çöz' varsa approve/solve'a bırak (soru+havuz onlarda da var).
+        {"all": ["soru", "havuz"], "none": ["onayla", "reddet", "çöz", "çözüm", "bekleyen"]},
+        {"all": ["havuz", "soru"], "none": ["onayla", "reddet", "çöz", "çözüm", "bekleyen"]},
+    ]},
+    {"intent": "question_solve", "groups": [
+        {"all": ["çözüm", "gönder"]}, {"all": ["çözüm", "öner"]},
+        {"all": ["çözüm", "paylaş"]}, {"all": ["çözüm", "yaz"]},
+        {"all": ["soru", "çöz"]},
+    ]},
+    {"intent": "question_approve", "groups": [
+        {"all": ["soru", "onayla"], "none": ["banka"]},
+        {"all": ["soru", "reddet"]},
+        {"all": ["bekleyen", "soru"]}, {"all": ["havuz", "onayla"]},
+    ]},
+    # --- T1: Beyaz tahta (aç/nerede=view, oluştur/yeni=create) ---
+    {"intent": "board_view", "groups": [
+        {"all": ["tahta", "aç"]},
+        {"all": ["tahta", "nerede"], "none": ["oluştur", "yeni", "ekle"]},
+        {"all": ["beyaz", "tahta"], "none": ["oluştur", "yeni", "ekle"]},
+        {"all": ["tahta", "gör"]},
+    ]},
+    {"intent": "board_create", "groups": [
+        {"all": ["tahta", "oluştur"]},
+        {"all": ["yeni", "tahta"]},
+        {"all": ["tahta", "ekle"]},
     ]},
 ]
 

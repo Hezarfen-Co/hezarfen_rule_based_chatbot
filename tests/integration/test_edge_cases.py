@@ -179,19 +179,30 @@ class TopicHelpAndFeatureInfoTests(unittest.TestCase):
     def test_specific_howto_not_hijacked(self) -> None:
         self.assertEqual(ask("etkinlik nasıl oluştururum", "ogretmen")["intent"], "event_create")
 
-    def test_existing_features_not_marked_unavailable(self) -> None:
-        for q in ["randevular nerede", "yemek menüsü nasıl", "beyaz tahta ne işe yarar",
-                  "soru havuzu ne işe yarar"]:
+    def test_t1_features_have_real_intents(self) -> None:
+        # T1 özellikleri artık gerçek intent (feature_info stopgap kalktı); doğru
+        # role'de intent + buton verir, ASLA "aktif değil" demez.
+        for q, role, intent in [
+            ("randevu nasıl alırım", "ogrenci", "appointment_book"),
+            ("yemek menüsü nerede", "ogrenci", "meal_view"),
+            ("beyaz tahta nasıl oluştururum", "ogrenci", "board_create"),
+            ("soru havuzuna nasıl soru sorarım", "ogrenci", "question_ask"),
+        ]:
             with self.subTest(q=q):
-                r = ask(q, "ogretmen")
+                r = ask(q, role)
+                self.assertEqual(r["intent"], intent)
                 self.assertNotIn("aktif değil", r["text"])
-                self.assertNotIn("kullanılamıyor", r["text"])
                 self.assertIsNotNone(r["navigation"])
 
-    def test_question_pool_is_question_bank(self) -> None:
-        r = ask("soru havuzu sayfasını açmak istiyorum", "ogretmen")
-        self.assertEqual(r["intent"], "question_bank_info")
-        self.assertEqual(r["navigation"]["route"], "/question-bank")
+    def test_question_pool_vs_question_bank_distinct(self) -> None:
+        # 'Soru havuzu' (/questions, topluluk) ile 'Soru bankası' (/question-bank,
+        # sınav) AYRI özelliklerdir — karışmaz.
+        pool = ask("soru havuzuna nasıl soru sorarım", "ogrenci")
+        self.assertEqual(pool["intent"], "question_ask")
+        self.assertEqual(pool["navigation"]["route"], "/questions")
+        bank = ask("soru bankası nedir", "ogretmen")
+        self.assertEqual(bank["intent"], "question_bank_info")
+        self.assertEqual(bank["navigation"]["route"], "/question-bank")
 
 
 class KnownLimitTests(unittest.TestCase):

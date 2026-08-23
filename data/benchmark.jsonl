@@ -223,3 +223,36 @@
 {"question": "Ders dosyaları hangi sayfada?", "expected_intent": "course_materials_info", "role": "ogrenci"}
 {"question": "Öğretmenin PDF dosyaları nerede?", "expected_intent": "course_materials_info", "role": "ogrenci"}
 {"question": "Ders notu dosyalarını nereden indiririm?", "expected_intent": "course_materials_info", "role": "ogrenci"}
+{"question": "Nasıl randevu alabilirim", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "Randevu almak için ne yapmalıyım", "expected_intent": "appointment_book", "role": "veli"}
+{"question": "Yeni bir randevu talebi oluşturayım", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "Öğrencilere randevu saatleri açmak istiyorum", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Müsait saatlerimi nasıl yayınlarım", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Randevu için boş saat eklemek istiyorum", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "Gelen randevu taleplerini nasıl onaylarım", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Randevu isteklerini nereden yönetirim", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Bir randevu talebini kabul etmek istiyorum", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "Yemek menüsünü nereden görebilirim", "expected_intent": "meal_view", "role": "ogrenci"}
+{"question": "Öğün menüsünü görmek istiyorum", "expected_intent": "meal_view", "role": "veli"}
+{"question": "Haftalık yemek listesi nerede", "expected_intent": "meal_view", "role": "ogrenci"}
+{"question": "Öğle yemeği için yer ayırmak istiyorum", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "Menüden yemek rezerve etmek istiyorum", "expected_intent": "meal_book", "role": "veli"}
+{"question": "Öğün için yer ayırtmak istiyorum", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "Yeni yemek menüsü yayınlamak istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Öğüne yeni yemek eklemek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Öğrenci yemek kredisi girmek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Soru havuzunda soru sormak istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Takıldığım soruyu havuza nasıl sorarım", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Soru havuzuna soru göndermek istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
+{"question": "Zor bir soruya çözüm göndermek istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Bir soruya çözüm önerisi yapmak istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Havuzdaki soruyu çözmek istiyorum", "expected_intent": "question_solve", "role": "ogrenci"}
+{"question": "Bekleyen havuz sorularını onaylayayım", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Öğrenci sorularını nasıl onaylarım", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Havuzdaki bir soruyu reddetmek istiyorum", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "Beyaz tahta listesini nereden görürüm", "expected_intent": "board_view", "role": "ogrenci"}
+{"question": "Bir tahtayı nasıl açarım", "expected_intent": "board_view", "role": "ogrenci"}
+{"question": "Var olan tahtaları nasıl görürüm", "expected_intent": "board_view", "role": "ogretmen"}
+{"question": "Beyaz tahta oluşturmak istiyorum", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "Yeni bir çizim tahtası oluşturayım", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "Yeni beyaz tahta eklemek istiyorum", "expected_intent": "board_create", "role": "ogretmen"}

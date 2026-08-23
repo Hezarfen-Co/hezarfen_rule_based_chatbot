@@ -87,6 +87,20 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "school.settings_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_settings"), (A, S, "school_settings")),
     "school.terms_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_terms"), (A, S, "school_terms")),
     "users.roles_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (D, None, None), (A, S, "admin_users")),
+    # --- T1 özellikleri ---
+    # Randevu: alma yalnız Öğrenci+Veli (backend: Student|Parent); saat açma/talep
+    # onaylama Öğretmen+.
+    "appointments.book": _matrix((A, O, "appointments"), (A, O, "appointments"), (D, None, None), (D, None, None), (D, None, None)),
+    "appointments.manage": _matrix((D, None, None), (D, None, None), (A, O, "appointments"), (A, S, "appointments"), (A, S, "appointments")),
+    # Yemek: menü görüntüleme herkese; yer ayırma Öğrenci(self)+Veli; menü/kredi Yönetici+.
+    "meals.view": _matrix((A, O, "meals"), (A, O, "meals"), (A, O, "meals"), (A, S, "meals"), (A, S, "meals")),
+    "meals.book": _matrix((A, O, "meals"), (A, O, "meals"), (D, None, None), (D, None, None), (D, None, None)),
+    "meals.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals")),
+    # Soru havuzu: sorma/çözme Öğrenci+ (Veli hariç); onaylama Öğretmen+ (moderatör).
+    "qpool.participate": _matrix((D, None, None), (A, O, "questions"), (A, O, "questions"), (A, S, "questions"), (A, S, "questions")),
+    "qpool.moderate": _matrix((D, None, None), (D, None, None), (A, M, "questions"), (A, S, "questions"), (A, S, "questions")),
+    # Beyaz tahta: görüntüleme/oluşturma Öğrenci+ (Veli hariç).
+    "boards.use": _matrix((D, None, None), (A, O, "whiteboards"), (A, O, "whiteboards"), (A, S, "whiteboards"), (A, S, "whiteboards")),
 }
 
 _ACTION_BY_INTENT: Final[dict[str, str]] = {
@@ -158,6 +172,18 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "event_view": "platform.help",
     "exam_schedule_info": "platform.help",
     "course_materials_info": "platform.help",
+    # T1 özellikleri
+    "appointment_book": "appointments.book",
+    "appointment_slot_open": "appointments.manage",
+    "appointment_requests": "appointments.manage",
+    "meal_view": "meals.view",
+    "meal_book": "meals.book",
+    "meal_menu_manage": "meals.manage",
+    "question_ask": "qpool.participate",
+    "question_solve": "qpool.participate",
+    "question_approve": "qpool.moderate",
+    "board_view": "boards.use",
+    "board_create": "boards.use",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {

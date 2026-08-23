@@ -112,6 +112,18 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "etkinlikleri nerede görürüm", "event_view"),
     ("ogrenci", "sınav tarihleri nerede yazıyor", "exam_schedule_info"),
     ("ogrenci", "ders notları ve öğretmenin yüklediği pdf nerede", "course_materials_info"),
+    # --- T1 özellikleri ---
+    ("ogrenci", "öğretmenden randevu almak istiyorum", "appointment_book"),
+    ("ogretmen", "randevu saatlerimi açmak istiyorum", "appointment_slot_open"),
+    ("ogretmen", "gelen randevu taleplerini onaylamak istiyorum", "appointment_requests"),
+    ("ogrenci", "yemek menüsünü nereden görürüm", "meal_view"),
+    ("ogrenci", "öğün için yer ayırmak istiyorum", "meal_book"),
+    ("yonetici", "yeni yemek menüsü yayınlamak istiyorum", "meal_menu_manage"),
+    ("ogrenci", "soru havuzuna soru sormak istiyorum", "question_ask"),
+    ("ogrenci", "bir soruya çözüm göndermek istiyorum", "question_solve"),
+    ("ogretmen", "havuzdaki soruları onaylamak istiyorum", "question_approve"),
+    ("ogrenci", "beyaz tahtalar nerede", "board_view"),
+    ("ogrenci", "yeni beyaz tahta oluşturmak istiyorum", "board_create"),
 ]
 
 
