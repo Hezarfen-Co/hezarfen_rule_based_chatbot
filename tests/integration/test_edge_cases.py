@@ -119,6 +119,81 @@ class MixedSignalTests(unittest.TestCase):
         self.assertEqual(resp["response_id"], "role_capabilities_ogrenci")
 
 
+class UpperRoleReportRedirectTests(unittest.TestCase):
+    """Üst rol (öğretmen/yönetici/admin) 'kendi karnem/notlarım/sınav sonuçlarım'
+    sorunca çıkmaz cevap/deny yerine ÖĞRENCİ RAPORLARI sayfasına buton + net metin.
+    Öğrenci-özel sayfa (/marks,/attendance) sızmaz; 'Hangi öğrenciyi' çıkmazı yok."""
+
+    def _r(self, q, role):
+        return ask(q, role)
+
+    def test_upper_roles_get_management_button_not_deadend(self) -> None:
+        for role in ("ogretmen", "yonetici", "admin"):
+            for q, route in [
+                ("Karnemi nerede görürüm?", "/management/student-marks"),
+                ("Sınav sonuçlarımı nasıl öğrenebilirim", "/management/student-marks"),
+                ("Devamsızlığımı nerede görürüm?", "/management/student-attendance"),
+            ]:
+                with self.subTest(role=role, q=q):
+                    r = self._r(q, role)
+                    self.assertEqual(r["response_id"], "student_report_redirect")
+                    self.assertIsNone(r["auth_action"])
+                    self.assertIsNotNone(r["navigation"])
+                    self.assertEqual(r["navigation"]["route"], route)
+                    # öğrenci-özel sayfa VE çıkmaz metin sızmaz
+                    self.assertNotIn("/marks", r["text"])
+                    self.assertNotIn("/attendance", r["text"])
+                    self.assertNotIn("Hangi öğrenciyi", r["text"])
+
+    def test_student_own_pages_unaffected(self) -> None:
+        # Öğrenci kendi karnesini/yoklamasını görür (buton /marks,/attendance).
+        self.assertEqual(ask("Karnemi nerede görürüm?", "ogrenci")["navigation"]["route"], "/marks")
+        self.assertEqual(ask("Devamsızlığımı görmek istiyorum", "ogrenci")["navigation"]["route"], "/attendance")
+
+    def test_parent_no_management_leak(self) -> None:
+        # Veli yönetim sayfasına yönlendirilmez (yetkisi yok) — çıkmaz metin de yok.
+        r = ask("Karnemi nerede görürüm?", "veli")
+        self.assertNotEqual(r["response_id"], "student_report_redirect")
+        if r["navigation"]:
+            self.assertNotIn("/management", r["navigation"]["route"])
+
+
+class TopicHelpAndFeatureInfoTests(unittest.TestCase):
+    """'<konu> ne yapabilirim' generic help_capabilities'e düşmez; mevcut T1
+    özellikleri (randevu/yemek/beyaz tahta/soru bankası) 'aktif değil' DEMEZ."""
+
+    def test_topic_help_routes_to_topic_not_generic(self) -> None:
+        for q, intent in [
+            ("etkinliklerde ne yapabilirim", "event_view"),
+            ("derslerde ne yapabilirim", "course_view"),
+            ("ödevlerde ne yapabilirim", "homework_view"),
+        ]:
+            with self.subTest(q=q):
+                r = ask(q, "admin")
+                self.assertEqual(r["intent"], intent)
+                self.assertNotEqual(r["intent"], "help_capabilities")
+
+    def test_bare_capability_still_generic(self) -> None:
+        self.assertEqual(ask("neler yapabilirim", "admin")["intent"], "help_capabilities")
+
+    def test_specific_howto_not_hijacked(self) -> None:
+        self.assertEqual(ask("etkinlik nasıl oluştururum", "ogretmen")["intent"], "event_create")
+
+    def test_existing_features_not_marked_unavailable(self) -> None:
+        for q in ["randevular nerede", "yemek menüsü nasıl", "beyaz tahta ne işe yarar",
+                  "soru havuzu ne işe yarar"]:
+            with self.subTest(q=q):
+                r = ask(q, "ogretmen")
+                self.assertNotIn("aktif değil", r["text"])
+                self.assertNotIn("kullanılamıyor", r["text"])
+                self.assertIsNotNone(r["navigation"])
+
+    def test_question_pool_is_question_bank(self) -> None:
+        r = ask("soru havuzu sayfasını açmak istiyorum", "ogretmen")
+        self.assertEqual(r["intent"], "question_bank_info")
+        self.assertEqual(r["navigation"]["route"], "/question-bank")
+
+
 class KnownLimitTests(unittest.TestCase):
     """Bilinen sınırlar — bilinçli kabul edilen davranışlar (değişirse fark edelim).
 
@@ -126,18 +201,30 @@ class KnownLimitTests(unittest.TestCase):
     testler güncellenir. Amaç: sessiz davranış kayması olmasın.
     """
 
-    def test_negation_is_ignored(self) -> None:
-        # Olumsuzlama görülmez: 'gösterme' de report_card_view'a gider.
-        # (Bot işlem yapmadığı için zararsız; embedding/kural iyileştirmesi bekliyor.)
-        resp = ask("notlarımı gösterme")
-        self.assertEqual(resp["intent"], "report_card_view")
+    def test_negation_contrast_routes_to_affirmed(self) -> None:
+        # Olumsuzluk artık ele alınıyor: "A istemiyorum, B istiyorum" -> olumlu (B).
+        resp = ask("sınav oluşturmak istemiyorum, kayıtlı derslerimi görmek istiyorum")
+        self.assertEqual(resp["intent"], "course_view")
+        # "A değil, B" da B'ye göre yanıtlanır.
+        resp2 = ask("karne değil, kendi devamsızlığımı görmek istiyorum")
+        self.assertEqual(resp2["intent"], "attendance_view")
 
-    def test_multi_intent_needs_rule_backed_segments(self) -> None:
-        # Çoklu-istek desteği KURAL tabanlı parçalarla sınırlı: 'sınav modları
-        # nelerdir' parçası kurala çarpmaz (yalnız benzerlik intent'i) -> bu cümle
-        # tek cevap alır. Kural-tabanlı parçalar ('sınav oluştur ve yoklama al' ya
-        # da 'sınav oluştur ve öğrenci kaydet') hepsi yanıtlanır (bkz.
-        # test_engine.MultiIntentTests).
+    def test_pure_imperative_negation_clarifies(self) -> None:
+        # Dar saf-olumsuz komut ('gösterme'/'gizleme') artık uygulanmaz -> netleştir
+        # (asla yanlış). Yaygın isim-fiiller (oluşturma/ekleme) HARİÇ bırakıldığı
+        # için 'Ders oluşturma nerede?' etkilenmez.
+        resp = ask("notlarımı gösterme")
+        self.assertIsNone(resp["intent"])
+
+    def test_multi_intent_both_rule_backed_answered(self) -> None:
+        # İki parça da KURAL-tabanlı olduğunda çoklu-istek hepsini yanıtlar
+        # ('sınav modları' artık exam_modes_info kuralına çarpıyor).
+        resp = ask("sınav oluştur ve sınav modları nelerdir", "ogretmen")
+        self.assertIsNotNone(resp["answers"])
+        intents = {a["intent"] for a in resp["answers"]}
+        self.assertIn("exam_create", intents)
+        self.assertIn("exam_modes_info", intents)
+        return
         resp = ask("sınav oluştur ve sınav modları nelerdir", "ogretmen")
         self.assertIsNone(resp["answers"])
         self.assertEqual(resp["intent"], "exam_create")

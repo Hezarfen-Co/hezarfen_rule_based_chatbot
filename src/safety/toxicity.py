@@ -60,14 +60,37 @@ def _apply_leet(text: str) -> str:
     return "".join(_LEET_MAP.get(ch, ch) for ch in text)
 
 
+# Homoglyph (confusable) harfler: saldırganlar Latin harf yerine görsel aynısı
+# Kiril/Yunan harf koyar ('sаlаk' <- Kiril а, 'ignоre' <- Kiril о). Latin'e çevir.
+_CONFUSABLES: Final[dict[str, str]] = {
+    "а": "a", "е": "e", "о": "o", "с": "c", "р": "p", "у": "y", "х": "x",
+    "і": "i", "ј": "j", "ѕ": "s", "к": "k", "м": "m", "т": "t", "н": "h",
+    "в": "b", "ԁ": "d", "ɡ": "g", "ν": "v", "ο": "o", "α": "a", " е": "e",
+}
+
+
+def _defancy(text: str) -> str:
+    """Fullwidth ASCII (ＳＡＬＡＫ) ve homoglyph (Kiril/Yunan) harfleri Latin'e indirger."""
+
+    out: list[str] = []
+    for ch in text:
+        code = ord(ch)
+        if 0xFF01 <= code <= 0xFF5E:  # fullwidth ASCII -> normal ASCII
+            out.append(chr(code - 0xFEE0))
+        else:
+            out.append(_CONFUSABLES.get(ch, ch))
+    return "".join(out)
+
+
 def safety_normalize(message: str) -> str:
     """Agresif normalizasyon: gizlenmiş ihlalleri açığa çıkarır.
 
-    Adımlar: görünmez unicode temizliği -> Türkçe küçük harf -> leetspeak ->
-    3+ tekrar harfi teke indir -> aksan katla.
+    Adımlar: görünmez unicode temizliği -> fullwidth/homoglyph indirgeme ->
+    Türkçe küçük harf -> leetspeak -> 3+ tekrar harfi teke indir -> aksan katla.
     """
 
     text = _INVISIBLE_RE.sub("", message)
+    text = _defancy(text)
     text = turkish_lower(text)
     text = _apply_leet(text)
     text = _REPEAT_RE.sub(r"\1", text)
@@ -134,18 +157,28 @@ _THREAT_PATTERNS: Final[tuple[str, ...]] = (
     "vuracagim", "yakacagim", "patlatacagim", "zarar verecegim", "zarar verecem",
     "canina okuyacagim", "silahla gelecegim", "biçaklayacagim", "bicaklayacagim",
     "kafani kiracagim",
+    # Geniş zaman/şimdiki zaman çekimleri (döverim, pataklarım, gebertirim...):
+    "doverim", "doveriz", "doverm", "pataklar", "gebertir", "oldururum",
+    "oldururz", "bicaklar", "kafani kir", "kemiklerini kir", "canini ok",
+    "vururum", "gebertirim",
 )
 _SELF_HARM_PATTERNS: Final[tuple[str, ...]] = (
     "kendime zarar", "intihar", "olmek istiyorum", "yasamak istemiyorum",
     "canima kiymak", "kendimi oldur", "hayatima son", "yasamak istemiyor",
     "intihar etmek",
+    # Yöntem/dolaylı ifadeler (kendimi asacağım, ölsem daha iyi, yok olsam...):
+    "kendimi as", "kendimi kes", "bileklerimi kes", "olsem daha", "yok olsam",
+    "keske olmesem", "keske yok", "canima kiy", "kendime kiy",
 )
 _INJECTION_PATTERNS: Final[tuple[str, ...]] = (
     "onceki talimat", "talimatlari unut", "kurallari unut", "kurallari yok say",
     "sistem prompt", "gizli kural", "gizli talimat", "beni admin yap",
-    "admin yap", "rolundeymis gibi", "gibi davran", "ignore previous",
+    "rolundeymis gibi", "gibi davran", "ignore previous",
     "disregard previous", "yok say ve", "sistem promptunu", "kurallarini yaz",
     "kurallarini goster", "onceki mesajlari unut",
+    # İngilizce/karışık injection ve system-prompt sızdırma:
+    "prior instruction", "all prior", "ignore all", "system prompt",
+    "reveal the system", "reveal system", "onceki tum talimat",
 )
 _SEXUAL_TERMS: Final[frozenset[str]] = frozenset(
     {"seks", "porno", "ciplak", "cinsel", "tecavuz"}
@@ -180,6 +213,61 @@ def _matched_root(tokens: list[str], roots: frozenset[str]) -> str | None:
             if len(root) >= 5 and tok.startswith(root):
                 return root
     return None
+
+
+# Aksan katlaması bazı masum TR kelimelerini profaniteye çevirir:
+#   'şık' (seçenek) / 'sık' (sıkça)  --fold-->  'sik' (profanite).
+# Bu masum-kaynaklı tokenlar profanite eşleşmesinden düşülür; gerçek 'sik' ya da
+# leet 's1k' (aksansız kaynak) etkilenmez.
+_FOLD_SAFE: Final[dict[str, frozenset[str]]] = {
+    "sik": frozenset({"şık", "sık"}),
+}
+
+
+def _lower_tokens(message: str) -> list[str]:
+    """`safety_tokens` ile HİZALI, fakat aksanı KATLANMAMIŞ tokenlar (TR harfleri korunur).
+
+    Aynı adımlar (görünmez unicode, TR küçük harf, leet, tekrar) uygulanır; yalnız
+    `fold_accents` atlanır. fold_accents birebir (1:1) karakter eşlemesi olduğundan
+    token sınırları `safety_tokens` ile aynı kalır -> pozisyonel hizalama korunur.
+    """
+
+    text = _INVISIBLE_RE.sub("", message)
+    text = turkish_lower(text)
+    text = _apply_leet(text)
+    text = _REPEAT_RE.sub(r"\1", text)
+    raw = re.findall(r"[a-z0-9çğıöşü]+", text)
+    tokens: list[str] = []
+    buffer: list[str] = []
+    for tok in raw:
+        if len(tok) == 1 and tok.isalpha():
+            buffer.append(tok)
+            continue
+        if buffer:
+            tokens.append("".join(buffer))
+            buffer = []
+        tokens.append(tok)
+    if buffer:
+        tokens.append("".join(buffer))
+    return tokens
+
+
+def _profanity_safe_tokens(message: str) -> list[str]:
+    """Profanite/hakaret eşleşmesi için tokenlar; aksan-katlama yanlış-pozitiflerini
+    (şık/sık -> sik) düşer. Hizalama bir sebeple bozulursa güvenli tarafta kalır
+    (katlanmış tokenları aynen döndürür)."""
+
+    folded = safety_tokens(message)
+    lower = _lower_tokens(message)
+    if len(folded) != len(lower):
+        return folded
+    kept: list[str] = []
+    for folded_tok, lower_tok in zip(folded, lower):
+        safe_sources = _FOLD_SAFE.get(folded_tok)
+        if safe_sources is not None and lower_tok in safe_sources:
+            continue
+        kept.append(folded_tok)
+    return kept
 
 
 def _contains_any(normalized: str, patterns) -> str | None:
@@ -232,18 +320,25 @@ def _has_studly_caps(message: str) -> bool:
 
 
 _POSSESSIVE_NAME_RE: Final[re.Pattern[str]] = re.compile(
-    r"\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}(?:['’]\w+|nin|nın|nun|nün|['’]?in|['’]?ın)\b"
+    # Büyük harfli isim: kesme'li ya da bitişik iyelik ('Ali'nin', 'Ahmetin').
+    # Küçük harfli isim: YALNIZ kesme'li ('ali'nin') — bitişik lowercase FP yapmasın.
+    r"\b(?:[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}(?:['’]\w+|nin|nın|nun|nün|['’]?in|['’]?ın)"
+    r"|[a-zçğıöşü]{2,}['’](?:nin|nın|nun|nün|in|ın))\b"
 )
 
 
 def _has_possessive_name(message: str) -> bool:
     """Orijinal mesajda iyelik ekli özel isim var mı? ('Ali'nin', 'Ahmet'in')."""
 
+    from ..domain import get_domain_vocab
+
+    excluded = _COMMON_TITLE | _SYSTEM_TERMS | get_domain_vocab()
     for m in _POSSESSIVE_NAME_RE.finditer(message):
-        base = re.match(r"[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}", m.group(0))
+        base = re.match(r"[A-Za-zÇĞİÖŞÜçğıöşü]{2,}", m.group(0))
         if base:
             folded = fold_accents(turkish_lower(base.group(0)))
-            if folded not in _COMMON_TITLE and folded not in _SYSTEM_TERMS:
+            # Alan/ortak kelimeler ('ders'in', 'karne'nin') isim SAYILMAZ.
+            if folded not in excluded:
                 return True
     return False
 
@@ -320,12 +415,25 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
         return _make(BLOCK, "HATE_SPEECH", 5, "SAFE-HATE-001",
                      "Bu içerik nefret söylemi içeriyor ve engellendi.", review=True, matched=[group])
 
-    # 6) Küfür / hakaret (hedef-farkında).
-    insult = _matched_root(tokens, MILD_INSULTS)
-    profanity = _matched_root(tokens, STRONG_PROFANITY)
+    # 5.5) Kişiye yönelik HAKARET NİYETİ ("öğretmenime hakaret etmek istiyorum").
+    # Eğitim/tanım bağlamı ("hakaret ne demek") hariç tutulur.
+    if "hakaret" in normalized and (
+        any(rt in normalized for rt in _ROLE_TARGETS) or _has_proper_name(message)
+    ):
+        if not any(m in tokens for m in _EDU_MARKERS):
+            return _make(BLOCK, "TARGETED_HARASSMENT", 3, "SAFE-HARASS-002",
+                         "Başkasına yönelik hakaret veya aşağılamaya yardımcı olamam; "
+                         "lütfen saygılı bir dil kullanalım.", matched=["hakaret"])
+
+    # 6) Küfür / hakaret (hedef-farkında). Aksan-katlama FP'lerini (şık/sık->sik) düş.
+    prof_tokens = _profanity_safe_tokens(message)
+    insult = _matched_root(prof_tokens, MILD_INSULTS)
+    profanity = _matched_root(prof_tokens, STRONG_PROFANITY)
     if insult or profanity:
         # Eğitim/alıntı bağlamı -> izin.
-        educational = any(m in tokens for m in _EDU_MARKERS) or "'" in message or '"' in message
+        educational = any(m in tokens for m in _EDU_MARKERS) or any(
+            q in message for q in ("'", '"', "‘", "’", "“", "”")
+        )
         if educational:
             return _make(ALLOW, "PROFANITY_EDUCATIONAL", 0, "SAFE-PROF-000",
                          "", matched=[insult or profanity])
@@ -355,8 +463,11 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
     # 7) Başkasının kişisel verisi (isimli talep) -> yetki gerekir.
     # İYELİK EKLİ isim aranır ('Ali'nin notları'); 'Bir öğrencinin' / 'Yeni not'
     # gibi masum how-to soruları yanlışlıkla engellenmesin.
+    # Öğretmen+ öğrenci verisine (yönettiği kapsamda) YETKİLİDİR; isimli how-to
+    # sorusu engellenmez -> student_marks/attendance akışına bırakılır. Öğrenci/veli/
+    # ziyaretçi için isimli başkası-verisi engellenir.
     if _matched_root(tokens, _DATA_TERMS) and not any(t in _SELF_REF for t in tokens):
-        if _has_possessive_name(message):
+        if _has_possessive_name(message) and role not in ("ogretmen", "yonetici", "admin"):
             return _make(REQUIRE_AUTHORIZATION, "OTHER_PERSON_DATA", 3, "SAFE-AUTHZ-001",
                          "Başka bir kişinin bilgilerini gösteremem. Yalnızca kendi bilgilerine erişebilirsin.")
 
@@ -373,8 +484,8 @@ def evaluate_input(message: str, role: str = "ziyaretci", authenticated: bool = 
 def evaluate_output(text: str) -> SafetyDecision:
     """Chatbot cevabını gönderilmeden önce kontrol eder (PII/token/küfür sızıntısı)."""
 
-    tokens = safety_tokens(text)
-    leak = _matched_root(tokens, STRONG_PROFANITY) or _matched_root(tokens, MILD_INSULTS)
+    prof_tokens = _profanity_safe_tokens(text)
+    leak = _matched_root(prof_tokens, STRONG_PROFANITY) or _matched_root(prof_tokens, MILD_INSULTS)
     if leak:
         return _make(BLOCK, "OUTPUT_PROFANITY", 3, "SAFE-OUT-001",
                      "Cevap güvenlik kontrolünden geçemedi.", matched=[leak])

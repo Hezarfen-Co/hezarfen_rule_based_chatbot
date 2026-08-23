@@ -193,3 +193,33 @@
 {"question": "Öğrencinin ödevine nasıl not veririm", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Ödev teslimini değerlendirmek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
 {"question": "Teslim edilen ödeve puan vermek istiyorum", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "Ücret ödemelerimi nerede takip ederim?", "expected_intent": "fees_info", "role": "ogrenci"}
+{"question": "Okul ücreti hangi sayfada?", "expected_intent": "fees_info", "role": "ogrenci"}
+{"question": "Ödeme durumumu nereden görürüm?", "expected_intent": "fees_info", "role": "ogrenci"}
+{"question": "Şube bilgimi nereden öğrenirim?", "expected_intent": "branches_info", "role": "ogrenci"}
+{"question": "Okulun şubeleri hangi sayfada?", "expected_intent": "branches_info", "role": "ogrenci"}
+{"question": "Şube listesi nerede?", "expected_intent": "branches_info", "role": "ogrenci"}
+{"question": "Takvimi nereden açarım?", "expected_intent": "calendar_info", "role": "ogrenci"}
+{"question": "Haftalık programım nerede görünür?", "expected_intent": "calendar_info", "role": "ogrenci"}
+{"question": "Ders programını nasıl görürüm?", "expected_intent": "calendar_info", "role": "ogrenci"}
+{"question": "Ana panel neyi gösterir?", "expected_intent": "today_info", "role": "ogrenci"}
+{"question": "Bugün paneli neleri listeler?", "expected_intent": "today_info", "role": "ogrenci"}
+{"question": "Ana paneldeki özet nedir?", "expected_intent": "today_info", "role": "ogrenci"}
+{"question": "Soru bankasına nasıl ulaşırım?", "expected_intent": "question_bank_info", "role": "ogretmen"}
+{"question": "Soru bankası ne demek?", "expected_intent": "question_bank_info", "role": "ogretmen"}
+{"question": "Soru bankası hangi sayfada?", "expected_intent": "question_bank_info", "role": "ogretmen"}
+{"question": "Bildirimleri nereden yönetirim?", "expected_intent": "notification_settings_info", "role": "ogrenci"}
+{"question": "Bildirim tercihlerimi değiştirmek istiyorum", "expected_intent": "notification_settings_info", "role": "ogrenci"}
+{"question": "Bildirim sesini nasıl kapatırım?", "expected_intent": "notification_settings_info", "role": "ogrenci"}
+{"question": "Yönetim menüsünde ne var?", "expected_intent": "nav_overview", "role": "yonetici"}
+{"question": "Akademik altında hangi sayfalar var?", "expected_intent": "nav_overview", "role": "yonetici"}
+{"question": "ADMIN bölümünde neler var?", "expected_intent": "nav_overview", "role": "yonetici"}
+{"question": "Etkinlik listesi nerede?", "expected_intent": "event_view", "role": "ogrenci"}
+{"question": "Yaklaşan etkinlikleri nereden görürüm?", "expected_intent": "event_view", "role": "ogrenci"}
+{"question": "Etkinlik listemi görmek istiyorum", "expected_intent": "event_view", "role": "ogrenci"}
+{"question": "Sınav takvimi hangi sayfada?", "expected_intent": "exam_schedule_info", "role": "ogrenci"}
+{"question": "Sınav tarihlerini nereden görürüm?", "expected_intent": "exam_schedule_info", "role": "ogrenci"}
+{"question": "Yaklaşan sınavların tarihi nerede?", "expected_intent": "exam_schedule_info", "role": "ogrenci"}
+{"question": "Ders dosyaları hangi sayfada?", "expected_intent": "course_materials_info", "role": "ogrenci"}
+{"question": "Öğretmenin PDF dosyaları nerede?", "expected_intent": "course_materials_info", "role": "ogrenci"}
+{"question": "Ders notu dosyalarını nereden indiririm?", "expected_intent": "course_materials_info", "role": "ogrenci"}

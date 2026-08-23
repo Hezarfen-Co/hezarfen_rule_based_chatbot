@@ -515,7 +515,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Yeni ders oluşturma (Öğretmen+).",
         "response_id": "course_create_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen ve üstü rol. 1) `/courses`'a git, **Yeni ders (New "
+            "1) `/courses`'a git, **Yeni ders (New "
             "course)**'e bas. 2) Sağdan açılan panelde **Başlık** (zorunlu), isteğe "
             "bağlı **Açıklama** ve **Dönem** (varsayılan 'Atanmamış') gir. 3) **Oluştur**. "
             "Öğrencide 'Yeni ders' düğmesi görünmez."
@@ -537,7 +537,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Derse öğrenci kaydetme (Öğretmen+).",
         "response_id": "enroll_student_instructions",
         "response_template": (
-            "Ön koşul: dersi oluşturan öğretmen veya Yönetici+ olmak. 1) Ders detayına "
+            "Ön koşul: bu dersi yönetme yetkin olmalı. 1) Ders detayına "
             "(`/courses/$id`) gir, **Sınıf listesi (Roster)** bölümünü aç. 2) **Öğrenci "
             "kaydet (Enroll student)**'e bas, panelde öğrenciyi ara-seç. 3) Onayla. "
             "Zaten kayıtlılar listede çıkmaz; öğrenci seçmezsen 'Önce bir öğrenci "
@@ -1105,7 +1105,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Etkinlik oluşturma (Öğretmen+).",
         "response_id": "event_create_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen+ rolü. 1) `/events` → **Etkinlik oluştur (Create event)**. "
+            "1) `/events` → **Etkinlik oluştur (Create event)**. "
             "2) **Başlık** (zorunlu, ≤200), isteğe bağlı açıklama; isteğe bağlı "
             "**Başlangıç/Bitiş** tarih+saat. 3) **Oluştur**. Başlık boşsa 'Başlık gerekli'; "
             "bitiş başlangıçtan önce olamaz; tarihler gelecekte olmalı."
@@ -1151,7 +1151,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kendi mesai giriş/çıkışı (Öğretmen/Yönetici).",
         "response_id": "work_checkin_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen veya Yönetici (ADMIN'de bu sayfa yoktur). 1) `/work` "
+            "Ön koşul: bu sayfa ADMIN hesabında bulunmaz. 1) `/work` "
             "(Mesai) sayfasını aç. 2) 'Giriş yapılmadı' ise **Giriş yap (Check in)**; iş "
             "bitince **Çıkış yap (Check out)**. 3) **Son kayıtlar**'da giriş/çıkış/süre ve "
             "Açık/Kapalı durumunu görürsün. Saatler sunucu damgalıdır; aynı anda tek açık "
@@ -1177,7 +1177,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Personel mesai kayıtlarını görme/düzeltme (Yönetici+).",
         "response_id": "staff_work_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. 1) `/management/staff-work` (Personel mesai) → "
+            "1) `/management/staff-work` (Personel mesai) → "
             "aramaya **en az 2 karakter** (öğretmen adı). 2) Öğretmen satırında **Görüntüle**. "
             "3) **Kapalı** bir kaydın **Düzenle**'sini açıp giriş/çıkış tarih+saat düzelt, "
             "**Güncelle**. **Açık mesai düzeltilemez** (önce çıkış yapılmalı veya silinmeli); "
@@ -1203,7 +1203,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Akademik dönem oluşturma/derse bağlama (Yönetici+).",
         "response_id": "term_manage_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. 1) `/management/terms` (Dönemler) → **Dönem "
+            "1) `/management/terms` (Dönemler) → **Dönem "
             "oluştur (Create term)**. 2) **Ad**, **Başlangıç**, **Bitiş** (GG/AA/YYYY) gir; "
             "bitiş başlangıçtan önce olamaz (tarihler geçmişte olabilir). 3) **Oluştur**. "
             "Dersi döneme bağlamak, ders oluşturma/düzenleme formundaki **Dönem** seçicisinden "
@@ -1227,7 +1227,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Okul ayarlarını değiştirme (Yönetici+).",
         "response_id": "school_settings_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. `/management/settings` (Okul ayarları) sayfasında "
+            "`/management/settings` (Okul ayarları) sayfasında "
             "**Sınav türleri** (Ad + Ağırlık 1–100), **Yoklama durumları** (Var/Yok/Geç/"
             "Mazeretli kilitlidir, silinemez), **Not bantları** (Alt sınır + Etiket) ve "
             "**Not dosyası boyut sınırı** (0.001–25 MiB) yönetilir. **Satır ekle** ile ekle, "
@@ -1250,7 +1250,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kullanıcı rolü değiştirme (ADMIN).",
         "response_id": "user_role_change_instructions",
         "response_template": (
-            "Ön koşul: ADMIN. 1) `/admin/users` (Kullanıcılar) sayfasını aç, gerekirse "
+            "1) `/admin/users` (Kullanıcılar) sayfasını aç, gerekirse "
             "kullanıcı adına göre ara. 2) Satırdaki rol menüsünden yeni rolü seç. 3) Beliren "
             "**Güncelle (Update)**'ye bas ve onayla. **Kendi rolünü değiştiremezsin** (kendi "
             "satırında menü pasiftir); rol değişmeden 'Güncelle' görünmez. Değişiklik bir "
@@ -1410,7 +1410,206 @@ INTENTS: Final[list[dict[str, Any]]] = [
         ],
         "must_not_match": ["roles_permissions"],
     },
+    # --- Kapsam genişletme: menüdeki sayfa/bölüm açıklama intent'leri -----------
+    {
+        "intent": "fees_info",
+        "category": "school",
+        "description": "Okul ücretleri/ödeme bilgisinin nerede görüleceği.",
+        "response_id": "fees_info_message",
+        "response_template": (
+            "Okul **ücretleri** ve ödeme bilgilerini menüdeki **Ücretler** "
+            "sayfasından görürsün; borç ve ödeme durumu burada listelenir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Okul ücretlerini nereden görürüm?",
+            "Ödeme bilgilerim nerede?",
+            "Ücretler sayfası nerede?",
+        ],
+        "must_not_match": ["report_card_view", "exam_finish_result"],
+    },
+    {
+        "intent": "branches_info",
+        "category": "school",
+        "description": "Şubeler (şube/sınıf) sayfası ne işe yarar.",
+        "response_id": "branches_info_message",
+        "response_template": (
+            "**Şubeler** sayfasında okulun şubeleri/sınıfları listelenir; hangi "
+            "**şube**de olduğunu ve şubenin ders/öğrenci bilgisini buradan görürsün."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Şubeler sayfası nerede?",
+            "Hangi şubedeyim?",
+            "Şube listesini nereden görürüm?",
+        ],
+        "must_not_match": [],
+    },
+    {
+        "intent": "calendar_info",
+        "category": "general",
+        "description": "Takvim / haftalık ders programı sayfası.",
+        "response_id": "calendar_info_message",
+        "response_template": (
+            "**Takvim** sayfasında etkinlikler, ders oturumları ve haftalık "
+            "**program** takvim görünümünde listelenir; günlere göre planı buradan izlersin."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Takvim sayfasını nasıl açarım?",
+            "Haftalık ders programım nerede?",
+            "Takvimi nereden görürüm?",
+        ],
+        "must_not_match": ["report_card_view", "exam_schedule_info"],
+    },
+    {
+        "intent": "today_info",
+        "category": "general",
+        "description": "Bugün / ana panel ne gösterir.",
+        "response_id": "today_info_message",
+        "response_template": (
+            "**Bugün** panelinde günün özeti bir arada görünür: yaklaşan sınavlar, "
+            "ödevler ve etkinlikler tek ekranda listelenir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Bugün panelinde neleri görürüm?",
+            "Bugün paneli ne işe yarar?",
+            "Ana panelde ne var?",
+        ],
+        "must_not_match": ["roles_permissions", "help_capabilities"],
+    },
+    {
+        "intent": "question_bank_info",
+        "category": "exams",
+        "description": "Soru bankası nedir / ne işe yarar.",
+        "response_id": "question_bank_info_message",
+        "response_template": (
+            "**Soru bankası**, öğretmenlerin hazır soru şablonlarını saklayıp "
+            "sınavlara eklediği depodur; tekrar kullanılabilir sorular burada tutulur."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Soru bankası ne işe yarar?",
+            "Soru bankası nerede?",
+            "Hazır sorular nerede saklanır?",
+        ],
+        "must_not_match": ["exam_add_question", "parent_info"],
+    },
+    {
+        "intent": "notification_settings_info",
+        "category": "account",
+        "description": "Bildirim ayarlarının nereden değiştirileceği.",
+        "response_id": "notification_settings_message",
+        "response_template": (
+            "**Bildirim** tercihlerini ayarlar bölümünden düzenleyebilirsin; hangi "
+            "olaylarda bildirim alacağını buradan seçer veya kapatırsın."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Bildirim ayarlarını nereden değiştiririm?",
+            "Bildirimleri nasıl kapatırım?",
+            "Bildirim tercihleri nerede?",
+        ],
+        "must_not_match": ["school_settings", "language_theme"],
+    },
+    {
+        "intent": "nav_overview",
+        "category": "general",
+        "description": "Menü bölümlerinin genel özeti (hangi bölümde ne var).",
+        "response_id": "nav_overview_message",
+        "response_template": (
+            "Sol menü şu bölümlerden oluşur: **Bugün**; **Eğitim** (Takvim); "
+            "**Akademik** (Ödevler, Sınavlar, Soru bankası); **Planlama** "
+            "(Etkinlikler, Randevular); **Çalışma alanı** (Defter, Beyaz tahtalar); "
+            "**Öğrenci yönetimi** (Şubeler, Öğrenci notları/yoklamaları); **Okul "
+            "hizmetleri** (Yemekler); **Topluluk** (Mesajlar, Soru havuzu); **Okul "
+            "yönetimi** / Yönetim (Personel mesaisi); **Ayarlar** (Dönemler, "
+            "Ücretler, Kullanıcılar). **ADMIN** ek olarak kullanıcı ve rol "
+            "yönetimi yapar. Hangi bölümü açmak istediğini yazarsan yolunu veririm."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Menüde hangi bölümler var?",
+            "Öğrenci yönetimi bölümü ne işe yarar?",
+            "Akademik bölümü altında neler var?",
+            "Yönetim menüsünü kısaca anlatır mısın?",
+            "ADMIN bölümünde hangi sayfalar var?",
+        ],
+        "must_not_match": ["help_capabilities", "parent_info", "navigation_help"],
+    },
+    {
+        "intent": "event_view",
+        "category": "events",
+        "description": "Etkinliklerin nerede görüntüleneceği.",
+        "response_id": "event_view_message",
+        "response_template": (
+            "Okuldaki **etkinlikleri** menüdeki **Etkinlikler** (`/events`) "
+            "sayfasından görürsün; yaklaşan ve katılacağın etkinlikler burada listelenir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Etkinlikleri nerede görürüm?",
+            "Etkinlikler sayfası nerede?",
+            "Yaklaşan etkinlikler nerede listelenir?",
+        ],
+        "must_not_match": ["event_create", "homework_view", "event_attendance_mark"],
+    },
+    {
+        "intent": "exam_schedule_info",
+        "category": "exams",
+        "description": "Sınav takvimi / sınav tarihleri nerede.",
+        "response_id": "exam_schedule_message",
+        "response_template": (
+            "**Sınav** takvimini ve **tarih**lerini **Sınavlar** (`/exams`) "
+            "sayfasından görürsün; yaklaşan sınavların tarihleri burada listelenir."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Sınav tarihleri nerede yazıyor?",
+            "Sınav takvimimi nereden görürüm?",
+            "Sınavlarımın tarihi nerede?",
+        ],
+        "must_not_match": ["exam_create", "homework_view", "calendar_info"],
+    },
+    {
+        "intent": "course_materials_info",
+        "category": "courses",
+        "description": "Ders notları / öğretmenin yüklediği dosyalar (course-notes).",
+        "response_id": "course_materials_message",
+        "response_template": (
+            "Öğretmenin yüklediği **ders notları** ve **PDF/dosya**lar ilgili "
+            "dersin sayfasındadır: **Dersler** (`/courses`) → ders → Ders notları."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Ders notları nerede?",
+            "Öğretmenin yüklediği PDF nerede?",
+            "Ders dosyalarını nereden indiririm?",
+        ],
+        "must_not_match": ["note_create", "report_card_view"],
+    },
 ]
+
+
+# Yalnız KURAL ile tetiklenen intent'ler: benzerlik (TF-IDF) havuzuna ALINMAZLAR.
+# Ortak kelimeleri (bugün, menü, program, panel...) IDF'i kirletip OOS ayrımını
+# bozuyordu; sayfa-arama/bölüm-özeti intent'leri deterministik kuralla kapsanır.
+RULE_ONLY_INTENTS: Final[frozenset[str]] = frozenset({
+    "fees_info", "branches_info", "calendar_info", "today_info",
+    "question_bank_info", "notification_settings_info", "nav_overview",
+    "event_view", "exam_schedule_info", "course_materials_info",
+})
 
 
 FALLBACK: Final[dict[str, str]] = {
@@ -1487,6 +1686,17 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "messages_use": "/messages",
     "study_club_info": "/studies",
     "parent_info": None,
+    # Kapsam genişletme:
+    "fees_info": "/payments",
+    "branches_info": "/classes",
+    "calendar_info": "/calendar",
+    "today_info": "/",
+    "question_bank_info": "/question-bank",
+    "notification_settings_info": None,
+    "nav_overview": None,
+    "event_view": "/events",
+    "exam_schedule_info": "/exams",
+    "course_materials_info": "/courses",
 }
 
 # Yol -> arayüzde görünen sayfa adı (buton etiketi için). Rehber §4'teki TR etiketler.
@@ -1515,6 +1725,10 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/management/settings": "Ayarlar",
     "/management/terms": "Dönemler",
     "/admin/users": "Kullanıcılar",
+    "/payments": "Ücretler",
+    "/classes": "Şubeler",
+    "/calendar": "Takvim",
+    "/question-bank": "Soru bankası",
 }
 
 

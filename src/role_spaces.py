@@ -20,7 +20,7 @@ from .access import (
     ReasonCode,
     RoleIntentView,
 )
-from .catalog import INTENTS, ROLE_HIERARCHY
+from .catalog import INTENTS, ROLE_HIERARCHY, RULE_ONLY_INTENTS
 from .domain import build_domain_vocab
 from .rules import RuleMatcher
 from .similarity import SimilarityMatcher
@@ -71,14 +71,16 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "homework.submit": _matrix((D, None, None), (A, E, "homework"), (D, None, None), (D, None, None), (D, None, None)),
     "homework.manage": _matrix((D, None, None), (D, None, None), (A, M, "homework"), (A, S, "homework"), (A, S, "homework")),
     "events.create": _matrix((D, None, None), (D, None, None), (A, O, "events"), (A, S, "events"), (A, S, "events")),
-    # Kendi etkinlik yoklamasını herkes işaretler (öğrenci+); Veli salt-okunur gözlemci.
-    "events.mark_attendance": _matrix((D, None, None), (A, O, "events"), (A, V, "events"), (A, V, "events"), (A, V, "events")),
+    # Yoklama işaretleme yalnız Öğretmen+ (backend events.rs:481-500 "students never
+    # mark, not even themselves"). Öğrenci ve Veli için DENY -> backend paritesi.
+    "events.mark_attendance": _matrix((D, None, None), (D, None, None), (A, V, "events"), (A, V, "events"), (A, V, "events")),
     "reports.read_own": _matrix((A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self"), (A, O, "reports_self")),
     # Öğrenci not/yoklama arama = Öğretmen yönetim sayfası (Öğretmen+). Veli bu sayfayı
     # kullanmaz (çocuğunun verisini ayrı akıştan görür) -> DENY.
     "reports.observe_student": _matrix((D, None, None), (D, None, None), (A, M, "student_marks"), (A, S, "student_marks"), (A, S, "student_marks")),
-    # Pomodoro backend'de her doğrulanmış kullanıcıya açık (CurrentUser) -> hepsi ALLOW.
-    "pomodoro.start": _matrix((A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro"), (A, O, "pomodoro")),
+    # Pomodoro backend'de yalnız Student (pomodoro.rs:30,117-131 "Requires the student
+    # role"). Sadece öğrenci ALLOW; veli/öğretmen/yönetici/admin DENY -> backend paritesi.
+    "pomodoro.start": _matrix((D, None, None), (A, O, "pomodoro"), (D, None, None), (D, None, None), (D, None, None)),
     "pomodoro.observe_student": _matrix((D, None, None), (D, None, None), (A, S, "student_pomodoro"), (A, S, "student_pomodoro"), (A, S, "student_pomodoro")),
     "work.self": _matrix((D, None, None), (D, None, None), (A, O, "work"), (A, O, "work"), (A, O, "work")),
     "work.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "staff_work"), (A, S, "staff_work")),
@@ -145,26 +147,37 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "messages_use": "messages.use",
     "study_club_info": "platform.help",
     "parent_info": "platform.help",
+    # Kapsam genişletme: bilgi/açıklama intent'leri (herkese açık, ALLOW).
+    "fees_info": "platform.help",
+    "branches_info": "platform.help",
+    "calendar_info": "platform.help",
+    "today_info": "platform.help",
+    "question_bank_info": "platform.help",
+    "notification_settings_info": "platform.help",
+    "nav_overview": "platform.help",
+    "event_view": "platform.help",
+    "exam_schedule_info": "platform.help",
+    "course_materials_info": "platform.help",
 }
 
 _OWN_REPORT_RESPONSES: Final[dict[str, str]] = {
     "veli": (
-        "Veli hesabının kendi öğrenci karnesi veya yoklama kaydı yoktur. Bağlı bir "
-        "çocuğun kaydını soruyorsan bunu açıkça belirt; erişim yalnız doğrulanmış "
-        "veli–öğrenci bağlantısıyla mümkündür."
+        "Veli hesabının kendine ait bir karne veya yoklama kaydı yoktur. Bağlı "
+        "olduğun öğrencinin karne ve yoklama bilgilerini uygulamadaki öğrenci "
+        "takip ekranından izleyebilirsin."
     ),
     "ogretmen": (
-        "Öğretmen hesabının kendi öğrenci karnesi/yoklama raporu yerine, yalnız "
-        "yönettiğin derslerdeki öğrencilerin raporlarını görüntüleme kapsamı vardır. "
-        "Hangi öğrenciyi ve dersi kastettiğini belirtmelisin."
+        "Öğretmen hesabında kişisel karne/yoklama yoktur. Yönettiğin derslerdeki "
+        "öğrencilerin raporlarını Öğrenci notları ve Öğrenci yoklaması sayfalarından "
+        "görüntülersin."
     ),
     "yonetici": (
-        "Yönetici hesabında kişisel öğrenci karnesi yerine okul kapsamındaki öğrenci "
-        "raporları yönetim ekranlarından görüntülenir. Hangi öğrenciyi kastettiğini belirt."
+        "Yönetici hesabında kişisel karne yoktur. Okul genelindeki öğrenci raporları "
+        "yönetim ekranlarından görüntülenir."
     ),
     "admin": (
-        "ADMIN hesabında kişisel öğrenci karnesi yerine okul kapsamındaki öğrenci "
-        "raporları görüntülenir. Hangi öğrenciyi kastettiğini belirt."
+        "ADMIN hesabında kişisel karne yoktur. Okul genelindeki öğrenci raporları "
+        "yönetim ekranlarından görüntülenir."
     ),
 }
 
@@ -195,8 +208,8 @@ def _deny_text(reason: ReasonCode) -> str:
             "güvenli biçimde giriş yapabilirsin."
         )
     return (
-        "Bu işlem senin rolünde yapılamıyor. Yetkisiz işlem adımları ve "
-        "yönlendirme paylaşılmadı."
+        "Bu işlem rolünün kapsamı dışında görünüyor 🙂 O yüzden adımları ve "
+        "yönlendirmeyi paylaşmıyorum. Yetkin dahilindeki bir konuda yardımcı olayım."
     )
 
 
@@ -265,9 +278,12 @@ def get_role_space(role: str) -> CompiledRoleSpace:
     views = {item["intent"]: _view(item, role) for item in INTENTS}
     content_hash = _hash_views(role, views)
     space_id = f"{ROLE_SPACE_VERSION}:{role}:{content_hash[:12]}"
+    # RULE_ONLY_INTENTS benzerlik + domain-vocab havuzuna GİRMEZ (ortak kelimeleri
+    # IDF/OOS ayrımını bozuyordu); yalnız kuralla tetiklenirler.
     examples = [
         (view.intent, question)
         for view in views.values()
+        if view.intent not in RULE_ONLY_INTENTS
         for question in view.examples
     ]
     return CompiledRoleSpace(

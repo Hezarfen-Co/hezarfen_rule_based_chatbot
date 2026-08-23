@@ -29,6 +29,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable
 
+from . import dialog_state
 from . import rules
 from . import safety as safety_mod
 from .catalog import (
@@ -68,6 +69,14 @@ ASK_CONFIDENCE: float = 0.30
 # (Metrikler etkilenmez: evaluate karar katmanını ölçer, bu sunum katmanıdır.)
 ASK_LOW_MARGIN_CONFIDENCE: float = 0.45
 ASK_LOW_MARGIN: float = 0.05
+# Okul-dışı, net kapsam-dışı konu kelimeleri (FOLD edilmiş). Yalnızca KURAL
+# çarpmayıp benzerlik zayıf-eşleşme verdiğinde (ör. 'öğretmenime hediye ne alayım'
+# -> messages_use FP) netleştirmeye zorlar. Kısa ve gerçekten alan-dışı tutulur;
+# okul terimleriyle çakışmaz. Kalıcı çözüm: gömme-tabanlı OOS (bkz. kriterler.md).
+_FAR_OOS_TOPICS: frozenset[str] = frozenset({
+    "hediye", "diyet", "kilo", "burc", "fal", "kripto", "bitcoin", "tarif",
+    "siir", "fikra", "mac", "sevgili", "flort", "mezun", "meslek", "kariyer",
+})
 
 # Düşük-margin "emin değilim" YALNIZCA ilk iki aday da sosyal/meta intent iken
 # tetiklenir ('ben kimim' -> farewell ~ bot_identity, gerçek görev yok). Görev
@@ -107,20 +116,89 @@ _ROLE_NAME_ALIASES: dict[str, str] = {
 
 
 def _parse_session(payload: dict[str, Any]) -> tuple[str, bool]:
-    session = payload.get("session") or {}
+    session = payload.get("session")
+    if session is None:
+        session = {}
+    if not isinstance(session, dict):
+        raise RequestError(f"session bir sözlük olmalı, {type(session).__name__} geldi.")
     role = session.get("role", "ziyaretci")
     if isinstance(role, str):
         role = _ROLE_NAME_ALIASES.get(role.lower(), role)
-    authenticated = bool(session.get("authenticated", role != "ziyaretci"))
+    # authenticated KESİN boolean olmalı: string "false" bool("false")=True ile auth
+    # bypass'ı yaratmasın -> bozuk tip temiz RequestError.
+    auth_raw = session.get("authenticated", role != "ziyaretci")
+    if not isinstance(auth_raw, bool):
+        raise RequestError("session.authenticated bir boolean olmalı.")
+    authenticated = auth_raw
     if role not in ROLE_HIERARCHY:
         raise RequestError(f"Bilinmeyen rol: {role!r}")
     if role == "ziyaretci" and authenticated:
         raise RequestError("Ziyaretçi 'authenticated' olamaz.")
+    # Doğrulanmamış oturum bir rolü ÜSTLENEMEZ: giriş yapılmadan öğrenci/öğretmen/
+    # yönetici/admin işlem yetkisi verilmez -> etkin rol ziyaretçi (login gerekir).
+    # Böylece rol adını taşıyan ama authenticated=false olan oturum, yetki kazanmaz.
+    if not authenticated:
+        role = "ziyaretci"
     return role, authenticated
 
 
 # Çoklu-istek ayracı: 've', 'ayrıca' bağlaçları + virgül/noktalı virgül.
 _MULTI_SPLIT_RE: re.Pattern[str] = re.compile(r"\s+(?:ve|ayrıca)\s+|[;,]", re.IGNORECASE)
+
+# --- Sosyal önek soyma ------------------------------------------------------
+# "Merhaba, karnemi nerede görürüm?" -> selam kısmı GÖREVİ gizlememeli. Baştaki
+# yalnızca-sosyal cümlecikleri + söylem belirteçlerini soyup kalan görev cümlesini
+# yönlendiririz. Kalan boşsa (saf selam/teşekkür) sorgu aynen döner -> greeting/thanks
+# doğru cevaptır. Anahtarlar FOLD edilmiş (aksansız) biçimde tutulur (folded_tokens).
+_SOCIAL_LEAD: frozenset[str] = frozenset({
+    "merhaba", "merhabalar", "selam", "selamlar", "selamun", "aleykum", "aleykm",
+    "naber", "nbr", "napiyorsun", "napiyosun", "nasilsin", "hey", "alo", "sa", "as",
+    "gunaydin", "iyi", "gunler", "aksamlar", "sabahlar", "gun",
+    "tesekkur", "tesekkurler", "tesekkurederim", "sagol", "sagolun", "sag", "ol",
+    "eyvallah", "rica", "ederim", "etsem", "lutfen", "acaba", "pardon",
+    "affedersin", "affedersiniz", "dostum", "hocam", "kanka", "kardesim", "kardes",
+    "abi", "abicim", "peki", "ee", "eee", "sey", "yani", "birde", "de", "da", "bi",
+})
+# Token bazlı baştan-soyma için DAHA MUHAFAZAKÂR küme (tek başına anlamı görev
+# olabilecek 'iyi/gunler/de/da/bi/sag/ol' hariç -> yanlış soyma yok).
+_SOCIAL_LEAD_TOKEN: frozenset[str] = frozenset({
+    "merhaba", "merhabalar", "selam", "selamlar", "naber", "nbr", "hey", "alo",
+    "gunaydin", "tesekkur", "tesekkurler", "tesekkurederim", "sagol", "sagolun",
+    "eyvallah", "rica", "etsem", "lutfen", "pardon", "affedersin", "affedersiniz",
+    "dostum", "hocam", "kanka", "kardesim", "abi", "abicim", "peki", "ee", "eee",
+    "sey", "yani", "acaba",
+})
+
+
+def _strip_social_prefix(query: str) -> str:
+    """Baştaki sosyal/nezaket önekini soyup kalan görev cümlesini döndürür.
+
+    Yalnızca sorgunun BAŞINDAki yalnızca-sosyal cümlecikleri ve söylem kelimelerini
+    atar; görev kısmı hiç değiştirilmez. Kalan boşsa sorgu aynen döner.
+    """
+
+    # 1) Baştaki yalnızca-sosyal cümlecikleri (virgül/;) at.
+    clauses = [c for c in re.split(r"\s*[;,]\s*", query.strip())]
+    while len(clauses) > 1:
+        toks = folded_tokens(clauses[0])
+        if toks and all(t in _SOCIAL_LEAD for t in toks):
+            clauses.pop(0)
+        else:
+            break
+    residual = ", ".join(clauses).strip()
+
+    # 2) Baştaki sosyal/söylem KELİMELERİNİ tek tek at; ilk görev kelimesinde dur.
+    words = residual.split()
+    i = 0
+    while i < len(words):
+        folded = folded_tokens(words[i])
+        key = folded[0] if folded else ""
+        if key in _SOCIAL_LEAD_TOKEN:
+            i += 1
+        else:
+            break
+    stripped = " ".join(words[i:]).strip()
+    return stripped if stripped else query
 
 
 def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[str, str]] | None:
@@ -143,8 +221,8 @@ def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[st
         if match is not None and match.intent not in seen:
             seen.add(match.intent)
             hits.append((segment, match.intent))
-        if len(hits) == 3:
-            break
+    # >3 farklı işlem: tek yanıtta net anlatmak güç -> çağıran netleştirmeye düşürür
+    # (asla yarım/yanlış cevap). 2-3 parça yanıtlanır. <2 -> çoklu değil (None).
     return hits if len(hits) >= 2 else None
 
 
@@ -173,6 +251,309 @@ def _declared_role(query: str) -> str | None:
     return found
 
 
+def _role_correction(query: str) -> str | None:
+    """Rol DÜZELTMESİ ('Öğretmen değilim, öğrenciyim') -> onaylanan (son) rol.
+
+    Yalnız kısa, salt rol+olumsuzluk cümlelerinde devreye girer; görev içeren
+    sorgular ('öğretmen değil öğrenci kaydını sil') HARİÇ (rol/olumsuzluk/doldurma
+    dışı bir kelime görülünce None). Böylece yanlış işleme YOK; kullanıcının rolünü
+    bilgi olarak alır (intent None)."""
+
+    toks = folded_tokens(query)
+    if not toks or len(toks) > 6:
+        return None
+    if not any(t.startswith("degil") for t in toks):
+        return None
+    roles: list[str] = []
+    for tok in toks:
+        matched = None
+        for stem, canonical in ROLE_ALIASES.items():
+            if tok == stem or (len(stem) >= 4 and tok.startswith(stem)):
+                matched = canonical
+                break
+        if matched is not None:
+            roles.append(matched)
+        elif not (tok.startswith("degil") or tok in _ROLE_DECL_FILLER):
+            return None  # rol/olumsuzluk/doldurma dışı kelime -> düzeltme değil
+    return roles[-1] if roles else None
+
+
+# --- Olumsuzluk (negation) çözümü ------------------------------------------
+# "Sınav oluşturmak istemiyorum, sınava girmek istiyorum" -> olumsuz cümleciği
+# DÜŞÜR, olumlu olanı yanıtla. Saf olumsuz komut ("notlarımı gösterme") -> hiçbir
+# işlem yapma, netleştir (asla yanlış). Bilinçli olarak sağlam/muhafazakâr: yalnız
+# net olumsuzluk işaretlerinde devreye girer, normal sorguları etkilemez.
+_NEG_MARKERS: tuple[str, ...] = (
+    "istemiyorum", "istemem", "istemez", "istemedim", "istemiyor",
+    "sormuyorum", "etmeyeceğim", "yapmayacağım", "vermeyeceğim", "istemiyoruz",
+)
+# Dar/tek-anlamlı saf-olumsuz komutlar ('notlarımı gösterme'): '-ma/-me' isim-fiil
+# belirsizliği DÜŞÜK olanlar (oluşturma/ekleme gibi yaygın isim-fiiller HARİÇ) +
+# soru kelimesi yoksa -> saf olumsuz kabul edilir (uygula-ma, netleştir).
+_PURE_NEG_IMPERATIVES: frozenset[str] = frozenset({"gösterme", "gizleme"})
+_QUESTION_WORDS: frozenset[str] = frozenset({
+    "nerede", "nereden", "nasıl", "nedir", "ne", "hangi", "kaç", "mi", "mı",
+    "mu", "mü", "neden", "kim", "sayfa", "var",
+})
+
+
+def _clause_negated(clause: str) -> bool:
+    # Yalnız AÇIK/tek-anlamlı olumsuzluk işaretleri. '-ma/-me' ekli fiiller
+    # (gösterme, oluşturma...) Türkçede aynı zamanda İSİM-FİİLdir (oluşturma =
+    # işlemin adı); bu yüzden BİLİNÇLİ olarak KULLANILMAZ — aksi hâlde "Ders
+    # oluşturma nerede?" yanlışlıkla olumsuz sayılıp netleştirmeye düşüyordu.
+    low = clause.casefold()
+    return any(marker in low for marker in _NEG_MARKERS)
+
+
+def _resolve_negation(query: str) -> str:
+    """Olumsuzluğu çöz. Döner: yanıtlanacak OLUMLU sorgu; olumsuzluk yoksa sorgu
+    aynen; saf olumsuz komutta boş string ("" = uygulama, netleştir)."""
+
+    # "A değil, B" -> son 'değil' sonrasındaki olumlu kısım.
+    matches = list(re.finditer("değil", query, re.IGNORECASE))
+    if matches:
+        return query[matches[-1].end():].lstrip(" ,;:.-").strip()
+    # Dar saf-olumsuz komut ('notlarımı gösterme') + soru kelimesi yok -> uygulama.
+    low_toks = re.findall(r"[a-zçğıöşü]+", query.casefold())
+    if (any(t in _PURE_NEG_IMPERATIVES for t in low_toks)
+            and not any(t in _QUESTION_WORDS for t in low_toks)):
+        return ""
+    if not _clause_negated(query):
+        return query  # olumsuzluk yok -> değişmez (normal sorgular etkilenmez)
+    kept = [p.strip() for p in re.split(r"[;,]", query)
+            if p.strip() and not _clause_negated(p)]
+    return ", ".join(kept)
+
+
+# --- Henüz canlı olmayan / bulunmayan özellikler ----------------------------
+# Bu anahtarlar bir sayfaya YANLIŞ yönlendirmek yerine dürüstçe "henüz
+# kullanılamıyor" der (asla yanlış). T1 (randevu/yemek/soru-havuzu/beyaz-tahta)
+# canlıya alınınca ilgili anahtar bu listeden çıkarılır; duyuru diye bir özellik
+# hiç yoktur.
+# Gerçekten var OLMAYAN özellik. (Randevu/Yemek/Soru bankası/Beyaz tahta artık
+# üründe MEVCUT -> _FEATURE_INFO ile anlatılır; "duyuru" diye bir özellik yoktur.)
+_UNAVAILABLE_FEATURES: tuple[tuple[str, str], ...] = (
+    ("duyuru", "Duyurular"),
+)
+
+
+def _unavailable_feature(query: str) -> str | None:
+    low = query.casefold()
+    for keyword, label in _UNAVAILABLE_FEATURES:
+        if keyword in low:
+            return label
+    return None
+
+
+# Üründe MEVCUT olan (frontend'de tam sayfa) ama chatbot kataloğunda ayrı intent'i
+# olmayan özellikler -> doğru bilgi + sayfa butonu (yanlış "aktif değil" demez).
+# (folded_anahtar, path, Başlık, açıklama)
+_FEATURE_INFO: tuple[tuple[str, str, str, str], ...] = (
+    ("randevu", "/appointments", "Randevular",
+     "Randevular sayfasında öğretmenler görüşme saatleri (slot) açar; öğrenci/veli "
+     "uygun saate randevu alır. Randevular onaylanır, ertelenir ya da iptal edilir."),
+    ("yemek", "/meals", "Yemekler",
+     "Yemekler sayfasında günlük yemek menüsü görüntülenir ve yemek rezervasyonu yapılır."),
+    ("beyaz tahta", "/whiteboards", "Beyaz tahtalar",
+     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
+     "çizim ve not paylaşabilirsin."),
+    ("tahta", "/whiteboards", "Beyaz tahtalar",
+     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
+     "çizim ve not paylaşabilirsin."),
+)
+
+
+def _feature_info(query: str) -> tuple[str, dict[str, Any]] | None:
+    """Mevcut ama ayrı intent'i olmayan özellik -> (açıklama, sayfa butonu)."""
+
+    low = query.casefold()
+    for keyword, path, label, desc in _FEATURE_INFO:
+        if keyword in low:
+            return desc, {"route": path, "label": label, "available": True}
+    return None
+
+
+# --- Kapsam sınırı: canlı VERİ çekme isteği ---------------------------------
+# Çelebi gerçek veriyi getirmez/göstermez; yalnızca "nasıl yaparım" anlatır (bkz.
+# PROJECT_STATE kapsam-dışı). "Öğrenci listemi buraya getir", "toplam kaç kullanıcı
+# var" gibi VERİ-çekme/sayım istekleri yanlış bir sayfaya yönlendirilmez; dürüstçe
+# "gerçek veriyi getiremem, yalnızca nasıl yapılacağını anlatırım" denir (asla yanlış).
+_DATA_FETCH_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"gerçek\b.*\b(getir|göster|listele|ver\b|çek)", re.IGNORECASE),
+    re.compile(r"\b(buraya|bana)\s+getir", re.IGNORECASE),
+    re.compile(r"liste(m|mi|sini|yi)\b.*\b(getir|çıkar|ver|göster)", re.IGNORECASE),
+    re.compile(r"\btoplam\s+kaç\b", re.IGNORECASE),
+    re.compile(r"\bkaç\s+(kullanıcı|öğrenci|öğretmen|kişi|veli)\b.*\bvar\b", re.IGNORECASE),
+    re.compile(r"\b(sistemde|veritabanında|kayıtlı)\b.*\bkaç\b", re.IGNORECASE),
+)
+
+
+def _is_data_fetch_request(query: str) -> bool:
+    return any(p.search(query) for p in _DATA_FETCH_PATTERNS)
+
+
+# --- Menü bölüm-özeti (section overview) ------------------------------------
+# "Öğrenci yönetimi bölümünde ne var", "Okul hizmetleri nedir" gibi ÜST-BAŞLIK
+# sorularını yanıtlar. Kaynak: frontend nav-items.ts NAV_GROUPS (birebir + rol notu).
+# (folded_phrase, Başlık, [(öğe, path, rol notu), ...])
+_SECTION_OVERVIEWS: tuple[tuple[str, str, tuple[tuple[str, str, str], ...]], ...] = (
+    ("ogrenci yonetimi", "Öğrenci yönetimi", (
+        ("Sınıflar", "/management/classes", "öğretmen+"),
+        ("Öğrenci notları", "/management/student-marks", "öğretmen+"),
+        ("Öğrenci yoklaması", "/management/student-attendance", "öğretmen+"),
+        ("Öğrenci pomodoro", "/management/pomodoros", "öğretmen+"),
+        ("Çocuklarım", "/children", "veli"),
+    )),
+    ("okul hizmetleri", "Okul hizmetleri", (
+        ("Yemekler", "/meals", ""),
+        ("Ödeme ekstresi", "/payments", "öğrenci/veli"),
+    )),
+    ("okul yonetimi", "Okul yönetimi", (
+        ("Personel mesaisi", "/management/staff-work", "yönetici+"),
+        ("Ayarlar", "/management/settings", "yönetici+"),
+        ("Dönemler", "/management/terms", "yönetici+"),
+        ("Ödemeler", "/management/payments", "yönetici+"),
+        ("Kullanıcılar", "/admin/users", "admin"),
+    )),
+    ("calisma alani", "Çalışma alanı", (
+        ("Defter (Notlar)", "/notes", ""),
+        ("Beyaz tahtalar", "/whiteboards", "öğrenci+"),
+        ("Pomodoro", "/pomodoro", "öğrenci"),
+        ("Mesai", "/work", "öğretmen–yönetici"),
+    )),
+    ("akademik", "Akademik", (
+        ("Dersler", "/courses", ""),
+        ("Ödevler", "/homework", ""),
+        ("Sınavlar", "/exams", ""),
+        ("Soru bankası", "/question-bank", "öğretmen+"),
+        ("Karnem", "/marks", "öğrenci"),
+    )),
+    ("planlama", "Planlama", (
+        ("Etkinlikler", "/events", ""),
+        ("Takvim", "/calendar", ""),
+        ("Randevular", "/appointments", ""),
+    )),
+    ("topluluk", "Topluluk", (
+        ("Mesajlar", "/messages", ""),
+        ("Sorular", "/questions", ""),
+    )),
+)
+# Bölüm-özeti tetikleyici sözcükler (folded); bölüm adıyla birlikte gelmeli.
+_SECTION_TRIGGERS: frozenset[str] = frozenset({
+    "ne", "neler", "nedir", "var", "fonksiyon", "fonksiyonlar", "bolum", "bolumu",
+    "bolumunde", "icerik", "hangi", "ozellik", "ozellikler", "yapabilir", "yapabilirim",
+    "icinde", "kismi", "kisminda", "kisim", "ise", "yarar", "menu", "sayfalar",
+})
+
+
+# Halk dilindeki bölüm adları -> menüdeki resmi grup adı (folded). Ör. kullanıcı
+# "Eğitim" der; menü grubu "Akademik"tir.
+_SECTION_ALIASES: tuple[tuple[str, str], ...] = (
+    ("egitim", "akademik"),
+)
+
+
+def _section_overview(query: str) -> str | None:
+    """Üst-başlık (menü bölümü) sorusu -> o bölümdeki sayfaların özeti (rol notlu)."""
+
+    toks = folded_tokens(query)
+    if not toks:
+        return None
+    folded = " ".join(toks)
+    for alias, canonical in _SECTION_ALIASES:
+        folded = folded.replace(alias, canonical)
+    for phrase, title, items in _SECTION_OVERVIEWS:
+        if phrase not in folded:
+            continue
+        # Tek kelimelik bölüm adları (akademik/planlama/topluluk) için tetikleyici
+        # şart; çok-kelimeli net adlar (öğrenci yönetimi...) tek başına yeter.
+        multiword = " " in phrase
+        if not multiword and not (set(toks) & _SECTION_TRIGGERS):
+            continue
+        lines = [f"**{title}** bölümünde şunlar var:"]
+        for name, path, note in items:
+            suffix = f" _{note}_" if note else ""
+            lines.append(f"- **{name}** (`{path}`){suffix}")
+        lines.append(
+            "\nRolüne göre bazı öğeler menüde görünmeyebilir. Hangisini merak "
+            "ediyorsan 'nasıl yaparım?' diye sorabilirsin."
+        )
+        return "\n".join(lines)
+    return None
+
+
+# Tek SAYFA/konu için "ne yapabilirim / ne işe yarar / nedir" -> o konunun ana
+# intent'inin KANONİK sorgusuna çevrilir (generic help_capabilities'e düşmez).
+# (folded_anahtar_önek, kanonik sorgu). 'sınav' rol-bağımlı (aşağıda ayrı ele alınır).
+_TOPIC_HELP: tuple[tuple[str, str], ...] = (
+    ("etkinlik", "etkinlikler nerede"),
+    ("ders", "derslerim nerede"),
+    ("odev", "ödevler nerede"),
+    ("takvim", "takvim nerede"),
+    ("defter", "defterlerim nerede"),
+    ("pomodoro", "pomodoro nedir"),
+    ("soru", "soru bankası nedir"),
+    ("mesaj", "mesaj nasıl gönderirim"),
+    ("yoklama", "yoklamam nerede"),
+    ("devamsiz", "devamsızlığımı nasıl görürüm"),
+)
+_TOPIC_HELP_TRIGGERS: tuple[str, ...] = (
+    "yapabil", "nedir", "ise yarar", "ise yariyor", "ne var", "neler var",
+    "ne yapilir", "ne ise", "gorevleri", "ozellikleri",
+)
+
+
+def _topic_help_query(query: str, role: str) -> str | None:
+    """'<konu> ne yapabilirim/ne işe yarar' -> o konunun kanonik sorgusu (yoksa None).
+
+    Belirli 'nasıl <fiil>' how-to sorularına DOKUNMAZ (onlar zaten doğru gider)."""
+
+    toks = folded_tokens(query)
+    if not toks:
+        return None
+    tokset = set(toks)
+    if "nasil" in tokset:  # 'nasıl oluştururum' gibi net how-to -> karışma
+        return None
+    folded = " ".join(toks)
+    if not any(t in folded for t in _TOPIC_HELP_TRIGGERS):
+        return None
+    # sınav: rol-bağımlı (öğrenci girer, öğretmen+ oluşturur)
+    if any(t.startswith("sinav") for t in toks):
+        return ("sınav nasıl oluştururum" if role in _UPPER_ROLES
+                else "sınava nasıl girerim")
+    for kw, canon in _TOPIC_HELP:
+        if any(t.startswith(kw) for t in toks):
+            return canon
+    return None
+
+
+# --- Kapsam sınırı: bot adına İŞ YAPMA / VERİ DEĞİŞTİRME isteği ---------------
+# Çelebi ne kullanıcı adına ödev/işlem yapar ne de veriyi (not/devamsızlık/yoklama)
+# değiştirir/siler; yalnızca "nasıl yaparım" anlatır. "Ödevimi sen yap", "notumu
+# yükselt", "devamsızlığımı sil", "sınav cevaplarını ver" gibi manipülasyon/do-for-me
+# istekleri yanlış bir sayfaya yönlendirilmez -> dürüstçe "bunu yapamam" (asla yanlış).
+_MANIPULATION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(yerime|yerine)\b", re.IGNORECASE),
+    re.compile(r"\bsen\s+(yap|ayarla|çöz|hallet|doldur|gir|oluştur|tamamla)\b", re.IGNORECASE),
+    re.compile(r"\bbenim\s+için\s+(yap|çöz|doldur|hallet|tamamla)\b", re.IGNORECASE),
+    re.compile(r"(sınav|soru|test)\w*.*\bcevap\w*.*\b(ver|söyle|sızdır|göster)\b", re.IGNORECASE),
+    re.compile(r"\bcevap(ları|larını|ını)\b\s*\b(ver|söyle|sızdır)\b", re.IGNORECASE),
+    # 1. şahıs korunan veri + değiştirme fiili (öğrenci kendi notunu/devamsızlığını
+    # değiştiremez/silemez/yükseltemez). 'göster/gör/bak' DEĞİL -> onlar meşru görüntüleme.
+    re.compile(r"\b(notum|notumu|notlarım\w*|karnem|karnemi|ortalamam\w*|puanım\w*|"
+               r"devamsızlığım\w*|yoklamam\w*)\b.*\b(sil|kaldır|yükselt|artır|düzelt|değiştir)\b",
+               re.IGNORECASE),
+    re.compile(r"\b(sil|kaldır|yükselt|artır|düzelt)\b.*\b(notum|notumu|karnem|karnemi|"
+               r"devamsızlığım\w*|yoklamam\w*|puanım\w*)\b", re.IGNORECASE),
+    re.compile(r"\bvar\s+göster\b", re.IGNORECASE),
+)
+
+
+def _is_manipulation_request(query: str) -> bool:
+    return any(p.search(query) for p in _MANIPULATION_PATTERNS)
+
+
 def _build_navigation(
     intent: str | None,
     auth_action: str | None,
@@ -189,6 +570,11 @@ def _build_navigation(
     view = get_role_space(role).view_for(intent)
     if view is None or view.outcome is not AccessOutcome.ALLOW:
         return None
+    # Karne/yoklama sayfası öğrenciye özeldir. Üst roller `reports.read_own` ile ALLOW
+    # (kapsam notu metni) alsa da kişisel /marks,/attendance butonu BASILMAZ — aksi
+    # halde öğrenci-özel sayfaya giden bir nav sızar (ISO-020..023).
+    if intent in {"report_card_view", "attendance_view"} and role != "ogrenci":
+        return None
     # Rota, izin verilen intent'in gerçek sayfasıdır (rehber §4). Reddedilen/CLARIFY
     # görünümlerde buraya gelinmez -> ret'te rota sızmaz. Bilgi intent'lerinde
     # (route_for None) navigasyon yoktur.
@@ -197,6 +583,74 @@ def _build_navigation(
         return None
     path, label = route
     return {"route": path, "label": label, "available": True}
+
+
+# Üst rol (öğretmen/yönetici/admin) "kendi karnem/notlarım/sınav sonuçlarım" derse
+# kişisel öğrenci sayfası yoktur; çıkmaz "yapılamıyor" yerine ÖĞRENCİ RAPORLARI
+# sayfasına yardımcı yönlendirme + buton verir (asla çıkmaz cevap; kullanım kolay).
+_UPPER_ROLES: frozenset[str] = frozenset({"ogretmen", "yonetici", "admin"})
+_STUDENT_REPORT_REDIRECT: dict[str, str] = {
+    "report_card_view": "student_marks_lookup",
+    "attendance_view": "student_attendance_lookup",
+    "exam_finish_result": "student_marks_lookup",
+}
+
+
+def _upper_role_report_redirect(
+    role: str, intent: str | None
+) -> tuple[str, dict[str, Any]] | None:
+    """Üst rol + öğrenci-görüntüleme intent'i -> (yardımcı metin, yönetim butonu)."""
+
+    if role not in _UPPER_ROLES or intent not in _STUDENT_REPORT_REDIRECT:
+        return None
+    mgmt = _STUDENT_REPORT_REDIRECT[intent]
+    view = get_role_space(role).view_for(mgmt)
+    if view is None or view.outcome is not AccessOutcome.ALLOW:
+        return None
+    route = route_for(mgmt)
+    if route is None:
+        return None
+    path, label = route
+    konu = "not/karne" if mgmt == "student_marks_lookup" else "yoklama/devamsızlık"
+    text = (
+        f"Senin hesabında kişisel {konu} kaydı yok 🙂 Öğrencilerinin bilgilerini "
+        f"**{label}** sayfasından (`{path}`) görürsün: öğrenciyi (ve gerekiyorsa "
+        f"dersi) seçince ilgili tablo açılır."
+    )
+    return text, {"route": path, "label": label, "available": True}
+
+
+# Sosyal cevaplarda (selam/naber/teşekkür) kullanıcının adını doğal biçimde ekler.
+# Ad, güvenilir OTURUM bağlamından gelir (session.name) — veri çekme DEĞİL. Ad yoksa
+# davranış aynen kalır (graceful). Bridge/backend'in session.name geçmesi gerekir.
+_SOCIAL_PERSONALIZE: frozenset[str] = frozenset({"greeting", "smalltalk", "thanks"})
+
+
+def _first_name(session: Any) -> str | None:
+    if not isinstance(session, dict):
+        return None
+    raw = session.get("name") or session.get("first_name")
+    if not isinstance(raw, str):
+        return None
+    parts = [p for p in raw.strip().split() if p]
+    if not parts:
+        return None
+    name = parts[0]
+    # güvenlik: makul uzunluk + yalnız harf/tire/kesme (enjeksiyon/uzun ad engeli)
+    if len(name) > 30 or not all(c.isalpha() or c in "-'’" for c in name):
+        return None
+    return name
+
+
+def _personalize(intent: str | None, text: str, name: str | None) -> str:
+    """Sosyal cevaba adı doğal yerleştirir ('Merhaba!' -> 'Merhaba Kadir!')."""
+
+    if not name or intent not in _SOCIAL_PERSONALIZE or name in text:
+        return text
+    idx = text.find("!")
+    if idx == -1:
+        return text
+    return text[:idx] + f" {name}" + text[idx:]
 
 
 _WIRE_ROLES: dict[str, str] = {
@@ -246,11 +700,16 @@ def assistant_meta_from_result(result: dict[str, Any], role: str) -> dict[str, A
     clarification = None
     existing_clarification = result.get("clarification")
     if outcome == "clarify" and isinstance(existing_clarification, dict):
-        options = [
-            str(candidate.get("intent"))
-            for candidate in existing_clarification.get("candidates", [])
-            if isinstance(candidate, dict) and candidate.get("intent")
-        ]
+        # Seçenekler kullanıcıya İNSANİ etiketle sunulur; ham intent id (snake_case)
+        # ASLA yayımlanmaz (frontend çipe basınca 'anlamadım'a düşerdi -> B07/#12).
+        # Çip tıklaması etiket/soruyla yeniden sorulur; action_id yalnız yönlendirme
+        # metadatasıdır (kullanıcı-görünür değil).
+        options = []
+        for candidate in existing_clarification.get("candidates", []):
+            if not (isinstance(candidate, dict) and candidate.get("intent")):
+                continue
+            label = candidate.get("label") or str(candidate["intent"]).replace("_", " ")
+            options.append({"action_id": candidate["intent"], "label": label})
         clarification = {"prompt": CLARIFICATION_PROMPT_TEXT, "options": options}
 
     return {
@@ -414,8 +873,30 @@ class Engine:
         self._matcher = matcher
         self._log_sink = log_sink
         self._rate_limiter = rate_limiter
+        # Çok-turlu diyalog durumu, session.user_id ile anahtarlanır (üretimde her
+        # kullanıcı ayrı). user_id yoksa durum tutulmaz -> stateless (paylaşılan
+        # motorda kullanıcılar arası sızıntı olmaz). Bkz. dialog_state.py.
+        self._dialog: dict[str, "dialog_state.DialogState"] = {}
 
     def handle(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Diyalog-durumu sarmalayıcısı: önceki durumu okur, işler, durumu günceller.
+
+        Durum güncellemesi burada TEK yerde yapılır (``_run`` içindeki çok sayıda
+        erken-return'ü etkilemeden); ``_run`` prior durumu okur, biz sonra yazarız."""
+
+        session = payload.get("session")
+        user_id = session.get("user_id") if isinstance(session, dict) else None
+        result = self._run(payload)
+        if user_id is not None:
+            key = str(user_id)
+            prior = self._dialog.get(key)
+            query = payload.get("query")
+            self._dialog[key] = dialog_state.next_state(
+                prior, query if isinstance(query, str) else "", result
+            )
+        return result
+
+    def _run(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Bir istek payload'ını işleyip yanıt sözleşmesi döndürür.
 
         Akış: içerik-güvenliği giriş kapısı -> (gerekirse kısa devre) -> boru hattı
@@ -509,7 +990,7 @@ class Engine:
         # Rol beyanı/sorusu BİLGİ amaçlıdır: sorulan rolün yeteneklerini anlatır,
         # oturumun gerçek yetkisini (gating) ASLA değiştirmez. Doğrulanmış bir öğrenci
         # 'admin' yazarsa admin yeteneklerini bilgi olarak görür, admin OLMAZ.
-        declared = _declared_role(query)
+        declared = _declared_role(query) or _role_correction(query)
         served_declaration = declared
         caps = capabilities_for(served_declaration) if served_declaration else None
         if caps:
@@ -541,9 +1022,194 @@ class Engine:
         if safety.decision == safety_mod.MASK_AND_ALLOW and safety.masked_message:
             effective_query = safety.masked_message
 
+        # 1.51) Çok-turlu diyalog takibi: önceki tura göre çöz (onay/sıra "ilki",
+        # devam "peki sonra?", itiraz "orada yok", not/karne bağlamında çıplak ad).
+        # Çözülürse ilgili intent'in KANONİK sorgusuna çevrilir; kalan adımlar (sosyal
+        # önek/olumsuzluk/kapsam/çoklu) kanonikten zararsız geçer. Yalnız user_id varsa.
+        _uid = (payload.get("session") or {}).get("user_id")
+        if _uid is not None:
+            _prior = self._dialog.get(str(_uid))
+            if _prior is not None:
+                _rule_hit = get_role_space(role).rule_matcher.match(query) is not None
+                _resolved = dialog_state.resolve(_prior, query, role, _rule_hit)
+                if _resolved is not None:
+                    _canon = dialog_state.canonical_query(_resolved)
+                    if _canon:
+                        effective_query = _canon
+
+        # 1.52) Sosyal önek: "Merhaba, karnemi nerede görürüm?" -> selam kısmını soy,
+        # görevi yönlendir. YALNIZCA kalan görev KURAL katmanına (yüksek-kesinlik)
+        # çarpıyorsa soyulur; aksi halde 'naber nasıl gidiyor' / 'teşekkür ederim'
+        # gibi saf sosyal ifadeler yanlışlıkla bölünmez -> greeting/thanks kalır.
+        _stripped = _strip_social_prefix(effective_query)
+        if (_stripped != effective_query
+                and get_role_space(role).rule_matcher.match(_stripped) is not None):
+            effective_query = _stripped
+
+        # 1.55) Olumsuzluk: "A değil/istemiyorum, B istiyorum" -> B'ye göre yanıtla;
+        # saf olumsuz komut ("notlarımı gösterme") -> uygulama, netleştir (asla yanlış).
+        _neg_resolved = _resolve_negation(effective_query)
+        pure_negation = _neg_resolved.strip() == ""
+        if not pure_negation and _neg_resolved != effective_query:
+            effective_query = _neg_resolved
+
+        # 1.56) Üründe MEVCUT ama ayrı intent'i olmayan özellik (randevu/yemek/beyaz
+        # tahta) -> doğru bilgi + sayfa butonu (yanlış "aktif değil" DEMEZ).
+        _feat = _feature_info(effective_query)
+        if _feat is not None:
+            _feat_text, _feat_nav = _feat
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "feature_info",
+                "text": _with_brand_note(_feat_text, query),
+                "intent": None,
+                "confidence": 1.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": _feat_nav,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
+        # 1.57) Henüz canlı olmayan/bulunmayan özellik -> yanlış yönlendirme YOK,
+        # dürüstçe "henüz kullanılamıyor" (intent None, nav yok).
+        _unavail = _unavailable_feature(effective_query)
+        if _unavail is not None:
+            result = {
+                "trace_id": trace_id,
+                "response_id": "feature_unavailable",
+                "text": _with_brand_note(
+                    f"**{_unavail}** özelliği şu an henüz aktif değil; bu sayfa "
+                    "kullanılamıyor. Eklenince burada yardımcı olacağım.", query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": [],
+                "safety": safety_info,
+            }
+            return _attach_assistant_meta(result, role)
+
+        # 1.58) Kapsam sınırı: canlı VERİ çekme/sayım VEYA bot adına iş yapma/veri
+        # değiştirme isteği -> yanlış sayfaya yönlendirme YOK; dürüstçe "yapamam,
+        # yalnızca nasıl". Manipülasyon (ödevi yap, notu yükselt, devamsızlığı sil)
+        # önce kontrol edilir; ikisi de intent=None döndürür (asla yanlış).
+        _scope_kind = None
+        if _is_manipulation_request(effective_query):
+            _scope_kind = "action"
+        elif _is_data_fetch_request(effective_query):
+            _scope_kind = "data"
+        if _scope_kind is not None:
+            if _scope_kind == "action":
+                text = (
+                    "Bunu senin yerine yapamam ve verini (not, devamsızlık, yoklama, "
+                    "ödev) değiştiremem/silemem 🙂 Ben yalnızca nasıl yapılacağını adım "
+                    "adım anlatabilirim. Örneğin \"ödevimi nasıl teslim ederim?\" ya da "
+                    "\"notlarımı nereden görürüm?\" diye sorabilirsin."
+                )
+            else:
+                text = (
+                    "Ben gerçek veriyi getiremem, gösteremem ya da göremem; sistemdeki "
+                    "canlı kayıtları bilemiyorum 🙂 Yalnızca nasıl yapılacağını adım adım "
+                    "anlatabilirim. Örneğin \"öğrenci listesini nereden görürüm?\" diye "
+                    "sorarsan, ilgili sayfayı ve adımları söyleyeyim."
+                )
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "scope_boundary_" + _scope_kind,
+                    "response_id": "out_of_scope_action",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "out_of_scope_action",
+                "text": _with_brand_note(text, query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
+        # 1.59) Menü bölüm-özeti ("Öğrenci yönetimi bölümünde ne var?"): üst-başlık
+        # sorusu -> o bölümdeki sayfaların listesi (rol notlu). help_capabilities/
+        # clarify'a düşmeden net cevap.
+        _section = _section_overview(effective_query)
+        if _section is not None:
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "section_overview", "response_id": "section_overview",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "section_overview",
+                "text": _with_brand_note(_section, query),
+                "intent": None,
+                "confidence": 1.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
+        # 1.595) Konu-yardımı: "<konu> ne yapabilirim / ne işe yarar" -> o konunun
+        # kanonik sorgusuna çevir (generic help_capabilities'e düşmesin).
+        _topic_canon = _topic_help_query(effective_query, role)
+        if _topic_canon is not None:
+            effective_query = _topic_canon
+
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)
+        # >4 farklı işlem tek turda: net anlatmak güç -> netleştir (asla yarım cevap).
+        if segments is not None and len(segments) > 4:
+            text = (
+                "Aynı anda birkaç işlem istedin gibi 🙂 Her birini net anlatabilmem "
+                "için tek tek sorar mısın? Örneğin önce \"sınav nasıl oluşturulur?\" "
+                "diye başlayabilir, sonra diğerlerini sırayla sorabilirsin."
+            )
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "multi_intent_overflow",
+                    "intents": [i for _s, i in segments], "response_id": "clarification_prompt",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "clarification_prompt",
+                "text": _with_brand_note(text, query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
         if segments is not None:
+            segments = segments[:4]
             answers: list[dict[str, Any]] = []
             parts: list[str] = []
             for order, (segment, _intent) in enumerate(segments, start=1):
@@ -560,8 +1226,17 @@ class Engine:
                         seg_response.intent, seg_response.auth_action, role
                     ),
                 })
-                info = get_intent(seg_response.intent) if seg_response.intent else None
-                title = (info["description"].rstrip(".") if info else segment)
+                # Reddedilen parçada intent açıklaması KULLANILMAZ: açıklama üst-rol
+                # etiketi ("(Öğretmen+)") ve ayrıcalıklı eylem adını ("... oluşturma")
+                # içerir; deny gövdesinin üstüne basılınca no-leak sözleşmesi kırılır
+                # (ISO-017..019). Reddedilene nötr başlık ver.
+                if seg_response.auth_action:
+                    title = f"İstek {order}"
+                else:
+                    info = get_intent(seg_response.intent) if seg_response.intent else None
+                    title = (info["description"].rstrip(".") if info else segment)
+                    if title.endswith(")") and "(" in title:  # sondaki "(...)" rol etiketini at
+                        title = title[: title.rfind("(")].rstrip()
                 parts.append(f"**{order}) {title}**\n{seg_response.text}")
 
             text = "Birkaç şey sormuşsun, sırayla cevaplayayım:\n\n" + "\n\n".join(parts)
@@ -645,7 +1320,14 @@ class Engine:
             and topk[0]["intent"] in _SOCIAL_INTENTS
             and topk[1]["intent"] in _SOCIAL_INTENTS
         )
-        ask_mode = (
+        # Tek kelimelik belirsiz sorgu (ör. "Ayarlar", "Sınav") KURAL değil similarity
+        # ile eşleşiyorsa tam cevap verme -> netleştir + öneri (asla yanlış).
+        single_word_similarity = (
+            not response.fallback
+            and dec["source"] == "similarity"
+            and len(effective_query.split()) == 1
+        )
+        ask_mode = pure_negation or single_word_similarity or (
             not response.fallback
             and dec["source"] == "similarity"
             and (
@@ -656,6 +1338,8 @@ class Engine:
                     and margin < ASK_LOW_MARGIN
                     and top2_social
                 )
+                # Net okul-dışı konu (yalnız benzerlik) -> zayıf-eşleşme FP'sini kes.
+                or bool(_FAR_OOS_TOPICS.intersection(folded_tokens(effective_query)))
             )
         )
         if ask_mode:
@@ -690,6 +1374,13 @@ class Engine:
             role_caps = capabilities_for(role)
             if role_caps:
                 text = role_caps
+        # Üst rol öğrenci-görüntüleme sorunca çıkmaz cevap yerine öğrenci raporları
+        # sayfasına yardımcı yönlendirme (metin + buton; auth_action temizlenir).
+        _redirect = _upper_role_report_redirect(role, response.intent)
+        if _redirect is not None:
+            text = _redirect[0]
+        # Sosyal cevaba kullanıcının adını ekle (varsa) — "teşekkürler Kadir" gibi.
+        text = _personalize(response.intent, text, _first_name(payload.get("session")))
         if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
             text = safety.user_message + "\n" + text
 
@@ -706,14 +1397,15 @@ class Engine:
 
         result = {
             "trace_id": trace["trace_id"],
-            "response_id": response.response_id,
+            "response_id": "student_report_redirect" if _redirect else response.response_id,
             "text": _with_brand_note(text, query),
             "intent": response.intent,
             "confidence": trace["decision"]["confidence"],
             "fallback": response.fallback,
-            "auth_action": response.auth_action,
+            "auth_action": None if _redirect else response.auth_action,
             "required_role": trace["decision"]["required_role"],
-            "navigation": _build_navigation(response.intent, response.auth_action, role),
+            "navigation": _redirect[1] if _redirect else _build_navigation(
+                response.intent, response.auth_action, role),
             "clarification": _build_clarification(trace),
             "answers": None,
             "suggestions": suggestions,
