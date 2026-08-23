@@ -1691,7 +1691,7 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "branches_info": "/classes",
     "calendar_info": "/calendar",
     "today_info": "/",
-    "question_bank_info": "/bank-questions",
+    "question_bank_info": "/question-bank",
     "notification_settings_info": None,
     "nav_overview": None,
     "event_view": "/events",
@@ -1728,7 +1728,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/payments": "Ücretler",
     "/classes": "Şubeler",
     "/calendar": "Takvim",
-    "/bank-questions": "Soru bankası",
+    "/question-bank": "Soru bankası",
 }
 
 

@@ -158,6 +158,42 @@ class UpperRoleReportRedirectTests(unittest.TestCase):
             self.assertNotIn("/management", r["navigation"]["route"])
 
 
+class TopicHelpAndFeatureInfoTests(unittest.TestCase):
+    """'<konu> ne yapabilirim' generic help_capabilities'e düşmez; mevcut T1
+    özellikleri (randevu/yemek/beyaz tahta/soru bankası) 'aktif değil' DEMEZ."""
+
+    def test_topic_help_routes_to_topic_not_generic(self) -> None:
+        for q, intent in [
+            ("etkinliklerde ne yapabilirim", "event_view"),
+            ("derslerde ne yapabilirim", "course_view"),
+            ("ödevlerde ne yapabilirim", "homework_view"),
+        ]:
+            with self.subTest(q=q):
+                r = ask(q, "admin")
+                self.assertEqual(r["intent"], intent)
+                self.assertNotEqual(r["intent"], "help_capabilities")
+
+    def test_bare_capability_still_generic(self) -> None:
+        self.assertEqual(ask("neler yapabilirim", "admin")["intent"], "help_capabilities")
+
+    def test_specific_howto_not_hijacked(self) -> None:
+        self.assertEqual(ask("etkinlik nasıl oluştururum", "ogretmen")["intent"], "event_create")
+
+    def test_existing_features_not_marked_unavailable(self) -> None:
+        for q in ["randevular nerede", "yemek menüsü nasıl", "beyaz tahta ne işe yarar",
+                  "soru havuzu ne işe yarar"]:
+            with self.subTest(q=q):
+                r = ask(q, "ogretmen")
+                self.assertNotIn("aktif değil", r["text"])
+                self.assertNotIn("kullanılamıyor", r["text"])
+                self.assertIsNotNone(r["navigation"])
+
+    def test_question_pool_is_question_bank(self) -> None:
+        r = ask("soru havuzu sayfasını açmak istiyorum", "ogretmen")
+        self.assertEqual(r["intent"], "question_bank_info")
+        self.assertEqual(r["navigation"]["route"], "/question-bank")
+
+
 class KnownLimitTests(unittest.TestCase):
     """Bilinen sınırlar — bilinçli kabul edilen davranışlar (değişirse fark edelim).
 

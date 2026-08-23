@@ -60,9 +60,20 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["bu", "platform"]}, {"all": ["hezafen"]},
     ]},
     {"intent": "help_capabilities", "groups": [
-        {"all": ["neler", "yapabil"], "none": ["yönetici", "öğretmen", "rol", "yetki"]},
-        {"all": ["ne", "yapabil"], "none": ["yönetici", "öğretmen", "rol", "yetki"]},
-        {"all": ["özellik"]},
+        # help_capabilities YALNIZCA genel "neler yapabilirim" içindir. Belirli bir
+        # KONU geçiyorsa ("etkinliklerde/derslerde/sınavda ne yapabilirim") o konuya
+        # bırakılır (none-guard) -> generic yetenek özeti sızmaz.
+        {"all": ["neler", "yapabil"], "none": [
+            "yönetici", "öğretmen", "rol", "yetki", "etkinlik", "ders", "sınav",
+            "ödev", "mesaj", "karne", "yoklama", "defter", "not", "takvim", "soru",
+            "pomodoro", "randevu", "yemek", "ödeme", "dönem", "sınıf", "profil",
+            "şifre", "devamsız", "rehber", "ayar", "havuz", "tahta", "mesai", "çocuk"]},
+        {"all": ["ne", "yapabil"], "none": [
+            "yönetici", "öğretmen", "rol", "yetki", "etkinlik", "ders", "sınav",
+            "ödev", "mesaj", "karne", "yoklama", "defter", "not", "takvim", "soru",
+            "pomodoro", "randevu", "yemek", "ödeme", "dönem", "sınıf", "profil",
+            "şifre", "devamsız", "rehber", "ayar", "havuz", "tahta", "mesai", "çocuk"]},
+        {"all": ["özellik"], "none": ["etkinlik", "ders", "sınav", "ödev", "soru"]},
         {"all": ["yardım", "edebil"]},
     ]},
     {"intent": "roles_permissions", "groups": [
@@ -356,6 +367,9 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "question_bank_info", "groups": [
         {"all": ["soru", "banka"]},
+        # 'soru havuzu' = soru bankası (halk dilinde); tek 'havuz' okul bağlamında da
+        # soru havuzunu ifade eder -> question_bank_info.
+        {"all": ["soru", "havuz"]}, {"all": ["havuz"]},
     ]},
     {"intent": "notification_settings_info", "groups": [
         {"all": ["bildirim"]},

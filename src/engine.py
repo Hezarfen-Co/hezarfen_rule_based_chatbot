@@ -331,12 +331,9 @@ def _resolve_negation(query: str) -> str:
 # kullanılamıyor" der (asla yanlış). T1 (randevu/yemek/soru-havuzu/beyaz-tahta)
 # canlıya alınınca ilgili anahtar bu listeden çıkarılır; duyuru diye bir özellik
 # hiç yoktur.
+# Gerçekten var OLMAYAN özellik. (Randevu/Yemek/Soru bankası/Beyaz tahta artık
+# üründe MEVCUT -> _FEATURE_INFO ile anlatılır; "duyuru" diye bir özellik yoktur.)
 _UNAVAILABLE_FEATURES: tuple[tuple[str, str], ...] = (
-    ("randevu", "Randevular"),
-    ("yemek", "Yemekler"),
-    ("havuz", "Soru havuzu"),
-    ("beyaz tahta", "Beyaz tahtalar"),
-    ("tahta", "Beyaz tahtalar"),
     ("duyuru", "Duyurular"),
 )
 
@@ -346,6 +343,34 @@ def _unavailable_feature(query: str) -> str | None:
     for keyword, label in _UNAVAILABLE_FEATURES:
         if keyword in low:
             return label
+    return None
+
+
+# Üründe MEVCUT olan (frontend'de tam sayfa) ama chatbot kataloğunda ayrı intent'i
+# olmayan özellikler -> doğru bilgi + sayfa butonu (yanlış "aktif değil" demez).
+# (folded_anahtar, path, Başlık, açıklama)
+_FEATURE_INFO: tuple[tuple[str, str, str, str], ...] = (
+    ("randevu", "/appointments", "Randevular",
+     "Randevular sayfasında öğretmenler görüşme saatleri (slot) açar; öğrenci/veli "
+     "uygun saate randevu alır. Randevular onaylanır, ertelenir ya da iptal edilir."),
+    ("yemek", "/meals", "Yemekler",
+     "Yemekler sayfasında günlük yemek menüsü görüntülenir ve yemek rezervasyonu yapılır."),
+    ("beyaz tahta", "/whiteboards", "Beyaz tahtalar",
+     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
+     "çizim ve not paylaşabilirsin."),
+    ("tahta", "/whiteboards", "Beyaz tahtalar",
+     "Beyaz tahtalar sayfasında ortak çalışma için beyaz tahta oluşturup üzerinde "
+     "çizim ve not paylaşabilirsin."),
+)
+
+
+def _feature_info(query: str) -> tuple[str, dict[str, Any]] | None:
+    """Mevcut ama ayrı intent'i olmayan özellik -> (açıklama, sayfa butonu)."""
+
+    low = query.casefold()
+    for keyword, path, label, desc in _FEATURE_INFO:
+        if keyword in low:
+            return desc, {"route": path, "label": label, "available": True}
     return None
 
 
@@ -446,6 +471,51 @@ def _section_overview(query: str) -> str | None:
             "ediyorsan 'nasıl yaparım?' diye sorabilirsin."
         )
         return "\n".join(lines)
+    return None
+
+
+# Tek SAYFA/konu için "ne yapabilirim / ne işe yarar / nedir" -> o konunun ana
+# intent'inin KANONİK sorgusuna çevrilir (generic help_capabilities'e düşmez).
+# (folded_anahtar_önek, kanonik sorgu). 'sınav' rol-bağımlı (aşağıda ayrı ele alınır).
+_TOPIC_HELP: tuple[tuple[str, str], ...] = (
+    ("etkinlik", "etkinlikler nerede"),
+    ("ders", "derslerim nerede"),
+    ("odev", "ödevler nerede"),
+    ("takvim", "takvim nerede"),
+    ("defter", "defterlerim nerede"),
+    ("pomodoro", "pomodoro nedir"),
+    ("soru", "soru bankası nedir"),
+    ("mesaj", "mesaj nasıl gönderirim"),
+    ("yoklama", "yoklamam nerede"),
+    ("devamsiz", "devamsızlığımı nasıl görürüm"),
+)
+_TOPIC_HELP_TRIGGERS: tuple[str, ...] = (
+    "yapabil", "nedir", "ise yarar", "ise yariyor", "ne var", "neler var",
+    "ne yapilir", "ne ise", "gorevleri", "ozellikleri",
+)
+
+
+def _topic_help_query(query: str, role: str) -> str | None:
+    """'<konu> ne yapabilirim/ne işe yarar' -> o konunun kanonik sorgusu (yoksa None).
+
+    Belirli 'nasıl <fiil>' how-to sorularına DOKUNMAZ (onlar zaten doğru gider)."""
+
+    toks = folded_tokens(query)
+    if not toks:
+        return None
+    tokset = set(toks)
+    if "nasil" in tokset:  # 'nasıl oluştururum' gibi net how-to -> karışma
+        return None
+    folded = " ".join(toks)
+    if not any(t in folded for t in _TOPIC_HELP_TRIGGERS):
+        return None
+    # sınav: rol-bağımlı (öğrenci girer, öğretmen+ oluşturur)
+    if any(t.startswith("sinav") for t in toks):
+        return ("sınav nasıl oluştururum" if role in _UPPER_ROLES
+                else "sınava nasıl girerim")
+    for kw, canon in _TOPIC_HELP:
+        if any(t.startswith(kw) for t in toks):
+            return canon
     return None
 
 
@@ -941,6 +1011,27 @@ class Engine:
         if not pure_negation and _neg_resolved != effective_query:
             effective_query = _neg_resolved
 
+        # 1.56) Üründe MEVCUT ama ayrı intent'i olmayan özellik (randevu/yemek/beyaz
+        # tahta) -> doğru bilgi + sayfa butonu (yanlış "aktif değil" DEMEZ).
+        _feat = _feature_info(effective_query)
+        if _feat is not None:
+            _feat_text, _feat_nav = _feat
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "feature_info",
+                "text": _with_brand_note(_feat_text, query),
+                "intent": None,
+                "confidence": 1.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": _feat_nav,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
         # 1.57) Henüz canlı olmayan/bulunmayan özellik -> yanlış yönlendirme YOK,
         # dürüstçe "henüz kullanılamıyor" (intent None, nav yok).
         _unavail = _unavailable_feature(effective_query)
@@ -1037,6 +1128,12 @@ class Engine:
                 "suggestions": suggestions,
                 "safety": safety_info,
             }, role)
+
+        # 1.595) Konu-yardımı: "<konu> ne yapabilirim / ne işe yarar" -> o konunun
+        # kanonik sorgusuna çevir (generic help_capabilities'e düşmesin).
+        _topic_canon = _topic_help_query(effective_query, role)
+        if _topic_canon is not None:
+            effective_query = _topic_canon
 
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)
