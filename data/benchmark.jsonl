@@ -256,3 +256,6 @@
 {"question": "Beyaz tahta oluşturmak istiyorum", "expected_intent": "board_create", "role": "ogrenci"}
 {"question": "Yeni bir çizim tahtası oluşturayım", "expected_intent": "board_create", "role": "ogrenci"}
 {"question": "Yeni beyaz tahta eklemek istiyorum", "expected_intent": "board_create", "role": "ogretmen"}
+{"question": "Ödeme yönetimi nerede", "expected_intent": "fees_manage", "role": "yonetici"}
+{"question": "Öğrenci ödemelerini nereden yönetirim", "expected_intent": "fees_manage", "role": "yonetici"}
+{"question": "Ücret tahsilatını nereden takip ederim", "expected_intent": "fees_manage", "role": "admin"}

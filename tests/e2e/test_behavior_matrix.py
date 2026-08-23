@@ -124,6 +124,7 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogretmen", "havuzdaki soruları onaylamak istiyorum", "question_approve"),
     ("ogrenci", "beyaz tahtalar nerede", "board_view"),
     ("ogrenci", "yeni beyaz tahta oluşturmak istiyorum", "board_create"),
+    ("yonetici", "ödeme yönetimi nerede", "fees_manage"),
 ]
 
 

@@ -357,13 +357,28 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
     ]},
     {"intent": "parent_info", "groups": [
         {"all": ["veli"]}, {"all": ["ebeveyn"]},
+        # "Çocuklarım" sayfası (/students). Veri sorguları (karne/not...) hariç ->
+        # onlar report_card/attendance'e gider.
+        {"all": ["çocuk"], "none": [
+            "karne", "not", "devamsız", "yoklama", "ödev", "sınav", "randevu", "yemek"]},
     ]},
     # --- Kapsam genişletme: menü sayfa/bölüm açıklama intent'leri ---
     {"intent": "fees_info", "groups": [
-        {"all": ["ücret"]}, {"all": ["ödeme"], "none": ["sınav", "ödev"]},
+        {"all": ["ücret"], "none": ["tahsilat", "yönet"]},
+        {"all": ["ödeme"], "none": ["sınav", "ödev", "yönet", "tahsilat"]},
+    ]},
+    {"intent": "fees_manage", "groups": [
+        {"all": ["ödeme", "yönet"]}, {"all": ["tahsilat"]}, {"all": ["ücret", "yönet"]},
+        {"all": ["öğrenci", "ödeme"], "none": ["kendi", "benim"]},
     ]},
     {"intent": "branches_info", "groups": [
         {"all": ["şube"]},
+        # nav.classGroups = "Şubeler" (/management/classes); "sınıf(lar)" da bu sayfadır.
+        # Kayıt/çıkarma (course_enroll/remove_student) ve veri/sıralama sorguları
+        # ("en çalışkan kim") hariç -> onlar bu sayfa navigasyonu değil.
+        {"all": ["sınıf"], "none": [
+            "oluştur", "yeni", "öğrenci", "liste", "al", "ekle", "çıkar", "sil",
+            "kim", "çalışkan", "başarı", "ortalama", "not", "ödev", "sınav", "karne", "kaç"]},
     ]},
     {"intent": "calendar_info", "groups": [
         {"all": ["takvim"], "none": ["sınav"]},

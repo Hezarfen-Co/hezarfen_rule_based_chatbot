@@ -1400,11 +1400,16 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Veli rolü nedir, veli neler görebilir.",
         "response_id": "parent_role_info",
         "response_template": (
-            "**Veli**, kendisine bağlanan öğrencileri **salt-okunur** izleyen roldür: "
-            "bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
+            "**Ne:** **Veli**, kendisine bağlanan öğrencileri **salt-okunur** izleyen "
+            "roldür: bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
             "Mesajlar'ı kullanabilir. Veli hesabı sınava giremez, derse kaydolamaz ve "
-            "yoklamada işaretlenmez — bu işlemler öğrenciye özeldir. Veli–öğrenci "
-            "bağlantısını **ADMIN** kurar; birden çok öğrenci bir veliye bağlanabilir."
+            "yoklamada işaretlenmez — bu işlemler öğrenciye özeldir.\n"
+            "**Nereden/nasıl:** Bağlı öğrencilerini **Çocuklarım** sayfasından "
+            "(`/students`) görürsün; bir çocuğu seçip notlarına/karnesine ve "
+            "yoklamasına oradan geçersin.\n"
+            "**Etkili kullanım:** Birden çok öğrenci tek veliye bağlanabilir — "
+            "Çocuklarım'dan aralarında geçiş yaparsın. Veli–öğrenci bağlantısını "
+            "**ADMIN** kurar; bağlantı görünmüyorsa okuldan bağlanmasını iste."
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -1437,13 +1442,42 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["report_card_view", "exam_finish_result"],
     },
     {
+        "intent": "fees_manage",
+        "category": "school",
+        "description": "Ödemeler yönetimi sayfası — ücret/ödeme yönetimi (Yönetici+).",
+        "response_id": "fees_manage_instructions",
+        "response_template": (
+            "**Ne:** **Ödemeler** (`/management/payments`, Yönetici+) okulun ücret ve "
+            "ödeme kayıtlarını yönettiğin sayfadır (öğrencilerin borç/tahsilat durumu).\n"
+            "**Nereden/nasıl:** `/management/payments`'ı aç; öğrenci/döneme göre süz, "
+            "ödeme kaydını gör ve gerekli güncellemeleri yap.\n"
+            "**Not:** Bu yönetim sayfasıdır; öğrenci/velinin kendi **Ödeme ekstresi** "
+            "ayrı sayfadır (`/payments`)."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Ödemeler kısmında ne yapabilirim?",
+            "Ödeme yönetimi nerede?",
+            "Öğrenci ödemelerini nereden yönetirim?",
+            "Ödemeler sayfası ne işe yarar?",
+            "Ücret tahsilatını nereden takip ederim?",
+        ],
+        "must_not_match": ["fees_info", "report_card_view"],
+    },
+    {
         "intent": "branches_info",
         "category": "school",
         "description": "Şubeler (şube/sınıf) sayfası ne işe yarar.",
         "response_id": "branches_info_message",
         "response_template": (
-            "**Şubeler** sayfasında okulun şubeleri/sınıfları listelenir; hangi "
-            "**şube**de olduğunu ve şubenin ders/öğrenci bilgisini buradan görürsün."
+            "**Ne:** **Şubeler** (`/management/classes`) okulun şube/sınıf gruplarının "
+            "listelendiği sayfadır; her şubenin dersleri ve öğrencileri buraya bağlıdır.\n"
+            "**Nereden/nasıl:** Menüden **Şubeler**'i aç; bir şubeyi seçip içindeki "
+            "öğrenci ve ders bilgisini görürsün.\n"
+            "**Etkili kullanım:** Şube, öğrencileri ve dersleri bir arada tutmanın yolu — "
+            "bir derse toplu öğrenci alırken hangi şubede olduklarını buradan teyit et. "
+            "(Bir şubeye öğrenci alma/çıkarma işlemi ilgili dersin/şubenin listesinden yapılır.)"
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -1451,6 +1485,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Şubeler sayfası nerede?",
             "Hangi şubedeyim?",
             "Şube listesini nereden görürüm?",
+            "Sınıflar kısmında ne yapabilirim?",
+            "Şubeler ne işe yarar?",
         ],
         "must_not_match": [],
     },
@@ -1860,7 +1896,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
 # Ortak kelimeleri (bugün, menü, program, panel...) IDF'i kirletip OOS ayrımını
 # bozuyordu; sayfa-arama/bölüm-özeti intent'leri deterministik kuralla kapsanır.
 RULE_ONLY_INTENTS: Final[frozenset[str]] = frozenset({
-    "fees_info", "branches_info", "calendar_info", "today_info",
+    "fees_info", "fees_manage", "branches_info", "calendar_info", "today_info",
     "question_bank_info", "notification_settings_info", "nav_overview",
     "event_view", "exam_schedule_info", "course_materials_info",
     # T1 özellikleri: kural-tetikli; örnek soruları similarity/domain havuzuna
@@ -1945,10 +1981,11 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "student_pomodoro_lookup": "/management/pomodoros",
     "messages_use": "/messages",
     "study_club_info": "/studies",
-    "parent_info": None,
+    "parent_info": "/students",
     # Kapsam genişletme:
     "fees_info": "/payments",
-    "branches_info": "/classes",
+    "fees_manage": "/management/payments",
+    "branches_info": "/management/classes",
     "calendar_info": "/calendar",
     "today_info": "/",
     "question_bank_info": "/question-bank",
@@ -2002,7 +2039,9 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/management/terms": "Dönemler",
     "/admin/users": "Kullanıcılar",
     "/payments": "Ücretler",
-    "/classes": "Şubeler",
+    "/management/classes": "Şubeler",
+    "/management/payments": "Ödemeler",
+    "/students": "Çocuklarım",
     "/calendar": "Takvim",
     "/question-bank": "Soru bankası",
 }

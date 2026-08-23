@@ -503,6 +503,10 @@ def _topic_help_query(query: str, role: str) -> str | None:
     if any(t.startswith("sinav") for t in toks):
         return ("sınav nasıl oluştururum" if role in _UPPER_ROLES
                 else "sınava nasıl girerim")
+    # ödeme/ücret: rol-bağımlı (yönetici+ Ödemeler'i yönetir; diğerleri kendi ekstresi)
+    if any(t.startswith("odeme") or t.startswith("ucret") for t in toks):
+        return ("ödeme yönetimi nerede" if role in ("yonetici", "admin")
+                else "ödeme bilgilerim nerede")
     for kw, canon in _TOPIC_HELP:
         if any(t.startswith(kw) for t in toks):
             return canon

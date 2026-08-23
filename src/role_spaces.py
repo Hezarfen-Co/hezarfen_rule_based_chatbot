@@ -86,6 +86,7 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "work.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "staff_work"), (A, S, "staff_work")),
     "school.settings_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_settings"), (A, S, "school_settings")),
     "school.terms_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_terms"), (A, S, "school_terms")),
+    "school.payments_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "payments_manage"), (A, S, "payments_manage")),
     "users.roles_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (D, None, None), (A, S, "admin_users")),
     # --- T1 özellikleri ---
     # Randevu: alma yalnız Öğrenci+Veli (backend: Student|Parent); saat açma/talep
@@ -163,6 +164,7 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "parent_info": "platform.help",
     # Kapsam genişletme: bilgi/açıklama intent'leri (herkese açık, ALLOW).
     "fees_info": "platform.help",
+    "fees_manage": "school.payments_manage",
     "branches_info": "platform.help",
     "calendar_info": "platform.help",
     "today_info": "platform.help",
