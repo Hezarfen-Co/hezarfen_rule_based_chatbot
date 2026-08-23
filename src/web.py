@@ -117,6 +117,9 @@ INDEX_HTML = """<!doctype html>
     <option value="yonetici">Yönetici</option>
     <option value="admin">ADMIN</option>
   </select>
+  <label>Ad</label>
+  <input type="text" id="uname" placeholder="ör. Kadir" value="Kadir"
+    style="width:90px; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text);">
   <label class="chk"><input type="checkbox" id="devmeta" checked> dev etiketleri</label>
 </header>
 
@@ -274,7 +277,8 @@ async function ask() {
         query: text,
         role: roleSel.value,
         authenticated: roleSel.value !== 'ziyaretci',
-        user_id: 'dev-user'
+        user_id: 'dev-user',
+        name: document.getElementById('uname').value
       })
     });
     const data = await r.json();
@@ -356,6 +360,7 @@ class Handler(BaseHTTPRequestHandler):
                 "role": role,
                 "authenticated": bool(payload_in.get("authenticated", role != "ziyaretci")),
                 "user_id": payload_in.get("user_id"),
+                "name": payload_in.get("name"),
             },
         }
         try:

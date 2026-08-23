@@ -515,7 +515,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Yeni ders oluşturma (Öğretmen+).",
         "response_id": "course_create_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen ve üstü rol. 1) `/courses`'a git, **Yeni ders (New "
+            "1) `/courses`'a git, **Yeni ders (New "
             "course)**'e bas. 2) Sağdan açılan panelde **Başlık** (zorunlu), isteğe "
             "bağlı **Açıklama** ve **Dönem** (varsayılan 'Atanmamış') gir. 3) **Oluştur**. "
             "Öğrencide 'Yeni ders' düğmesi görünmez."
@@ -537,7 +537,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Derse öğrenci kaydetme (Öğretmen+).",
         "response_id": "enroll_student_instructions",
         "response_template": (
-            "Ön koşul: dersi oluşturan öğretmen veya Yönetici+ olmak. 1) Ders detayına "
+            "Ön koşul: bu dersi yönetme yetkin olmalı. 1) Ders detayına "
             "(`/courses/$id`) gir, **Sınıf listesi (Roster)** bölümünü aç. 2) **Öğrenci "
             "kaydet (Enroll student)**'e bas, panelde öğrenciyi ara-seç. 3) Onayla. "
             "Zaten kayıtlılar listede çıkmaz; öğrenci seçmezsen 'Önce bir öğrenci "
@@ -1105,7 +1105,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Etkinlik oluşturma (Öğretmen+).",
         "response_id": "event_create_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen+ rolü. 1) `/events` → **Etkinlik oluştur (Create event)**. "
+            "1) `/events` → **Etkinlik oluştur (Create event)**. "
             "2) **Başlık** (zorunlu, ≤200), isteğe bağlı açıklama; isteğe bağlı "
             "**Başlangıç/Bitiş** tarih+saat. 3) **Oluştur**. Başlık boşsa 'Başlık gerekli'; "
             "bitiş başlangıçtan önce olamaz; tarihler gelecekte olmalı."
@@ -1151,7 +1151,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kendi mesai giriş/çıkışı (Öğretmen/Yönetici).",
         "response_id": "work_checkin_instructions",
         "response_template": (
-            "Ön koşul: Öğretmen veya Yönetici (ADMIN'de bu sayfa yoktur). 1) `/work` "
+            "Ön koşul: bu sayfa ADMIN hesabında bulunmaz. 1) `/work` "
             "(Mesai) sayfasını aç. 2) 'Giriş yapılmadı' ise **Giriş yap (Check in)**; iş "
             "bitince **Çıkış yap (Check out)**. 3) **Son kayıtlar**'da giriş/çıkış/süre ve "
             "Açık/Kapalı durumunu görürsün. Saatler sunucu damgalıdır; aynı anda tek açık "
@@ -1177,7 +1177,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Personel mesai kayıtlarını görme/düzeltme (Yönetici+).",
         "response_id": "staff_work_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. 1) `/management/staff-work` (Personel mesai) → "
+            "1) `/management/staff-work` (Personel mesai) → "
             "aramaya **en az 2 karakter** (öğretmen adı). 2) Öğretmen satırında **Görüntüle**. "
             "3) **Kapalı** bir kaydın **Düzenle**'sini açıp giriş/çıkış tarih+saat düzelt, "
             "**Güncelle**. **Açık mesai düzeltilemez** (önce çıkış yapılmalı veya silinmeli); "
@@ -1203,7 +1203,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Akademik dönem oluşturma/derse bağlama (Yönetici+).",
         "response_id": "term_manage_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. 1) `/management/terms` (Dönemler) → **Dönem "
+            "1) `/management/terms` (Dönemler) → **Dönem "
             "oluştur (Create term)**. 2) **Ad**, **Başlangıç**, **Bitiş** (GG/AA/YYYY) gir; "
             "bitiş başlangıçtan önce olamaz (tarihler geçmişte olabilir). 3) **Oluştur**. "
             "Dersi döneme bağlamak, ders oluşturma/düzenleme formundaki **Dönem** seçicisinden "
@@ -1227,7 +1227,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Okul ayarlarını değiştirme (Yönetici+).",
         "response_id": "school_settings_instructions",
         "response_template": (
-            "Ön koşul: Yönetici veya ADMIN. `/management/settings` (Okul ayarları) sayfasında "
+            "`/management/settings` (Okul ayarları) sayfasında "
             "**Sınav türleri** (Ad + Ağırlık 1–100), **Yoklama durumları** (Var/Yok/Geç/"
             "Mazeretli kilitlidir, silinemez), **Not bantları** (Alt sınır + Etiket) ve "
             "**Not dosyası boyut sınırı** (0.001–25 MiB) yönetilir. **Satır ekle** ile ekle, "
@@ -1250,7 +1250,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kullanıcı rolü değiştirme (ADMIN).",
         "response_id": "user_role_change_instructions",
         "response_template": (
-            "Ön koşul: ADMIN. 1) `/admin/users` (Kullanıcılar) sayfasını aç, gerekirse "
+            "1) `/admin/users` (Kullanıcılar) sayfasını aç, gerekirse "
             "kullanıcı adına göre ara. 2) Satırdaki rol menüsünden yeni rolü seç. 3) Beliren "
             "**Güncelle (Update)**'ye bas ve onayla. **Kendi rolünü değiştiremezsin** (kendi "
             "satırında menü pasiftir); rol değişmeden 'Güncelle' görünmez. Değişiklik bir "

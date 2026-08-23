@@ -208,8 +208,8 @@ def _deny_text(reason: ReasonCode) -> str:
             "güvenli biçimde giriş yapabilirsin."
         )
     return (
-        "Bu işlem senin rolünde yapılamıyor. Yetkisiz işlem adımları ve "
-        "yönlendirme paylaşılmadı."
+        "Bu işlem rolünün kapsamı dışında görünüyor 🙂 O yüzden adımları ve "
+        "yönlendirmeyi paylaşmıyorum. Yetkin dahilindeki bir konuda yardımcı olayım."
     )
 
 

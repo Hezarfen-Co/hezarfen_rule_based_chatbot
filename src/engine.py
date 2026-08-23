@@ -611,6 +611,39 @@ def _upper_role_report_redirect(
     return text, {"route": path, "label": label, "available": True}
 
 
+# Sosyal cevaplarda (selam/naber/teşekkür) kullanıcının adını doğal biçimde ekler.
+# Ad, güvenilir OTURUM bağlamından gelir (session.name) — veri çekme DEĞİL. Ad yoksa
+# davranış aynen kalır (graceful). Bridge/backend'in session.name geçmesi gerekir.
+_SOCIAL_PERSONALIZE: frozenset[str] = frozenset({"greeting", "smalltalk", "thanks"})
+
+
+def _first_name(session: Any) -> str | None:
+    if not isinstance(session, dict):
+        return None
+    raw = session.get("name") or session.get("first_name")
+    if not isinstance(raw, str):
+        return None
+    parts = [p for p in raw.strip().split() if p]
+    if not parts:
+        return None
+    name = parts[0]
+    # güvenlik: makul uzunluk + yalnız harf/tire/kesme (enjeksiyon/uzun ad engeli)
+    if len(name) > 30 or not all(c.isalpha() or c in "-'’" for c in name):
+        return None
+    return name
+
+
+def _personalize(intent: str | None, text: str, name: str | None) -> str:
+    """Sosyal cevaba adı doğal yerleştirir ('Merhaba!' -> 'Merhaba Kadir!')."""
+
+    if not name or intent not in _SOCIAL_PERSONALIZE or name in text:
+        return text
+    idx = text.find("!")
+    if idx == -1:
+        return text
+    return text[:idx] + f" {name}" + text[idx:]
+
+
 _WIRE_ROLES: dict[str, str] = {
     "ziyaretci": "visitor",
     "veli": "parent",
@@ -1337,6 +1370,8 @@ class Engine:
         _redirect = _upper_role_report_redirect(role, response.intent)
         if _redirect is not None:
             text = _redirect[0]
+        # Sosyal cevaba kullanıcının adını ekle (varsa) — "teşekkürler Kadir" gibi.
+        text = _personalize(response.intent, text, _first_name(payload.get("session")))
         if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
             text = safety.user_message + "\n" + text
 
