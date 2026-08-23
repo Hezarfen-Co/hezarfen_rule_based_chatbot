@@ -471,6 +471,7 @@ _TOPIC_HELP: tuple[tuple[str, str], ...] = (
     ("defter", "defterlerim nerede"),
     ("pomodoro", "pomodoro nedir"),
     ("mesaj", "mesaj nasıl gönderirim"),
+    ("kullanici", "kullanıcı rolü nasıl değiştirilir"),  # Kullanıcılar sayfası (ADMIN)
     # T1: 'randevu/yemek/tahta ne işe yarar' -> ilgili T1 intent'ine götür
     ("randevu", "randevu nasıl alırım"),
     ("yemek", "yemek menüsü nerede"),

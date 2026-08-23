@@ -1248,23 +1248,29 @@ INTENTS: Final[list[dict[str, Any]]] = [
     {
         "intent": "user_role_change",
         "category": "management",
-        "description": "Kullanıcı rolü değiştirme (ADMIN).",
+        "description": "Kullanıcılar sayfası: rol değiştirme + profil düzenleme (ADMIN).",
         "response_id": "user_role_change_instructions",
         "response_template": (
-            "1) `/admin/users` (Kullanıcılar) sayfasını aç, gerekirse "
-            "kullanıcı adına göre ara. 2) Satırdaki rol menüsünden yeni rolü seç. 3) Beliren "
-            "**Güncelle (Update)**'ye bas ve onayla. **Kendi rolünü değiştiremezsin** (kendi "
-            "satırında menü pasiftir); rol değişmeden 'Güncelle' görünmez. Değişiklik bir "
-            "sonraki işlemde hemen geçerli olur."
+            "**Ne:** **Kullanıcılar** (`/admin/users`, yalnız ADMIN) tüm hesapları "
+            "yönettiğin yerdir — burada (a) **rol değiştirir**, (b) **herhangi bir "
+            "kullanıcının profilini düzenlersin**.\n"
+            "**Nereden / nasıl (rol):** 1) `/admin/users`'ı aç, ada göre **ara**. "
+            "2) Satırdaki **rol menüsünden** yeni rolü seç. 3) Beliren **Güncelle "
+            "(Update)**'ye basıp onayla. Kendi rolünü değiştiremezsin (kendi satırında "
+            "menü pasif); değişiklik sonraki işlemde hemen geçerli olur.\n"
+            "**Etkili kullanım:** kalabalık listede önce **arama/filtre** ile daralt; "
+            "rolü yanlışlıkla düşürmemek için değişiklikten önce satırdaki adı teyit et. "
+            "Profil düzeltmek için kullanıcının satırından profiline geçip alanları güncelle."
         ),
         "auth_required": True,
         "min_role": "admin",
         "example_questions": [
+            "Kullanıcılar kısmında ne yapabilirim?",
             "Bir kullanıcının rolünü nasıl değiştiririm?",
             "Öğretmen rolü nasıl atanır?",
             "Kullanıcıyı yönetici yapmak istiyorum",
             "Rol yükseltme nerede?",
-            "Users sayfasından rol değiştirme",
+            "Kullanıcı profilini düzenleme nerede?",
         ],
         "must_not_match": ["roles_permissions", "profile_edit"],
     },

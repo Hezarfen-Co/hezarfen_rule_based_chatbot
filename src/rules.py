@@ -227,6 +227,11 @@ _RAW_RULES: Final[list[dict[str, Any]]] = [
         {"all": ["rol", "değiştir"]}, {"all": ["rol", "ata"]},
         {"all": ["yetki", "yükselt"]}, {"all": ["kullanıcı", "rol"]},
         {"all": ["kullanıcı", "admin"]}, {"all": ["admin", "yap"], "none": ["beni"]},
+        # "Kullanıcılar" sayfası (/admin/users): rol + profil yönetimi.
+        # none: 'kullanıcı adı/şifre/giriş' login'dir (user_role_change değil).
+        {"all": ["kullanıcı", "nerede"], "none": ["adı", "ad", "şifre", "parola", "giriş", "gir"]},
+        {"all": ["kullanıcı", "yönet"]},
+        {"all": ["kullanıcı", "profil"], "none": ["kendi", "benim"]},
     ]},
     {"intent": "term_manage", "groups": [
         {"all": ["dönem", "oluştur"]}, {"all": ["akademik", "dönem"]},
