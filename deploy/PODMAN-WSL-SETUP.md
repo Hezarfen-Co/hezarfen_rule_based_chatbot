@@ -75,17 +75,19 @@ wsl --shutdown
 & $P run --rm docker.io/surrealdb/surrealdb:v3 version   # netavark hatası OLMAMALI
 ```
 
-### 3. Stack'i başlat
+### 3. Stack'i başlat (PROJE-BAZLI — all-in-one compose yok)
+Tek komut (base pre-pull + 3 repoyu doğru sırada başlatır):
 ```powershell
-# docker.io anonim-pull auth hatasını önlemek için base'leri önce çek:
-foreach ($i in "docker.io/library/rust:1.97-slim","docker.io/library/debian:trixie-slim",
-               "docker.io/library/python:3.13-slim","docker.io/oven/bun:1",
-               "docker.io/oven/bun:1-slim","docker.io/surrealdb/surrealdb:v3") { & $P pull $i }
-# Ayağa kaldır (deploy/ içinden çalışan yollar):
-& $P compose -f deploy/compose.yaml up -d --build
+pwsh -File deploy/run-stack.ps1
 ```
-> **Linux/macOS:** kernel/machine adımları gerekmez; sadece bu bölümü çalıştır
-> (gerekirse `podman` yerine dağıtımın komutu). Portlar zaten host'a iletilir.
+Ya da elle (her repo kendi compose'uyla; sıra önemli — backend ağı yaratır):
+```powershell
+cd ..\hezarfen_backend            ; & $P compose up -d --build   # surrealdb + backend (:8080,:8090)
+cd ..\hezarfen_frontend           ; & $P compose up -d --build   # frontend (:5173)
+cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose --profile product up -d --build bridge  # chatbot köprüsü
+```
+> Chatbot'u backend'siz **tek başına** denemek için: `cd Hezarfen-Rule-Based-Chatbot; & $P compose up -d` → `http://localhost:8000` (izole dev sohbet UI).
+> **Linux/macOS:** kernel/machine adımları gerekmez; sadece bu bölümü çalıştır. Portlar zaten host'a iletilir.
 
 ---
 
@@ -99,10 +101,12 @@ foreach ($i in "docker.io/library/rust:1.97-slim","docker.io/library/debian:trix
 | build: `unable to retrieve auth token ... unauthorized` | docker.io anonim-pull dalgalanması → base imajları önce `podman pull` ile çek, sonra build. |
 | `Cgroups v1 not supported` | `.wslconfig`'e `kernelCommandLine = cgroup_no_v1=all` + `wsl --shutdown`. |
 
-## Durdurma / temizlik
+## Durdurma / temizlik (her repo kendi dizininde)
 ```powershell
-& $P compose -f deploy/compose.yaml down          # konteynerleri durdur (volume kalır)
-& $P compose -f deploy/compose.yaml down -v       # volume'ları da sil
+cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose --profile product down
+cd ..\hezarfen_frontend           ; & $P compose down
+cd ..\hezarfen_backend            ; & $P compose down        # volume kalır
+cd ..\hezarfen_backend            ; & $P compose down -v     # volume'ları da sil
 ```
 
 ## Notlar

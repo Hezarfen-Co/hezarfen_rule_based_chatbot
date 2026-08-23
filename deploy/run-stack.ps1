@@ -1,7 +1,7 @@
-# Hezarfen — Podman stack'i ayağa kaldırır.
-#   1) Tüm Containerfile base imajlarını pre-pull eder (docker.io anonim-pull auth
-#      hatalarını build sırasında yaşamamak için).
-#   2) podman compose up -d --build.
+# Hezarfen — Podman stack'i PROJE-BAZLI ayağa kaldırır (all-in-one compose YOK).
+#   1) Base imajları pre-pull (docker.io anonim-pull auth hatalarını önlemek için).
+#   2) Her repoyu kendi compose'uyla, doğru sırada başlatır:
+#        hezarfen_backend (db+backend, ağı yaratır) -> hezarfen_frontend -> chatbot bridge
 #   3) Doğrular ve localhost adreslerini basar.
 # Ön koşul: deploy/setup-podman-wsl.ps1 bir kez çalıştırılmış olmalı.
 # Çalıştır:  pwsh -File deploy/run-stack.ps1
@@ -17,34 +17,38 @@ function Find-Podman {
   throw "podman.exe bulunamadı."
 }
 $PODMAN = Find-Podman
-$compose = Join-Path $PSScriptRoot "compose.yaml"
-$parent  = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$parent = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$backend  = Join-Path $parent "hezarfen_backend"
+$frontend = Join-Path $parent "hezarfen_frontend"
+$chatbot  = Join-Path $parent "Hezarfen-Rule-Based-Chatbot"
 
 & $PODMAN machine start *> $null 2>&1
 
 Write-Host "[1/3] Base imajlar pre-pull ediliyor..."
-$cfiles = @(
-  (Join-Path $parent "hezarfen_backend\Containerfile"),
-  (Join-Path $parent "hezarfen_frontend\Containerfile"),
-  (Join-Path $parent "Hezarfen-Rule-Based-Chatbot\Containerfile")
-)
 $bases = @("docker.io/surrealdb/surrealdb:v3")
-foreach ($cf in $cfiles) {
+foreach ($cf in @((Join-Path $backend "Containerfile"),
+                  (Join-Path $frontend "Containerfile"),
+                  (Join-Path $chatbot "Containerfile"))) {
   if (Test-Path $cf) {
     Select-String -Path $cf -Pattern '^\s*FROM\s+(\S+)' | ForEach-Object {
       $bases += $_.Matches[0].Groups[1].Value
     }
   }
 }
-$bases = $bases | Sort-Object -Unique
-foreach ($img in $bases) {
-  Write-Host "    pull $img"
-  & $PODMAN pull $img *> $null 2>&1
+foreach ($img in ($bases | Sort-Object -Unique)) {
+  Write-Host "    pull $img"; & $PODMAN pull $img *> $null 2>&1
 }
 
-Write-Host "`n[2/3] podman compose up -d --build (backend Rust ilk seferde uzun sürer)..."
-& $PODMAN compose -f $compose up -d --build
-if ($LASTEXITCODE -ne 0) { throw "compose up başarısız (build log'una bak)." }
+Write-Host "`n[2/3] Proje-bazlı up (backend Rust ilk seferde uzun sürer)..."
+function Compose-Up([string]$dir, [string[]]$extra) {
+  Push-Location $dir
+  try { & $PODMAN compose @extra up -d --build; if ($LASTEXITCODE -ne 0) { throw "compose up başarısız: $dir" } }
+  finally { Pop-Location }
+}
+Compose-Up $backend  @()                                  # ağı (hezarfen_backend_default) yaratır
+Compose-Up $frontend @()                                  # backend ağına bağlanır
+Compose-Up $chatbot  @("--profile", "product")            # bridge; backend ağına dial-in eder
+# (Not: chatbot'u backend'siz TEK BAŞINA denemek için: cd $chatbot; podman compose up -d  -> :8000)
 
 Write-Host "`n[3/3] Doğrulama..."
 Start-Sleep -Seconds 6
