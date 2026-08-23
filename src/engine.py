@@ -368,6 +368,87 @@ def _is_data_fetch_request(query: str) -> bool:
     return any(p.search(query) for p in _DATA_FETCH_PATTERNS)
 
 
+# --- Menü bölüm-özeti (section overview) ------------------------------------
+# "Öğrenci yönetimi bölümünde ne var", "Okul hizmetleri nedir" gibi ÜST-BAŞLIK
+# sorularını yanıtlar. Kaynak: frontend nav-items.ts NAV_GROUPS (birebir + rol notu).
+# (folded_phrase, Başlık, [(öğe, path, rol notu), ...])
+_SECTION_OVERVIEWS: tuple[tuple[str, str, tuple[tuple[str, str, str], ...]], ...] = (
+    ("ogrenci yonetimi", "Öğrenci yönetimi", (
+        ("Sınıflar", "/management/classes", "öğretmen+"),
+        ("Öğrenci notları", "/management/student-marks", "öğretmen+"),
+        ("Öğrenci yoklaması", "/management/student-attendance", "öğretmen+"),
+        ("Öğrenci pomodoro", "/management/pomodoros", "öğretmen+"),
+        ("Çocuklarım", "/children", "veli"),
+    )),
+    ("okul hizmetleri", "Okul hizmetleri", (
+        ("Yemekler", "/meals", ""),
+        ("Ödeme ekstresi", "/payments", "öğrenci/veli"),
+    )),
+    ("okul yonetimi", "Okul yönetimi", (
+        ("Personel mesaisi", "/management/staff-work", "yönetici+"),
+        ("Ayarlar", "/management/settings", "yönetici+"),
+        ("Dönemler", "/management/terms", "yönetici+"),
+        ("Ödemeler", "/management/payments", "yönetici+"),
+        ("Kullanıcılar", "/admin/users", "admin"),
+    )),
+    ("calisma alani", "Çalışma alanı", (
+        ("Defter (Notlar)", "/notes", ""),
+        ("Beyaz tahtalar", "/whiteboards", "öğrenci+"),
+        ("Pomodoro", "/pomodoro", "öğrenci"),
+        ("Mesai", "/work", "öğretmen–yönetici"),
+    )),
+    ("akademik", "Akademik", (
+        ("Dersler", "/courses", ""),
+        ("Ödevler", "/homework", ""),
+        ("Sınavlar", "/exams", ""),
+        ("Soru bankası", "/question-bank", "öğretmen+"),
+        ("Karnem", "/marks", "öğrenci"),
+    )),
+    ("planlama", "Planlama", (
+        ("Etkinlikler", "/events", ""),
+        ("Takvim", "/calendar", ""),
+        ("Randevular", "/appointments", ""),
+    )),
+    ("topluluk", "Topluluk", (
+        ("Mesajlar", "/messages", ""),
+        ("Sorular", "/questions", ""),
+    )),
+)
+# Bölüm-özeti tetikleyici sözcükler (folded); bölüm adıyla birlikte gelmeli.
+_SECTION_TRIGGERS: frozenset[str] = frozenset({
+    "ne", "neler", "nedir", "var", "fonksiyon", "fonksiyonlar", "bolum", "bolumu",
+    "bolumunde", "icerik", "hangi", "ozellik", "ozellikler", "yapabilir", "yapabilirim",
+    "icinde", "kismi", "kisminda", "kisim", "ise", "yarar", "menu", "sayfalar",
+})
+
+
+def _section_overview(query: str) -> str | None:
+    """Üst-başlık (menü bölümü) sorusu -> o bölümdeki sayfaların özeti (rol notlu)."""
+
+    toks = folded_tokens(query)
+    if not toks:
+        return None
+    folded = " ".join(toks)
+    for phrase, title, items in _SECTION_OVERVIEWS:
+        if phrase not in folded:
+            continue
+        # Tek kelimelik bölüm adları (akademik/planlama/topluluk) için tetikleyici
+        # şart; çok-kelimeli net adlar (öğrenci yönetimi...) tek başına yeter.
+        multiword = " " in phrase
+        if not multiword and not (set(toks) & _SECTION_TRIGGERS):
+            continue
+        lines = [f"**{title}** bölümünde şunlar var:"]
+        for name, path, note in items:
+            suffix = f" _{note}_" if note else ""
+            lines.append(f"- **{name}** (`{path}`){suffix}")
+        lines.append(
+            "\nRolüne göre bazı öğeler menüde görünmeyebilir. Hangisini merak "
+            "ediyorsan 'nasıl yaparım?' diye sorabilirsin."
+        )
+        return "\n".join(lines)
+    return None
+
+
 # --- Kapsam sınırı: bot adına İŞ YAPMA / VERİ DEĞİŞTİRME isteği ---------------
 # Çelebi ne kullanıcı adına ödev/işlem yapar ne de veriyi (not/devamsızlık/yoklama)
 # değiştirir/siler; yalnızca "nasıl yaparım" anlatır. "Ödevimi sen yap", "notumu
@@ -423,6 +504,41 @@ def _build_navigation(
         return None
     path, label = route
     return {"route": path, "label": label, "available": True}
+
+
+# Üst rol (öğretmen/yönetici/admin) "kendi karnem/notlarım/sınav sonuçlarım" derse
+# kişisel öğrenci sayfası yoktur; çıkmaz "yapılamıyor" yerine ÖĞRENCİ RAPORLARI
+# sayfasına yardımcı yönlendirme + buton verir (asla çıkmaz cevap; kullanım kolay).
+_UPPER_ROLES: frozenset[str] = frozenset({"ogretmen", "yonetici", "admin"})
+_STUDENT_REPORT_REDIRECT: dict[str, str] = {
+    "report_card_view": "student_marks_lookup",
+    "attendance_view": "student_attendance_lookup",
+    "exam_finish_result": "student_marks_lookup",
+}
+
+
+def _upper_role_report_redirect(
+    role: str, intent: str | None
+) -> tuple[str, dict[str, Any]] | None:
+    """Üst rol + öğrenci-görüntüleme intent'i -> (yardımcı metin, yönetim butonu)."""
+
+    if role not in _UPPER_ROLES or intent not in _STUDENT_REPORT_REDIRECT:
+        return None
+    mgmt = _STUDENT_REPORT_REDIRECT[intent]
+    view = get_role_space(role).view_for(mgmt)
+    if view is None or view.outcome is not AccessOutcome.ALLOW:
+        return None
+    route = route_for(mgmt)
+    if route is None:
+        return None
+    path, label = route
+    konu = "not/karne" if mgmt == "student_marks_lookup" else "yoklama/devamsızlık"
+    text = (
+        f"Senin hesabında kişisel {konu} kaydı yok 🙂 Öğrencilerinin bilgilerini "
+        f"**{label}** sayfasından (`{path}`) görürsün: öğrenciyi (ve gerekiyorsa "
+        f"dersi) seçince ilgili tablo açılır."
+    )
+    return text, {"route": path, "label": label, "available": True}
 
 
 _WIRE_ROLES: dict[str, str] = {
@@ -895,6 +1011,33 @@ class Engine:
                 "safety": safety_info,
             }, role)
 
+        # 1.59) Menü bölüm-özeti ("Öğrenci yönetimi bölümünde ne var?"): üst-başlık
+        # sorusu -> o bölümdeki sayfaların listesi (rol notlu). help_capabilities/
+        # clarify'a düşmeden net cevap.
+        _section = _section_overview(effective_query)
+        if _section is not None:
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id, "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role, "authenticated": authenticated,
+                    "short_circuit": "section_overview", "response_id": "section_overview",
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": "section_overview",
+                "text": _with_brand_note(_section, query),
+                "intent": None,
+                "confidence": 1.0,
+                "fallback": False,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
+            }, role)
+
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
         segments = _multi_intent_segments(effective_query, role)
         # >4 farklı işlem tek turda: net anlatmak güç -> netleştir (asla yarım cevap).
@@ -1092,6 +1235,11 @@ class Engine:
             role_caps = capabilities_for(role)
             if role_caps:
                 text = role_caps
+        # Üst rol öğrenci-görüntüleme sorunca çıkmaz cevap yerine öğrenci raporları
+        # sayfasına yardımcı yönlendirme (metin + buton; auth_action temizlenir).
+        _redirect = _upper_role_report_redirect(role, response.intent)
+        if _redirect is not None:
+            text = _redirect[0]
         if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
             text = safety.user_message + "\n" + text
 
@@ -1108,14 +1256,15 @@ class Engine:
 
         result = {
             "trace_id": trace["trace_id"],
-            "response_id": response.response_id,
+            "response_id": "student_report_redirect" if _redirect else response.response_id,
             "text": _with_brand_note(text, query),
             "intent": response.intent,
             "confidence": trace["decision"]["confidence"],
             "fallback": response.fallback,
-            "auth_action": response.auth_action,
+            "auth_action": None if _redirect else response.auth_action,
             "required_role": trace["decision"]["required_role"],
-            "navigation": _build_navigation(response.intent, response.auth_action, role),
+            "navigation": _redirect[1] if _redirect else _build_navigation(
+                response.intent, response.auth_action, role),
             "clarification": _build_clarification(trace),
             "answers": None,
             "suggestions": suggestions,

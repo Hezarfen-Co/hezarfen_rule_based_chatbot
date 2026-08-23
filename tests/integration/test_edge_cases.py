@@ -119,6 +119,45 @@ class MixedSignalTests(unittest.TestCase):
         self.assertEqual(resp["response_id"], "role_capabilities_ogrenci")
 
 
+class UpperRoleReportRedirectTests(unittest.TestCase):
+    """Üst rol (öğretmen/yönetici/admin) 'kendi karnem/notlarım/sınav sonuçlarım'
+    sorunca çıkmaz cevap/deny yerine ÖĞRENCİ RAPORLARI sayfasına buton + net metin.
+    Öğrenci-özel sayfa (/marks,/attendance) sızmaz; 'Hangi öğrenciyi' çıkmazı yok."""
+
+    def _r(self, q, role):
+        return ask(q, role)
+
+    def test_upper_roles_get_management_button_not_deadend(self) -> None:
+        for role in ("ogretmen", "yonetici", "admin"):
+            for q, route in [
+                ("Karnemi nerede görürüm?", "/management/student-marks"),
+                ("Sınav sonuçlarımı nasıl öğrenebilirim", "/management/student-marks"),
+                ("Devamsızlığımı nerede görürüm?", "/management/student-attendance"),
+            ]:
+                with self.subTest(role=role, q=q):
+                    r = self._r(q, role)
+                    self.assertEqual(r["response_id"], "student_report_redirect")
+                    self.assertIsNone(r["auth_action"])
+                    self.assertIsNotNone(r["navigation"])
+                    self.assertEqual(r["navigation"]["route"], route)
+                    # öğrenci-özel sayfa VE çıkmaz metin sızmaz
+                    self.assertNotIn("/marks", r["text"])
+                    self.assertNotIn("/attendance", r["text"])
+                    self.assertNotIn("Hangi öğrenciyi", r["text"])
+
+    def test_student_own_pages_unaffected(self) -> None:
+        # Öğrenci kendi karnesini/yoklamasını görür (buton /marks,/attendance).
+        self.assertEqual(ask("Karnemi nerede görürüm?", "ogrenci")["navigation"]["route"], "/marks")
+        self.assertEqual(ask("Devamsızlığımı görmek istiyorum", "ogrenci")["navigation"]["route"], "/attendance")
+
+    def test_parent_no_management_leak(self) -> None:
+        # Veli yönetim sayfasına yönlendirilmez (yetkisi yok) — çıkmaz metin de yok.
+        r = ask("Karnemi nerede görürüm?", "veli")
+        self.assertNotEqual(r["response_id"], "student_report_redirect")
+        if r["navigation"]:
+            self.assertNotIn("/management", r["navigation"]["route"])
+
+
 class KnownLimitTests(unittest.TestCase):
     """Bilinen sınırlar — bilinçli kabul edilen davranışlar (değişirse fark edelim).
 
