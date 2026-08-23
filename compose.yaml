@@ -1,3 +1,14 @@
+# Çelebi kural-tabanlı chatbot — TEK BAŞINA (standalone) çalıştırma.
+#
+#   podman compose up --build        -> http://localhost:8000 (geliştirici sohbet arayüzü)
+#
+# Not: Bu compose chatbot'u TEK BAŞINA (backend olmadan) çalıştırır — offline motoru
+# denemek için dev web arayüzü açar ve AÇIK KALIR. Backend'e bağlı QUIC köprüsü ve
+# tam ürün (backend + frontend + surrealdb) için KÖK dizindeki compose'u kullan:
+#   cd ..  &&  podman compose up -d --build
+#
+# Yalnızca katalog doğrulaması (tek-seferlik, çıkar) istersen:
+#   podman compose run --rm chatbot python -m src.main --validate
 services:
   chatbot:
     build:
@@ -5,4 +16,16 @@ services:
       dockerfile: Containerfile
     image: localhost/rule-based-chatbot:local
     init: true
-    command: ["python", "-m", "src.main", "--validate"]
+    # Uzun-çalışan servis: geliştirici web arayüzü. Container içinde host'tan
+    # erişilebilmesi için 0.0.0.0'a bind eder.
+    command: ["python", "-m", "src.web", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
