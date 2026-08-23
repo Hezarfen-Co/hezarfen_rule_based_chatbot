@@ -7,7 +7,11 @@
 ## 1. Anlık Durum
 - Son güncelleme: 2026-08-22
 - Aktif branch: `fix/chatbot-adversarial` (push edildi, PR bekliyor)
-- Son commit: `4797959 feat: Faz 2 dialog-state -> conversation %100, adversarial %99.1`
+- Son commit: `7d7c5b0 feat: rol ön-koşulunu gizle + sosyal cevaba isim` (canlı test turu)
+- Canlı test düzeltmeleri (bu tur): üst-rol öğrenci-raporu yönlendirmesi, menü bölüm-özeti,
+  konu-yardımı, T1 feature-info (randevu/yemek/tahta/soru bankası artık "mevcut"), rol-ifşası
+  gizleme, isimle kişiselleştirme. Ürün container'ı güncel image'la yeniden build edildi.
+  Frontend UX: #56 (auto-scroll) + #57 (yazıyor efekti) issue'ları açıldı.
 - Çalışma ağacı: **temiz** (bu güncelleme hariç)
 - Tek cümle: **adversarial %45.7 → %99.1** (228/230), **365 test yeşil (0 skip)**,
   macro-F1 0.994, coverage %99, OOS %92.3; 10 suite'ten **8'i %100** (conversation dahil),
