@@ -447,6 +447,13 @@ _SECTION_TRIGGERS: frozenset[str] = frozenset({
 })
 
 
+# Halk dilindeki bölüm adları -> menüdeki resmi grup adı (folded). Ör. kullanıcı
+# "Eğitim" der; menü grubu "Akademik"tir.
+_SECTION_ALIASES: tuple[tuple[str, str], ...] = (
+    ("egitim", "akademik"),
+)
+
+
 def _section_overview(query: str) -> str | None:
     """Üst-başlık (menü bölümü) sorusu -> o bölümdeki sayfaların özeti (rol notlu)."""
 
@@ -454,6 +461,8 @@ def _section_overview(query: str) -> str | None:
     if not toks:
         return None
     folded = " ".join(toks)
+    for alias, canonical in _SECTION_ALIASES:
+        folded = folded.replace(alias, canonical)
     for phrase, title, items in _SECTION_OVERVIEWS:
         if phrase not in folded:
             continue
