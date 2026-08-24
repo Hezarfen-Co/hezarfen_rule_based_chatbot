@@ -32,7 +32,9 @@ DEFAULT_BENCHMARK_PATH: Final[Path] = PROJECT_ROOT / "data" / "benchmark.jsonl"
 DEFAULT_NEAR_OOS_PATH: Final[Path] = PROJECT_ROOT / "data" / "near_oos.jsonl"
 DEFAULT_DATA_OUTPUT: Final[Path] = PROJECT_ROOT / "data" / "stress_benchmark.jsonl"
 DEFAULT_RESULTS_OUTPUT: Final[Path] = PROJECT_ROOT / "data" / "stress_benchmark_results.jsonl"
-DEFAULT_REPORT_OUTPUT: Final[Path] = PROJECT_ROOT / "STRES_BENCHMARK_SONUCLARI.md"
+DEFAULT_REPORT_OUTPUT: Final[Path] = (
+    PROJECT_ROOT / "docs" / "benchmarks" / "STRES_BENCHMARK_SONUCLARI.md"
+)
 
 GENERATOR_VERSION: Final[str] = "stress-v3.5.0"
 # Generator rapor sürümü değiştiğinde bütün roller/mutasyonlar rastgele yeniden

@@ -1,6 +1,6 @@
 # Çelebi Benchmark Soru-Cevap Sonuçları
 
-Bu dosya `python benchmark_qa_report.py` komutuyla `data/benchmark.jsonl` üzerinden üretilir. Her soru, kullanıcının gördüğü tam `Engine.handle` akışında çalıştırılır. PASS; intent, rol sonucu, response kimliği ve iki yönlendirme sözleşmesinin tamamını kapsar.
+Bu dosya `python benchmark_qa_report.py` komutuyla tek gold kaynak `data/benchmark.jsonl` üzerinden üretilir. Birleşik ve rol bazında filtrelenebilir makine sonucu `data/benchmark_results.json` dosyasındadır. Her soru, kullanıcının gördüğü tam `Engine.handle` akışında çalıştırılır. PASS; intent, rol sonucu, response kimliği ve iki yönlendirme sözleşmesinin tamamını kapsar.
 
 ## Özet
 

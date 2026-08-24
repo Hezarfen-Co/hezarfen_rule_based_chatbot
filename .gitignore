@@ -18,3 +18,7 @@ test_sonuclari.txt
 # İnsan tarafından okunabilir özet ve 25 soru-cevap parçası repoda tutulur.
 data/stress_benchmark.jsonl
 data/stress_benchmark_results.jsonl
+
+# benchmark_qa_report.py --strict makine çıktısı (~1.6 MiB, yeniden üretilebilir).
+# Okunabilir Markdown raporu repoda tutulur; ham JSON tutulmaz.
+data/benchmark_results.json

@@ -4,7 +4,7 @@ Bu modül YALNIZCA veri + saf yardımcı fonksiyonlar içerir. Metin normalizasy
 intent bulma (kural/benzerlik), karar verme ve cevap üretimi ayrı modüllerin
 sorumluluğudur.
 
-Kaynak: `hezarfen-site-rehberi.md`. Cevaplar gerçek menü/buton etiketleri ve
+Kaynak: `docs/hezarfen-site-rehberi.md`. Cevaplar gerçek menü/buton etiketleri ve
 sayfa yolları içerir; uydurma yol veya etiket kullanılmaz (rehber §0).
 
 Alan açıklamaları (her intent kaydı):
@@ -2609,7 +2609,7 @@ FALLBACK: Final[dict[str, str]] = {
 
 # --- Yönlendirme (navigation) ------------------------------------------------
 # Her intent'i, kullanıcıyı götürecek gerçek sayfa yoluna eşler. Yollar
-# `hezarfen-site-rehberi.md` §4 URL tablosundan birebir alınmıştır (uydurma yok).
+# `docs/hezarfen-site-rehberi.md` §4 URL tablosundan birebir alınmıştır (uydurma yok).
 # Dinamik yollar ($id gerektirenler) genel liste sayfasına yönlendirilir; asistan
 # tekil ID'yi bilmediğinden dürüst davranıp listeye götürür. None = ilgili bir
 # sayfa yok (bilgi/açıklama intent'i, ör. selamlama, rol açıklaması).
@@ -2766,7 +2766,7 @@ def route_for(intent_name: str) -> tuple[str, str] | None:
 
 # --- Rol beyanı / role özel yetenek özeti ------------------------------------
 # Kullanıcı yalnızca rolünü söylediğinde ("Öğrenci", "ben öğretmenim") o role özel
-# ne yapabileceğini özetler. İçerik `hezarfen-site-rehberi.md` §2 yetki matrisinden.
+# ne yapabileceğini özetler. İçerik `docs/hezarfen-site-rehberi.md` §2 yetki matrisinden.
 ROLE_CAPABILITIES: Final[dict[str, str]] = {
     "veli": (
         "Veli olarak, sana bağlanan öğrencilerin **salt-okunur gözlemcisisin**: "

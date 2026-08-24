@@ -6,7 +6,7 @@ adım adım yanıtlar. Asistan çekirdeği harici çalışma-zamanı bağımlıl
 içermez (yalnızca Python standart kütüphanesi) ve offline çalışır; tek istisna
 backend'e bağlanan QUIC köprüsüdür (`src/bridge.py`, `aioquic`).
 
-Bilgi kaynağı: `hezarfen-site-rehberi.md`.
+Bilgi kaynağı: [`docs/hezarfen-site-rehberi.md`](docs/hezarfen-site-rehberi.md).
 
 > **Backend'e bağlanıyor:** Çelebi, backend'in QUIC AI köprüsüne (protokol
 > `hab/1`) dial-in eden istemciyle bağlanır — **[`src/bridge.py`](src/bridge.py)**;
@@ -18,15 +18,17 @@ Bilgi kaynağı: `hezarfen-site-rehberi.md`.
 
 ```
 Hezarfen-Rule-Based-Chatbot/
-├─ hezarfen-site-rehberi.md    # BİLGİ KAYNAĞI: sitenin tüm sayfa/rol/akış tanımı
-├─ data/benchmark.jsonl        # 601 elle etiketli gold soru (98 intent + OOS)
-├─ data/stress_benchmark.jsonl # yerelde üretilen 10.000 stres girdisi (git-ignored)
-├─ benchmark_qa_report.py      # tam Engine ile gerçek soru-cevap raporu üretir
-├─ BENCHMARK_SONUCLARI.md      # tüm benchmark soruları, cevapları ve PASS/FAIL sonucu
+├─ docs/                       # ürün, sistem, benchmark ve arşiv belgeleri
+│  ├─ README.md                # belge dizini
+│  ├─ hezarfen-site-rehberi.md # BİLGİ KAYNAĞI: gerçek sayfa/rol/akış tanımı
+│  ├─ SISTEM_SORU_ENVANTERI.md # frontend rota + backend hata/rol soru yüzeyi
+│  └─ benchmarks/              # gold raporu + 10K stres raporu ve Q/A parçaları
+├─ data/
+│  ├─ benchmark.jsonl          # TEK GOLD KAYNAK: 601 soru (98 intent + OOS), role dahil
+│  ├─ benchmark_results.json   # tam Engine: birleşik sonuç + role göre özet
+│  └─ stress_benchmark.jsonl   # yerelde üretilen 10.000 stres girdisi (git-ignored)
+├─ benchmark_qa_report.py      # gold kaynağın tamamını JSON + Markdown'a koşar
 ├─ stress_benchmark.py         # 9.000 uygulama-içi + 1.000 OOS varyasyon üretir/koşar
-├─ STRES_BENCHMARK_SONUCLARI.md # 10K özet, hata kümeleri ve parça bağlantıları
-├─ STRES_BENCHMARK_SONUCLARI_parcalar/ # 25 × 400 görünür soru-cevap
-├─ SISTEM_SORU_ENVANTERI.md    # 48 frontend rotası + backend hata/rol soru yüzeyi
 │
 ├─ src/                        # ── ASISTAN MOTORU ──
 │  ├─ engine.py                # 🚪 GİRİŞ NOKTASI: handle_request(payload)->dict; boru hattını yönetir
@@ -123,7 +125,7 @@ Backend sözleşmesi `src/engine.py`; frontend'ler `src/cli.py` (terminal) ve
 ```bash
 python -m src.main --validate    # kataloğu doğrula
 python -m src.main --evaluate    # benchmark üzerinde tam metrik raporu
-python benchmark_qa_report.py    # tüm gerçek soru-cevapları BENCHMARK_SONUCLARI.md'ye yaz
+python benchmark_qa_report.py --strict # 601 soruyu tam Engine'de koş; JSON + Markdown yaz
 python stress_benchmark.py         # 10.000 tanısal stres sorusu + 25 parçalık Q/A raporu
 python stress_benchmark.py --strict # herhangi bir FAIL varsa CI için exit 1
 python -m src.main --chat        # etkileşimli terminal asistanı
@@ -184,6 +186,12 @@ Yanıt:
 Gold küme `data/benchmark.jsonl` içinde **601 insan etiketli soru** taşır ve 98
 intentin tamamı ile OOS'u kapsar. `python -m src.main --evaluate` sonucu
 **601/601 PASS**, accuracy ve Macro-F1 **1.00**'dır (eşik 0.18 + domain-gate).
+
+Gold küme tek kaynaktır; her satırın `role` alanı vardır. Ayrı rol dosyaları
+tutulmaz. `python benchmark_qa_report.py --strict`, 601 sorunun tamamını gerçek
+`Engine.handle` akışından bir kez geçirir; rol bazlı özet ve tam yanıtları
+`data/benchmark_results.json`, okunabilir karşılığını ise
+`docs/benchmarks/BENCHMARK_SONUCLARI.md` içine yazar.
 
 Bağımsız gold olmayan, insan etiketli seed'lerden deterministik türetilen
 `stress-v3.5.0` koşusu: **9.984/10.000 PASS (%99,84)**; kalan 16 vakanın 4'ü

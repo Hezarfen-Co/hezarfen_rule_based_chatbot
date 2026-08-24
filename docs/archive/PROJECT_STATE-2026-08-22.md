@@ -1,5 +1,9 @@
 # PROJECT_STATE
 
+> **Arşiv kaydı:** Bu dosya 22 Ağustos 2026 tarihli geliştirme devrini olduğu
+> gibi saklar; güncel branch, test ve benchmark durumunu temsil etmez. Güncel
+> kullanım ve ölçüm bilgileri için kökteki `ReadMe.md` dosyasına bakın.
+
 > Bu dosya "Çelebi" kural-tabanlı chatbot repo'sunundur. Kardeş repolar:
 > `hezarfen_backend`, `hezarfen_frontend`, `hezarfen_rag` (her birinin kendi
 > PROJECT_STATE.md'si var). Bu repo, büyük projenin **aktif geliştirme** ucudur.

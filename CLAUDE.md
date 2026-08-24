@@ -3,7 +3,7 @@
 ## Ne bu proje
 Hezarfen okul yönetim sitesi için **rol-farkında, kural+benzerlik hibrit**
 kullanım asistanı + **içerik güvenliği** katmanı. Sıfır harici bağımlılık
-(yalnızca stdlib), offline. Bilgi kaynağı: `hezarfen-site-rehberi.md`.
+(yalnızca stdlib), offline. Bilgi kaynağı: `docs/hezarfen-site-rehberi.md`.
 
 ## Boru hattı
 `safety(giriş) → normalize → rules → similarity → domain-gate → decision → responder → safety(çıktı)`
@@ -24,9 +24,11 @@ Frontend'ler: `cli.py` (terminal), `web.py` (geliştirici web arayüzü, stdlib 
 ## Komutlar
 - `python -m src.main --validate` — katalog doğrulama
 - `python -m src.main --evaluate` — tam metrik raporu (benchmark)
+- `python benchmark_qa_report.py --strict` — 601 gold soruyu tam Engine ile çalıştır;
+  birleşik JSON + okunabilir Markdown raporu üret
 - `python -m src.main --chat` — etkileşimli terminal
 - `python -m src.web` — geliştirici web arayüzü (http://127.0.0.1:8000)
-- `python -m unittest discover -s tests -t .` — tüm testler (334)
+- `python -m unittest discover -s tests -t .` — tüm testler
 - `python -m tests.e2e.test_conversation --transcript` — 212 konuşmayı bot
   cevaplarıyla konsola basar; `--markdown` aynısını `KONUSMALAR.md`'ye yazar
   (KONUSMALAR.md üretilmiş dosyadır, elle düzenlenmez)

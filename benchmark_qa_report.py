@@ -1,13 +1,17 @@
-"""Gerçek Engine çıktılarıyla benchmark soru-cevap Markdown raporu üretir.
+"""Gold benchmark'ın tamamını gerçek Engine akışında çalıştırır.
 
 Kullanım:
     python benchmark_qa_report.py
-    python benchmark_qa_report.py --output BENCHMARK_SONUCLARI.md
+    python benchmark_qa_report.py --strict
 
-Rapor, ``data/benchmark.jsonl`` içindeki her kaydı kullanıcıya hizmet veren tam
-``Engine.handle`` akışından geçirir. PASS için yalnız intent yetmez; rol sonucu,
-``response_id``, giriş eylemi, legacy rota, V2 route key/outcome/reason ve dolu
-kullanıcı metni birlikte doğrulanır.
+Tek gold kaynak ``data/benchmark.jsonl`` dosyasıdır. Her kayıt kullanıcıya hizmet
+veren tam ``Engine.handle`` akışından geçer. Birleşik makine çıktısı
+``data/benchmark_results.json`` dosyasına, insan tarafından okunabilir rapor ise
+``docs/benchmarks/BENCHMARK_SONUCLARI.md`` dosyasına yazılır. Her sonuçta rol
+bulunduğu için rol başına ayrı ve zamanla ayrışabilecek benchmark dosyaları yoktur.
+
+PASS için yalnız intent yetmez; rol sonucu, ``response_id``, giriş eylemi, legacy
+rota, V2 route key/outcome/reason ve dolu kullanıcı metni birlikte doğrulanır.
 """
 
 from __future__ import annotations
@@ -21,11 +25,14 @@ from typing import Any, Iterable
 from src.access import AccessOutcome
 from src.catalog import route_for
 from src.engine import Engine
-from src.evaluation.benchmark import OOS_LABEL, load_benchmark
+from src.evaluation.benchmark import DEFAULT_BENCHMARK_PATH, OOS_LABEL, load_benchmark
 from src.role_spaces import get_role_space
 
 
-DEFAULT_OUTPUT = Path(__file__).with_name("BENCHMARK_SONUCLARI.md")
+PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_JSON_OUTPUT = PROJECT_ROOT / "data" / "benchmark_results.json"
+DEFAULT_MARKDOWN_OUTPUT = PROJECT_ROOT / "docs" / "benchmarks" / "BENCHMARK_SONUCLARI.md"
+RESULT_SCHEMA_VERSION = "benchmark-results-v1"
 ROLE_LABELS = {
     "ziyaretci": "Ziyaretçi",
     "veli": "Veli",
@@ -207,8 +214,10 @@ def collect_results(
 
     for index, record in enumerate(rows, start=1):
         role = record.get("role", "ziyaretci")
+        trace_id = f"benchmark-{index:04d}"
         response = runner.handle({
             "query": record["question"],
+            "trace_id": trace_id,
             "session": {
                 "role": role,
                 "authenticated": role != "ziyaretci",
@@ -221,6 +230,7 @@ def collect_results(
         meta = response.get("assistant_meta") or {}
         results.append({
             "index": index,
+            "trace_id": trace_id,
             "question": record["question"],
             "role": role,
             "expected_intent": expected,
@@ -236,8 +246,82 @@ def collect_results(
             "assistant_outcome": meta.get("outcome"),
             "assistant_reason_code": meta.get("reason_code"),
             "text": response.get("text") or "",
+            "response": response,
         })
     return results
+
+
+def summarize_results(results: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    """Toplam ve rol bazlı PASS/FAIL sayılarını deterministik biçimde üretir."""
+
+    rows = list(results)
+    role_counts: dict[str, Counter[str]] = {}
+    for row in rows:
+        stats = role_counts.setdefault(row["role"], Counter())
+        stats["total"] += 1
+        stats["passed" if row["passed"] else "failed"] += 1
+
+    ordered_roles = [role for role in ROLE_LABELS if role in role_counts]
+    ordered_roles.extend(sorted(set(role_counts) - set(ordered_roles)))
+    by_role: dict[str, dict[str, int | float]] = {}
+    for role in ordered_roles:
+        stats = role_counts[role]
+        total = stats["total"]
+        by_role[role] = {
+            "total": total,
+            "passed": stats["passed"],
+            "failed": stats["failed"],
+            "pass_rate": stats["passed"] / total if total else 0.0,
+        }
+
+    total = len(rows)
+    passed = sum(bool(row["passed"]) for row in rows)
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": passed / total if total else 0.0,
+        "by_role": by_role,
+    }
+
+
+def _portable_source_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def build_json_report(
+    results: Iterable[dict[str, Any]],
+    *,
+    source: Path = DEFAULT_BENCHMARK_PATH,
+) -> dict[str, Any]:
+    """Tüm cevapları ve rol kırılımlarını tek, kararlı JSON nesnesinde toplar."""
+
+    rows = list(results)
+    serialized_results = [
+        {
+            "index": row["index"],
+            "trace_id": row["trace_id"],
+            "question": row["question"],
+            "role": row["role"],
+            "expected_intent": row["expected_intent"],
+            "actual_intent": row["actual_intent"],
+            "passed": row["passed"],
+            "failure_reasons": row["failure_reasons"],
+            "expected_contract": row["expectation"],
+            "response": row["response"],
+        }
+        for row in rows
+    ]
+    return {
+        "schema_version": RESULT_SCHEMA_VERSION,
+        "source": _portable_source_path(source),
+        "summary": summarize_results(rows),
+        "results": serialized_results,
+    }
 
 
 def _table_text(value: object) -> str:
@@ -271,10 +355,12 @@ def render_markdown(results: Iterable[dict[str, Any]]) -> str:
     out = [
         "# Çelebi Benchmark Soru-Cevap Sonuçları",
         "",
-        "Bu dosya `python benchmark_qa_report.py` komutuyla "
-        "`data/benchmark.jsonl` üzerinden üretilir. Her soru, kullanıcının "
-        "gördüğü tam `Engine.handle` akışında çalıştırılır. PASS; intent, rol "
-        "sonucu, response kimliği ve iki yönlendirme sözleşmesinin tamamını kapsar.",
+        "Bu dosya `python benchmark_qa_report.py` komutuyla tek gold kaynak "
+        "`data/benchmark.jsonl` üzerinden üretilir. Birleşik ve rol bazında "
+        "filtrelenebilir makine sonucu `data/benchmark_results.json` dosyasındadır. "
+        "Her soru, kullanıcının gördüğü tam `Engine.handle` akışında çalıştırılır. "
+        "PASS; intent, rol sonucu, response kimliği ve iki yönlendirme "
+        "sözleşmesinin tamamını kapsar.",
         "",
         "## Özet",
         "",
@@ -336,20 +422,59 @@ def render_markdown(results: Iterable[dict[str, Any]]) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
-def write_report(output: Path = DEFAULT_OUTPUT) -> tuple[Path, list[dict[str, Any]]]:
-    results = collect_results()
-    output.write_text(render_markdown(results), encoding="utf-8")
-    return output, results
+def write_reports(
+    *,
+    benchmark_path: Path = DEFAULT_BENCHMARK_PATH,
+    json_output: Path = DEFAULT_JSON_OUTPUT,
+    markdown_output: Path | None = DEFAULT_MARKDOWN_OUTPUT,
+    engine: Engine | None = None,
+) -> tuple[Path, Path | None, list[dict[str, Any]]]:
+    """Benchmark'ı bir kez koşup JSON ve isteğe bağlı Markdown çıktısını yazar."""
+
+    records = load_benchmark(benchmark_path)
+    results = collect_results(records, engine=engine)
+
+    json_output.parent.mkdir(parents=True, exist_ok=True)
+    report = build_json_report(results, source=benchmark_path)
+    json_output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    if markdown_output is not None:
+        markdown_output.parent.mkdir(parents=True, exist_ok=True)
+        markdown_output.write_text(render_markdown(results), encoding="utf-8")
+    return json_output, markdown_output, results
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--benchmark", type=Path, default=DEFAULT_BENCHMARK_PATH)
+    parser.add_argument("--json-output", type=Path, default=DEFAULT_JSON_OUTPUT)
+    parser.add_argument("--markdown-output", type=Path, default=DEFAULT_MARKDOWN_OUTPUT)
+    parser.add_argument(
+        "--no-markdown",
+        action="store_true",
+        help="İnsan raporunu yazma; yalnız birleşik JSON üret.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="En az bir FAIL varsa süreç kodunu 1 yap.",
+    )
     args = parser.parse_args()
-    output, results = write_report(args.output)
+    json_output, markdown_output, results = write_reports(
+        benchmark_path=args.benchmark,
+        json_output=args.json_output,
+        markdown_output=None if args.no_markdown else args.markdown_output,
+    )
     failed = sum(not row["passed"] for row in results)
-    print(f"{len(results)} soru -> {output} (FAIL={failed})")
+    outputs = str(json_output)
+    if markdown_output is not None:
+        outputs += f", {markdown_output}"
+    print(f"{len(results)} soru -> {outputs} (FAIL={failed})")
+    return 1 if args.strict and failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
