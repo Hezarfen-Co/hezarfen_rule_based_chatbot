@@ -26,7 +26,7 @@ from .rules import RuleMatcher
 from .similarity import SimilarityMatcher
 
 
-ROLE_SPACE_VERSION: Final[str] = "2026-08-12.1"
+ROLE_SPACE_VERSION: Final[str] = "2026-08-24.4"
 AUTHENTICATED_ROLES: Final[tuple[str, ...]] = (
     "veli", "ogrenci", "ogretmen", "yonetici", "admin"
 )
@@ -52,6 +52,9 @@ V = AccessScope.EVENT_AUDIENCE
 # scope KALDIRILDI: bu asistan sistemi ANLATIR, kapsamı çalışma anında doğrulamaz.
 _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None, str | None]]]] = {
     "platform.help": _matrix((A, G, "guide"), (A, G, "guide"), (A, G, "guide"), (A, G, "guide"), (A, G, "guide")),
+    # Teknik tanılama intent'lerinin açılacak bir ürün sayfası yoktur. Rehber
+    # içeriğini kullanabilseler de V2 metadata'da sahte bir `guide` rotası taşımazlar.
+    "platform.diagnostic": _matrix((A, G, None), (A, G, None), (A, G, None), (A, G, None), (A, G, None)),
     "account.self": _matrix((A, O, "profile"), (A, O, "profile"), (A, O, "profile"), (A, O, "profile"), (A, O, "profile")),
     "messages.use": _matrix((A, O, "messages"), (A, O, "messages"), (A, O, "messages"), (A, O, "messages"), (A, O, "messages")),
     "notes.use": _matrix((A, O, "notes"), (A, O, "notes"), (A, O, "notes"), (A, O, "notes"), (A, O, "notes")),
@@ -61,6 +64,11 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "courses.create": _matrix((D, None, None), (D, None, None), (A, O, "courses"), (A, S, "courses"), (A, S, "courses")),
     "courses.manage": _matrix((D, None, None), (D, None, None), (A, M, "courses"), (A, S, "courses"), (A, S, "courses")),
     "courses.enroll_student": _matrix((D, None, None), (D, None, None), (A, M, "courses"), (A, S, "courses"), (A, S, "courses")),
+    # Ders kadrosunu yalnız okul yönetimi değiştirir; dersi yöneten öğretmen bu
+    # yetkiyi başka hesaba devredemez.
+    "courses.staff": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "courses"), (A, S, "courses")),
+    "classes.view": _matrix((D, None, None), (D, None, None), (A, S, "classes"), (A, S, "classes"), (A, S, "classes")),
+    "classes.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "classes"), (A, S, "classes")),
     # Sınava girme yalnız Öğrenci (backend: tam olarak Student + enrolled). Personel giremez.
     "exams.take": _matrix((D, None, None), (A, E, "exams"), (D, None, None), (D, None, None), (D, None, None)),
     "exams.manage": _matrix((D, None, None), (D, None, None), (A, M, "exams"), (A, S, "exams"), (A, S, "exams")),
@@ -78,15 +86,19 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     # Öğrenci not/yoklama arama = Öğretmen yönetim sayfası (Öğretmen+). Veli bu sayfayı
     # kullanmaz (çocuğunun verisini ayrı akıştan görür) -> DENY.
     "reports.observe_student": _matrix((D, None, None), (D, None, None), (A, M, "student_marks"), (A, S, "student_marks"), (A, S, "student_marks")),
+    "reports.observe_attendance": _matrix((D, None, None), (D, None, None), (A, M, "student_attendance"), (A, S, "student_attendance"), (A, S, "student_attendance")),
     # Pomodoro backend'de yalnız Student (pomodoro.rs:30,117-131 "Requires the student
     # role"). Sadece öğrenci ALLOW; veli/öğretmen/yönetici/admin DENY -> backend paritesi.
     "pomodoro.start": _matrix((D, None, None), (A, O, "pomodoro"), (D, None, None), (D, None, None), (D, None, None)),
     "pomodoro.observe_student": _matrix((D, None, None), (D, None, None), (A, S, "student_pomodoro"), (A, S, "student_pomodoro"), (A, S, "student_pomodoro")),
-    "work.self": _matrix((D, None, None), (D, None, None), (A, O, "work"), (A, O, "work"), (A, O, "work")),
+    # Kendi mesaisi yalnız Öğretmen/Yönetici. ADMIN personel mesaisini yönetir
+    # fakat `/work` sayfasında kendi giriş-çıkış kaydı tutmaz.
+    "work.self": _matrix((D, None, None), (D, None, None), (A, O, "work"), (A, O, "work"), (D, None, None)),
     "work.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "staff_work"), (A, S, "staff_work")),
     "school.settings_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_settings"), (A, S, "school_settings")),
     "school.terms_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "school_terms"), (A, S, "school_terms")),
     "school.payments_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "payments_manage"), (A, S, "payments_manage")),
+    "payments.read_own": _matrix((A, O, "payments_self"), (A, O, "payments_self"), (D, None, None), (D, None, None), (D, None, None)),
     "users.roles_manage": _matrix((D, None, None), (D, None, None), (D, None, None), (D, None, None), (A, S, "admin_users")),
     # --- T1 özellikleri ---
     # Randevu: alma yalnız Öğrenci+Veli (backend: Student|Parent); saat açma/talep
@@ -97,9 +109,17 @@ _ACTION_RULES: Final[dict[str, dict[str, tuple[AccessOutcome, AccessScope | None
     "meals.view": _matrix((A, O, "meals"), (A, O, "meals"), (A, O, "meals"), (A, S, "meals"), (A, S, "meals")),
     "meals.book": _matrix((A, O, "meals"), (A, O, "meals"), (D, None, None), (D, None, None), (D, None, None)),
     "meals.manage": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals")),
-    # Soru havuzu: sorma/çözme Öğrenci+ (Veli hariç); onaylama Öğretmen+ (moderatör).
-    "qpool.participate": _matrix((D, None, None), (A, O, "questions"), (A, O, "questions"), (A, S, "questions"), (A, S, "questions")),
+    "meals.service": _matrix((D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals"), (A, S, "meals")),
+    "meals.dietary_profile": _matrix((D, None, None), (D, None, None), (D, None, None), (A, S, "meals"), (A, S, "meals")),
+    "meals.credit": _matrix((D, None, None), (D, None, None), (D, None, None), (D, None, None), (A, S, "meals")),
+    # Soru sorma backend'de yalnız Student; çözüm yazma Öğrenci+ (Veli hariç),
+    # onaylama ise Öğretmen+ moderasyonudur.
+    "qpool.ask": _matrix((D, None, None), (A, O, "questions"), (D, None, None), (D, None, None), (D, None, None)),
+    "qpool.solve": _matrix((D, None, None), (A, O, "questions"), (A, O, "questions"), (A, S, "questions"), (A, S, "questions")),
     "qpool.moderate": _matrix((D, None, None), (D, None, None), (A, M, "questions"), (A, S, "questions"), (A, S, "questions")),
+    # Soru bankası şablonunda öğretmen ve yönetici yalnız kendi kayıtlarını
+    # değiştirir; ADMIN sahiplikten bağımsız okul kapsamındadır.
+    "question_bank.manage": _matrix((D, None, None), (D, None, None), (A, O, "question_bank"), (A, O, "question_bank"), (A, S, "question_bank")),
     # Beyaz tahta: görüntüleme/oluşturma Öğrenci+ (Veli hariç).
     "boards.use": _matrix((D, None, None), (A, O, "whiteboards"), (A, O, "whiteboards"), (A, S, "whiteboards"), (A, S, "whiteboards")),
 }
@@ -118,15 +138,23 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "logout_how": "account.self",
     "session_info": "account.self",
     "account_access_problem": "platform.help",
+    "profile_view": "account.self",
     "profile_edit": "account.self",
+    "personal_settings": "account.self",
     "language_theme": "account.self",
     "roles_permissions": "platform.help",
     "access_denied_help": "platform.help",
+    "technical_error_help": "platform.diagnostic",
+    "upload_problem": "platform.diagnostic",
+    "chatbot_service_problem": "platform.diagnostic",
     "navigation_help": "platform.help",
     "course_view": "courses.view",
     "course_create": "courses.create",
     "course_enroll_student": "courses.enroll_student",
     "course_remove_student": "courses.manage",
+    "course_subject_manage": "courses.manage",
+    "course_note_manage": "courses.manage",
+    "course_teacher_manage": "courses.staff",
     "lesson_session_add": "courses.manage",
     "roll_call": "courses.manage",
     "exam_modes_info": "platform.help",
@@ -140,7 +168,9 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "exam_live_monitor": "exams.manage",
     "homework_view": "homework.view",
     "homework_submit": "homework.submit",
+    "homework_withdraw_submission": "homework.submit",
     "homework_assign": "homework.manage",
+    "homework_manage": "homework.manage",
     "homework_grade": "homework.manage",
     "report_card_view": "reports.read_own",
     "weighted_average_info": "platform.help",
@@ -148,9 +178,13 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "attendance_view": "reports.read_own",
     "attendance_rate_info": "platform.help",
     "event_attendance_mark": "events.mark_attendance",
-    "student_attendance_lookup": "reports.observe_student",
+    "student_attendance_lookup": "reports.observe_attendance",
     "event_create": "events.create",
+    "note_import_ocr": "notes.use",
+    "note_file_manage": "notes.use",
     "note_create": "notes.use",
+    "note_edit": "notes.use",
+    "note_delete": "notes.use",
     "work_checkin_out": "work.self",
     "staff_work_manage": "work.manage",
     "term_manage": "school.terms_manage",
@@ -160,29 +194,34 @@ _ACTION_BY_INTENT: Final[dict[str, str]] = {
     "pomodoro_use": "pomodoro.start",
     "student_pomodoro_lookup": "pomodoro.observe_student",
     "messages_use": "messages.use",
-    "study_club_info": "platform.help",
+    "study_club_info": "courses.view",
     "parent_info": "platform.help",
     # Kapsam genişletme: bilgi/açıklama intent'leri (herkese açık, ALLOW).
-    "fees_info": "platform.help",
+    "fees_info": "payments.read_own",
     "fees_manage": "school.payments_manage",
-    "branches_info": "platform.help",
+    "branches_info": "classes.view",
+    "class_section_manage": "classes.manage",
     "calendar_info": "platform.help",
     "today_info": "platform.help",
-    "question_bank_info": "platform.help",
+    "question_bank_info": "exams.manage",
+    "question_bank_manage": "question_bank.manage",
     "notification_settings_info": "platform.help",
     "nav_overview": "platform.help",
     "event_view": "platform.help",
     "exam_schedule_info": "platform.help",
-    "course_materials_info": "platform.help",
+    "course_materials_info": "courses.view",
     # T1 özellikleri
     "appointment_book": "appointments.book",
     "appointment_slot_open": "appointments.manage",
     "appointment_requests": "appointments.manage",
     "meal_view": "meals.view",
     "meal_book": "meals.book",
+    "meal_service_mark": "meals.service",
     "meal_menu_manage": "meals.manage",
-    "question_ask": "qpool.participate",
-    "question_solve": "qpool.participate",
+    "meal_dietary_profile_manage": "meals.dietary_profile",
+    "meal_credit_manage": "meals.credit",
+    "question_ask": "qpool.ask",
+    "question_solve": "qpool.solve",
     "question_approve": "qpool.moderate",
     "board_view": "boards.use",
     "board_create": "boards.use",

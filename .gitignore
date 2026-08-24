@@ -4,7 +4,6 @@ __pycache__/
 .pytest_cache/
 .coverage
 .agents
-hezarfen-site-rehberi.md
 
 # Çalışma-zamanı artıkları (kalıcı saklama backend'de yapılır)
 feedback.jsonl
@@ -14,3 +13,8 @@ Celebi-Teknik-Ozet.pdf
 ENTEGRASYON.md
 KONUSMALAR.md
 test_sonuclari.txt
+
+# 10K stres koşusunun yeniden üretilebilir makine artefaktları (~44 MiB).
+# İnsan tarafından okunabilir özet ve 25 soru-cevap parçası repoda tutulur.
+data/stress_benchmark.jsonl
+data/stress_benchmark_results.jsonl

@@ -29,7 +29,8 @@ from typing import Any, Final
 
 
 # --- Rol modeli (rehber §2) --------------------------------------------------
-# Hiyerarşi düşükten yükseğe. Üst rol, alt rolün yaptığı her şeyi yapabilir.
+# Sıra genel sunum ve eski `min_role` metadata'sı içindir. Gerçek yetki saf bir
+# merdiven değildir; exact-role/kapsam kararının kaynağı `role_spaces.py` matrisidir.
 ROLE_HIERARCHY: Final[tuple[str, ...]] = (
     "ziyaretci",  # oturum açmamış kullanıcı
     "veli",       # bağlı öğrencilerin salt-okunur gözlemcisi (backend: Parent)
@@ -231,9 +232,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "guide_page_info",
         "response_template": (
             "Uygulama içi rehbere hesap (avatar) menüsünden **Rehber (Guide)** ile "
-            "veya doğrudan `/guide` adresinden ulaşırsın. 6 adımlık akışı (Ana sayfa, "
-            "Defter, Etkinlik/Yoklama, Dersler, Sınavlar, Karnem) ve 'Kim ne yapabilir?' "
-            "panelini içerir."
+            "veya doğrudan `/guide` adresinden ulaşırsın. Rehber; **Çelebi**, "
+            "**Defter**, **Soru havuzu**, **Dersler**, **Sınavlar** ve **Karnem** "
+            "adımlarını, ayrıca rol yetkileri ile kullanım ipuçlarını içerir."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -280,7 +281,11 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "(6–128) ve **Şifreyi onayla (Confirm password)** alanlarını doldurup "
             "**Hesap oluştur (Create account)**'a bas. Yeni hesaplar **Öğrenci** olarak "
             "başlar; kayıt otomatik giriş yapmaz, giriş sayfasına yönlendirilirsin. "
-            "'admin/root/support' gibi personel çağrıştıran adlar reddedilir."
+            "Kullanıcı adı yalnız küçük ASCII harf, sayı ve `._-` kabul eder; ayraçla "
+            "başlayıp/bitemez ve iki ayraç art arda gelemez. 'admin/root/support' gibi "
+            "personel çağrıştıran adlar reddedilir. Aynı kullanıcı adı yeniden "
+            "gönderildiğinde güvenlik için yine başarılı kayıt görünümü alınabilir ama "
+            "ikinci hesap oluşturulmaz."
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -305,7 +310,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Çıkış yap (Log out)**'a bas. Oturum hemen kapanır."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Nasıl çıkış yaparım?",
             "Oturumu nasıl kapatırım?",
@@ -324,10 +329,11 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_template": (
             "Giriş yapınca **7 gün** geçerli bir oturum açılır. Süre sunucu saatiyle "
             "ölçülür; cihazının saati yanlış olsa bile değişmez. Çıkış yapmak oturumu "
-            "hemen kapatır."
+            "hemen kapatır. Süre dolduktan sonra korumalı bir istek **401** dönebilir; "
+            "bu durumda `/login` üzerinden yeniden giriş yap."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Oturumum ne kadar açık kalır?",
             "Ne zaman otomatik çıkış olur?",
@@ -346,8 +352,11 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Şifre unutma / giriş yapamama gibi erişim sorunları.",
         "response_id": "access_problem_info",
         "response_template": (
-            "Hatalı kullanıcı adı/şifrede giriş formunun üstünde kırmızı hata kutusu "
-            "çıkar; bilgilerini kontrol edip tekrar dene. Rehberde self-servis bir "
+            "Hatalı kullanıcı adı/şifrede giriş formunun üstünde aynı kırmızı **401** "
+            "hata kutusu çıkar; sistem hangi alanın yanlış olduğunu açıklamaz. Kayıt "
+            "başarılı göründüğü hâlde yeni bilgilerle giriş olmuyorsa aynı kullanıcı "
+            "adının daha önce alınmış olabileceğini ve kayıt kurallarını kontrol et. "
+            "Rehberde self-servis bir "
             "'şifremi unuttum' akışı tanımlı değil; kayıtlı bilgilerine erişemiyorsan "
             "okul yönetimine başvurman gerekir."
         ),
@@ -363,19 +372,50 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["login_how", "privacy_security"],
     },
     {
+        "intent": "profile_view",
+        "category": "account",
+        "description": "Kendi profil sayfasını açma ve profil içeriği.",
+        "response_id": "profile_view_info",
+        "response_template": (
+            "Kendi profilini `/profile/me` adresinden veya hesap menüsündeki "
+            "**Profilim** seçeneğinden açabilirsin. Burada profil fotoğrafın, görünen "
+            "adın/Hakkında alanın, rolün, şube ve ders üyeliklerin, rozetlerin ile "
+            "odak saati, odak oturumu, teslim edilen/zamanında ödev ve girilen sınav "
+            "istatistiklerin görünür. Kendi sayfanda **Profili düzenle** düğmesi vardır. "
+            "Başka bir kişinin profili `/profile/$userId` ile açılır; erişim kapsamını "
+            "backend denetler ve Veli yalnız kendisini veya bağlı çocuklarını görebilir."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Kendi profilime nereden bakarım?",
+            "Profilimi açmak istiyorum",
+            "Profilim sayfasında neler var?",
+            "Rozetlerimi nerede görürüm?",
+            "Profil istatistiklerim nerede?",
+            "Ders ve şube üyeliklerimi profilimde görebilir miyim?",
+            "Hangi şubedeyim?",
+        ],
+        "must_not_match": ["profile_edit", "personal_settings", "user_role_change"],
+    },
+    {
         "intent": "profile_edit",
         "category": "account",
         "description": "Profil bilgilerini düzenleme.",
         "response_id": "profile_edit_instructions",
         "response_template": (
-            "Profilini düzenlemek için hesap menüsünden **Profili düzenle (Edit profile)** "
-            "veya `/profile` adresine git; **Ad, Soyad, E-posta, Telefon, Doğum tarihi "
-            "(GG/AA/YYYY)** alanlarını güncelleyip **Kaydet**'e bas. Tüm alanlar isteğe "
-            "bağlıdır; **kullanıcı adı ve rol buradan değiştirilemez**. Doğum tarihi "
-            "gelecekte olamaz."
+            "Profilini iki yerden güncelleyebilirsin: 1) Sağ üstteki hesap/avatar "
+            "menüsü → **Ayarlar → Hesap** bölümünde **Ad, Soyad, E-posta, Telefon** "
+            "ve **Doğum tarihi** alanlarını değiştir. 2) Tam profil ekranı için "
+            "`/profile/me` adresine git, **Profili düzenle**'ye bas; burada bunlara ek "
+            "olarak **Görünen ad** ve **Hakkında** alanları da vardır. Profil fotoğrafını "
+            "da bu sayfadaki avatar üzerinden yükleyebilir, değiştirebilir veya "
+            "kaldırabilirsin. Sonunda **Kaydet**'e bas. Tüm alanlar isteğe bağlıdır; "
+            "**kullanıcı adı ve rol buradan değiştirilemez**. E-posta geçerli biçimde, "
+            "telefon 7–15 hane olmalı; doğum tarihi gelecekte olamaz."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Profilimi nasıl düzenlerim?",
             "E-posta adresimi değiştirmek istiyorum",
@@ -384,8 +424,37 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Doğum tarihimi ekleyebilir miyim?",
             "Profilime telefon numarası eklemek istiyorum",
             "Numaramı profilime nasıl eklerim?",
+            "Görünen adımı nereden değiştiririm?",
+            "Profil açıklamamı nasıl düzenlerim?",
+            "Profil fotoğrafımı nasıl kaldırırım?",
         ],
-        "must_not_match": ["user_role_change"],
+        "must_not_match": ["profile_view", "user_role_change", "personal_settings"],
+    },
+    {
+        "intent": "personal_settings",
+        "category": "account",
+        "description": "Hesap menüsündeki kişisel Ayarlar diyaloğu.",
+        "response_id": "personal_settings_info",
+        "response_template": (
+            "Kişisel **Ayarlar** bir sayfa değil, sağ üstteki hesap/avatar menüsünden "
+            "açılan penceredir. **Hesap** bölümünde Ad, Soyad, E-posta, Telefon ve "
+            "Doğum tarihini; **Görünüm** bölümünde Açık/Koyu tema, Türkçe/English dil "
+            "ve vurgu renk paletini değiştirebilirsin. Görünen ad, Hakkında ve profil "
+            "fotoğrafı gibi tam profil seçenekleri için `/profile/me` → **Profili "
+            "düzenle** yolunu kullan. Okul geneli ayarlar ise bundan ayrıdır ve "
+            "`/management/settings` altında yalnız yetkili hesaplara görünür."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Kişisel ayarlar nerede?",
+            "Hesap ayarlarını nasıl açarım?",
+            "Avatar menüsündeki ayarlar ne işe yarar?",
+            "Görünüm ayarlarına nereden girilir?",
+            "Ayarlar kısmından neleri değiştirebilirim?",
+            "Renk paletini nereden değiştiririm?",
+        ],
+        "must_not_match": ["profile_edit", "language_theme", "school_settings"],
     },
     {
         "intent": "language_theme",
@@ -393,9 +462,11 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Dil (TR/EN) veya tema (açık/koyu) değiştirme.",
         "response_id": "language_theme_instructions",
         "response_template": (
-            "Giriş yaptıysan sol menü altındaki hesap kutusundan **Dil (Language)** ile "
-            "Türkçe/English, **Tema (Toggle theme)** ile Açık/Koyu arasında geçebilirsin. "
-            "Ziyaretçiysen bu seçenekler üst bardadır. Seçim tarayıcıda kalıcı saklanır."
+            "Giriş yaptıysan sağ üstteki hesap/avatar menüsünden **Dil** ile "
+            "Türkçe/English, **Tema** ile Açık/Koyu arasında hızlıca geçebilirsin. "
+            "Aynı menüde **Ayarlar → Görünüm** bölümünü açarsan tema ve dile ek olarak "
+            "vurgu renk paletini de seçebilirsin. Ziyaretçide dil ve tema kontrolleri "
+            "üst bardadır; görünüm seçimi tarayıcıda saklanır."
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -409,7 +480,7 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Arayüz görünümünü açık veya koyu yapabilir miyim?",
             "Ekran görünümünü koyu yapabilir miyim?",
         ],
-        "must_not_match": ["navigation_help"],
+        "must_not_match": ["navigation_help", "personal_settings", "school_settings"],
     },
     # --- Roller / navigasyon -------------------------------------------------
     {
@@ -419,13 +490,16 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "roles_overview",
         "response_template": (
             "Hezarfen'de roller şöyle sıralanır: **Veli < Öğrenci < Öğretmen < "
-            "Yönetici < ADMIN**. Üst rol, alt rolün yaptığı her şeyi yapar; **Veli** "
-            "istisnadır — yalnızca kendine bağlanan öğrencileri salt-okunur izler "
-            "(sınava giremez, derse kaydolamaz). Kayıt olan herkes Öğrenci başlar; "
-            "diğer roller sonradan bir ADMIN tarafından atanır. Rol her istekte "
-            "yeniden kontrol edilir; değişince yeniden giriş gerekmez. **Kendi "
-            "rolünü** sol menünün altındaki hesap kutusunda, adının yanındaki rol "
-            "rozetinden görebilirsin."
+            "Yönetici < ADMIN**; ancak yetki modeli 'üst rol alttaki her şeyi yapar' "
+            "şeklinde değildir. **Veli** bağlı çocuklarını salt-okunur izler; "
+            "**Öğrenci** sınava girer, ödev teslim eder ve Pomodoro kullanır; "
+            "**Öğretmen** yönettiği ders/sınav/yoklama işlemlerini yapar; **Yönetici** "
+            "okul geneli ayar ve kayıtları yönetir; **ADMIN** kullanıcı/rol yönetir. "
+            "Örneğin `/pomodoro` ve sınav odası yalnız Öğrenci; `/work` bağlantısı "
+            "arayüzde yalnız Öğretmen/Yöneticiye gösterilir (backend Teacher+ kontrolü "
+            "ADMIN isteğini de teknik olarak kabul eder). Yeni hesap "
+            "Öğrenci başlar; rolü ADMIN atar. Kendi rolünü hesap menüsündeki rozetten "
+            "görebilirsin."
         ),
         "auth_required": True,
         "min_role": "veli",
@@ -446,10 +520,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "'Erişimin yok' / yetkisiz sayfa yönlendirmesi.",
         "response_id": "access_denied_info",
         "response_template": (
-            "Yetkisiz erişimde iki davranış olur: bazı sayfalarda sessizce Ana sayfaya "
-            "(`/`) yönlendirilirsin (oturum yoksa `/login`'e); bazılarında ise kırmızı "
-            "**\"Bu içeriğe erişimin yok.\"** kutusu çıkar. Bu genelde rolünün o işlem "
-            "için yetersiz olduğunu ya da ilgili derse kayıtlı olmadığını gösterir."
+            "Oturumun yoksa korumalı sayfa seni `/login`'e gönderir. Giriş yaptığın "
+            "halde rolün sayfaya uymuyorsa kırmızı **\"Bu içeriğe erişimin yok.\"** "
+            "kutusu görünür. Bir işlem çağrısındaki **403** rolünün, ders yönetiminin, "
+            "kaydının veya hedef öğrenci kapsamının yetersiz olduğunu gösterebilir; "
+            "**404** bazen var olmayan kaydı, bazen de güvenlik için gizlenen "
+            "yetkisiz kaydı ifade eder."
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -463,18 +539,108 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["roles_permissions", "account_access_problem"],
     },
     {
+        "intent": "technical_error_help",
+        "category": "general",
+        "description": "İşlem başarısız/hata verdi gibi bağlamsız teknik yardım.",
+        "response_id": "technical_error_triage",
+        "response_template": (
+            "Hatanın nedenini ayırabilmem için **hangi sayfada hangi düğmeye "
+            "bastığını** ve ekrandaki hata metnini aynen yaz. Genel anlamı şöyledir: "
+            "**400** alan/değer iş kuralına uymuyor, **401** oturum yok/süresi dolmuş, "
+            "**403** rol veya ders/öğrenci kapsamı yetersiz, **404** kayıt yok ya da "
+            "güvenlik için gizlenmiş, **409** işlem mevcut durumla çakışıyor, **413** "
+            "dosya okul sınırını aşıyor, **422** istek gövdesinde zorunlu alan/tip/biçim "
+            "yanlış, **429** "
+            "çok sık istek gönderildiği, **503** hizmet/veritabanı geçici olarak "
+            "ulaşılamadığı anlamına gelir. 401'de yeniden giriş yap; 429/503'te kısa "
+            "süre bekleyip bir kez daha dene. Yazma isteği zaman aşımına uğradıysa "
+            "işlemi tekrarlamadan önce kaydın oluşup oluşmadığını kontrol et."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "İşlem başarısız diyor, neden?",
+            "Bir hata aldım ne yapmalıyım?",
+            "Kaydet düğmesi çalışmıyor",
+            "İstek neden reddedildi?",
+            "Sayfa hata veriyor",
+            "503 hatası ne demek?",
+            "Çok fazla istek gönderdiniz diyor",
+        ],
+        "must_not_match": ["account_access_problem", "access_denied_help"],
+    },
+    {
+        "intent": "upload_problem",
+        "category": "general",
+        "description": "Not, ders notu, ödev veya avatar dosyası yükleme sorunları.",
+        "response_id": "upload_problem_info",
+        "response_template": (
+            "Dosya yüklemede önce alanı ayır: **400**; multipart içindeki `file` alanı "
+            "eksik, dosya boş veya gövde bozuk olabilir. **413**, dosyanın sunucu/okul "
+            "boyut sınırını aştığını gösterir; güncel sınır okulun Sistem ayarındadır "
+            "(varsayılan yaklaşık 5 MiB). Defter, ders notu ve ödev tesliminde kayıt "
+            "başına en fazla **10 dosya** vardır; önce bir eki sil. Satır içinde "
+            "gösterilecek görseller yalnız PNG/JPEG/WebP/GIF'tir; SVG desteklenmez. "
+            "Hata sürerse hangi sayfada yüklediğini, dosya türü/boyutunu ve tam hata "
+            "metnini yaz; kişisel dosya içeriğini sohbete kopyalama."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Dosya yüklerken 413 alıyorum",
+            "Dosya boyutu sınırı nedir?",
+            "Boş dosya neden kabul edilmiyor?",
+            "File alanı eksik hatası ne demek?",
+            "On birinci eki neden yükleyemiyorum?",
+            "SVG görselini neden ekleyemiyorum?",
+        ],
+        "must_not_match": ["note_create", "homework_submit", "course_materials_info"],
+    },
+    {
+        "intent": "chatbot_service_problem",
+        "category": "general",
+        "description": "Çelebi bağlantı, thread, bekleyen mesaj ve servis hataları.",
+        "response_id": "chatbot_service_problem_info",
+        "response_template": (
+            "Çelebi yanıt vermiyorsa hata metnini ayır: **AI service is not enabled**, "
+            "backend'de köprü özelliğinin kapalı; **no AI service is connected**, çalışan "
+            "chatbot bridge'in backend'e bağlı olmadığını gösterir. Bu durumlarda istek "
+            "**503** olur ve mesaj kaydı oluşturulmaz. **429** mesaj hız sınırıdır; "
+            "`Retry-After` kadar bekle. Kabul edilen mesaj önce **202/pending** olabilir; "
+            "uzun süre tamamlanmazsa `unavailable`, `busy`, `timed_out`, `transport`, "
+            "`protocol`, `bad_reply`, `empty_reply`, `interrupted` ya da köprünün "
+            "döndürdüğü başka bir servis koduyla başarısız görünür. Uzak servis boş bir "
+            "kod döndürürse backend bunu `service_error` olarak kaydeder. Thread limiti "
+            "dolduysa kullanılmayan bir sohbeti sil; thread silmek içindeki bütün "
+            "mesajları da kalıcı siler. Yabancı thread kimliği güvenlik için 404 döner."
+        ),
+        "auth_required": False,
+        "min_role": "ziyaretci",
+        "example_questions": [
+            "Çelebi neden yanıt vermiyor?",
+            "No AI service is connected hatası ne demek?",
+            "Chatbot bridge bağlı değil diyor",
+            "Sohbet mesajım pending kaldı",
+            "Chatbot 429 hatası veriyor",
+            "Sohbet thread limitine ulaştım",
+        ],
+        "must_not_match": ["technical_error_help", "messages_use"],
+    },
+    {
         "intent": "navigation_help",
         "category": "roles",
         "description": "Menü/sayfa nerede — genel navigasyon.",
         "response_id": "navigation_info",
         "response_template": (
-            "Masaüstünde sol dikey menüden gezinilir; gruplar rol bazlıdır ve boş "
-            "gruplar gizlenir. Mobilde altta 5 sekme vardır: Ana sayfa, Dersler, "
-            "Sınavlar, Defter, Menü. Hangi sayfayı aradığını söylersen tam yolunu "
-            "(ör. `/courses`, `/exams`, `/marks`) veririm."
+            "Masaüstünde sol dikey menüden gezinilir; gruplar rol bazlıdır ve yetkin "
+            "olmayan öğeler gizlenir. Mobil alt çubuk da role göre değişir: Öğrencide "
+            "**Bugün, Eğitim, Takvim, Karnem, Hesap**; Öğretmen/Yönetici/ADMIN'de "
+            "**Bugün, Eğitim, Takvim, Hesap**; Velide **Bugün, Çocuklarım, Takvim, "
+            "Hesap** görünür. Diğer sayfalara **Hesap/Menü** içinden ulaşırsın. "
+            "Aradığın sayfayı söylersen gerçek yolunu verebilirim."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Menüde ne var?",
             "Sayfalar nerede?",
@@ -527,7 +693,6 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Yeni ders nasıl oluşturulur?",
             "Ders eklemek istiyorum",
             "Nasıl ders açarım?",
-            "Yeni bir sınıf oluşturacağım",
             "Ders oluşturma nerede?",
         ],
         "must_not_match": ["course_view", "exam_create", "event_create"],
@@ -542,7 +707,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "(`/courses/$id`) gir, **Sınıf listesi (Roster)** bölümünü aç. 2) **Öğrenci "
             "kaydet (Enroll student)**'e bas, panelde öğrenciyi ara-seç. 3) Onayla. "
             "Zaten kayıtlılar listede çıkmaz; öğrenci seçmezsen 'Önce bir öğrenci "
-            "seçmelisin.' uyarısı çıkar. Sınıf listesi yalnızca yönetim yetkilisine görünür."
+            "seçmelisin.' uyarısı çıkar. Yalnız **Öğrenci** rolündeki hesaplar derse "
+            "kaydedilebilir; sınıf doluysa işlem 409 ile reddedilir. Sınıf listesi "
+            "yalnızca dersi yönetebilen hesaba görünür."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -563,8 +730,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "remove_student_instructions",
         "response_template": (
             "1) Ders detayı → **Sınıf listesi (Roster)** bölümünü aç. 2) İlgili öğrenci "
-            "satırında **Kaldır (Remove)**'a bas ve onayla. Çıkarmak geçmiş notları "
-            "silmez; öğrenci daha sonra tekrar kaydedilebilir."
+            "satırında **Kaldır (Remove)**'a bas ve onayla. Bunun için dersi yönetme "
+            "yetkin olmalı. Çıkarmak geçmiş sınav sonuçlarını **silmez**; raporlarda "
+            "öğrenci yeniden kaydedilene kadar gizlenir ve öğrenci daha sonra tekrar "
+            "derse kaydedilebilir."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -579,6 +748,105 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["course_enroll_student"],
     },
     {
+        "intent": "course_subject_manage",
+        "category": "courses",
+        "description": "Dersin müfredat konularını oluşturma, düzenleme ve silme.",
+        "response_id": "course_subject_manage_instructions",
+        "response_template": (
+            "Yönettiğin dersin detayını (`/courses/$id`) açıp **Konular** sekmesine "
+            "geç. **Konu ekle** ile zorunlu **Konu adı** (en fazla 200) ve isteğe "
+            "bağlı açıklamayı (en fazla 2.000) kaydet; satırın **İşlemler** menüsünden "
+            "**Düzenle** veya **Kaldır** kullan. Ders oluşturucusu ve atanmış öğretmen "
+            "yalnız yönettiği derste, Yönetici/ADMIN okul kapsamında yazabilir; "
+            "öğrenci konuları okuyabilse de değiştiremez. Her sınav sorusu ve ödev "
+            "aynı dersin bir konusuna bağlıdır. Bu yüzden sınav sorusu veya ödev hâlâ "
+            "konuyu kullanıyorsa silme **409** olur; önce bunları başka konuya taşı ya "
+            "da sil. Soru bankası şablonu tek başına silmeyi engellemez; konu silinince "
+            "şablondaki isteğe bağlı köken bilgisi temizlenir. Yabancı ders konusu "
+            "seçmek 400, yönetmediğin ders 403'tür."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Derse müfredat konusu nasıl eklerim?",
+            "Ders konusunun adını değiştirmek istiyorum",
+            "Konuyu silerken 409 alıyorum",
+            "Ödeve bağlı ders konusu neden kaldırılamıyor?",
+            "Öğrenci ders konularını düzenleyebilir mi?",
+            "Soru bankası şablonu konu silmeyi engeller mi?",
+        ],
+        "must_not_match": [
+            "course_create", "exam_add_question", "homework_assign",
+            "course_note_manage", "question_bank_manage",
+        ],
+    },
+    {
+        "intent": "course_note_manage",
+        "category": "courses",
+        "description": "Ders genelinde paylaşılan notları ve eklerini yönetme.",
+        "response_id": "course_note_manage_instructions",
+        "response_template": (
+            "Ders detayında (`/courses/$id`) **Ders notları** sekmesini aç. Dersin "
+            "oluşturucusu/atanmış öğretmeni veya Yönetici/ADMIN burada **Yeni ders "
+            "notu** ile başlık, içerik ve en fazla 10 dosya ekleyebilir; not kartından "
+            "düzenleyebilir, silebilir ve **Ekler** bölümünü yönetebilir. Derse kayıtlı "
+            "öğrenci notları ve dosyaları okuyup indirebilir ama ekleme, düzenleme veya "
+            "silme yapamaz. Dosya başına okul boyut sınırı vardır; 11. ek 409, fazla "
+            "boyut 413, boş/bozuk dosya 400 verir. Oluşturma sırasında bazı ekler "
+            "yüklenemezse not yine kaydedilmiş olabilir ve arayüz başarısız ek sayısını "
+            "gösterir; sayfayı yenileyip eksik ekleri yeniden yükle. Ders notunu silmek "
+            "bütün eklerini de kalıcı siler. Yönetmediğin ders 403, görünmeyen ders/not "
+            "404 ile sonuçlanır. Bu alan kişisel **Defter** notundan ayrıdır."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Sınıfla paylaşılacak ders notu nasıl eklenir?",
+            "Ders notundaki PDF'yi nasıl değiştiririm?",
+            "Ders notu eklerken bazı dosyalar yüklenmedi",
+            "Öğrenci öğretmenin ders notunu silebilir mi?",
+            "Ders notuna on birinci ek neden yüklenmiyor?",
+            "Paylaşılan ders notunu silince dosyaları ne olur?",
+        ],
+        "must_not_match": [
+            "course_materials_info", "note_create", "note_file_manage",
+            "note_import_ocr", "upload_problem",
+        ],
+    },
+    {
+        "intent": "course_teacher_manage",
+        "category": "courses",
+        "description": "Derse atanmış öğretmen ekleme/çıkarma (yalnız Yönetici/ADMIN).",
+        "response_id": "course_teacher_manage_instructions",
+        "response_template": (
+            "Ders detayında (`/courses/$id`) **Öğretmenler** sekmesine git. Yalnız "
+            "**Yönetici** veya **ADMIN**, **Öğretmen ata** ile Öğretmen ya da daha üst "
+            "roldeki hesabı seçebilir; atanmış satırda **Öğretmeni çıkar** ile ilişkiyi "
+            "kaldırabilir. Dersin kendi öğretmen oluşturucusu bu kadroyu değiştiremez. "
+            "Atama idempotenttir; zaten atanmış kişi yeniden seçilirse çoğaltılmaz. "
+            "Atanan kişi sınav, oturum, konu, sınıf listesi ve notlandırma dahil dersi "
+            "yönetir; fakat yalnız bu atamayla dersi silemez veya öğretmen listesini "
+            "değiştiremez. Hedef hesap yoksa/Öğretmen altındaysa 400, atama sırasında "
+            "rolü düşürülürse işlem geri alınıp 409, atanmış olmayan kişiyi çıkarma 404 "
+            "olur. Çıkarmak ders, sınav, oturum ve öğrenci kayıtlarını silmez; yalnız "
+            "öğretmenin yönetim hakkını geri alır."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Derse nasıl öğretmen atarım?",
+            "Atanmış öğretmeni dersten çıkarmak istiyorum",
+            "Dersin öğretmeni öğretmen listesine kişi ekleyebilir mi?",
+            "Öğretmen atarken hedef rolü uygun değil hatası aldım",
+            "Atanmamış öğretmeni çıkarınca neden 404 geliyor?",
+            "Öğretmeni dersten çıkarınca sınavlar silinir mi?",
+        ],
+        "must_not_match": [
+            "course_enroll_student", "course_remove_student", "user_role_change",
+            "course_create", "course_subject_manage",
+        ],
+    },
+    {
         "intent": "lesson_session_add",
         "category": "courses",
         "description": "Ders oturumu (ders saati) ekleme (Öğretmen+).",
@@ -587,7 +855,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Ön koşul: ders yönetim yetkisi. 1) Ders detayı → **Ders oturumları (Lesson "
             "sessions)** → **Oturum ekle (Add session)**. 2) İsteğe bağlı **Konu**, "
             "**Başlangıç** tarih (GG/AA/YYYY) + saat, isteğe bağlı **Bitiş**. 3) **Oturum "
-            "ekle**. Başlangıç zorunlu ve gelecekte olmalı; bitiş başlangıçtan önce olamaz."
+            "ekle**. Başlangıç zorunlu ve gelecekte olmalı; bitiş başlangıçtan önce "
+            "olamaz. 'Derse yeni oturum ekleyemiyorum' gibi bir durumda önce ders "
+            "yönetim yetkini ve tarih sırasını kontrol et."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -657,7 +927,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "açıklama gir. 3) **Tür** (Ödev/Kısa sınav/Vize/Final/Proje/Sözlü) ve **Mod** "
             "(Senkron/Asenkron/Açık) seç. 4) Gerekirse **Deneme hakkı** ve **Yeniden "
             "girişe izin ver**'i ayarla. 5) Senkron/Asenkron ise Başlangıç/Bitiş gir. "
-            "6) **Oluştur**. Sınavlar ders içinden eklenir."
+            "Asenkron modda süre zorunludur; Senkron mod süre kabul etmez. Süre "
+            "1 dakika–24 saat arasında ve sınav penceresine sığmalıdır; Açık mod "
+            "başlangıç/bitiş taşımaz. 6) **Oluştur**. Sınavlar ders içinden eklenir."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -676,13 +948,14 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Sınava soru ekleme (Öğretmen+).",
         "response_id": "exam_add_question_instructions",
         "response_template": (
-            "Ön koşul: yönetim yetkisi; sınav 'Bitti' veya 'Yakında' değilse sorular "
-            "düzenlenebilir. Ayrıca ders detayında en az bir **Konu (Subject)** "
+            "Ön koşul: yönetim yetkisi ve sınavda henüz başlamış bir öğrenci denemesi "
+            "olmaması. Ayrıca ders detayında en az bir **Konu (Subject)** "
             "tanımlı olmalı — her sınav sorusu bir konuya bağlanır. 1) Sınav detayı → "
             "**Sorular (Questions)** → **Soru ekle**. 2) **Soru metni** + **Puan** "
             "(1–100) + **Konu** seç. 3) **Soru türü**: Seçmeli (2–10 şık, doğru şıkkı "
             "işaretle) veya Metin. 4) **Oluştur**. Metin sorular otomatik puanlanmaz, "
-            "elle notlanır."
+            "elle notlanır. Herhangi bir öğrenci sınav denemesine başladıktan sonra "
+            "soru ekleme/değiştirme 409 ile engellenir."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -704,8 +977,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Ön koşul: sınavın dersine kayıtlı olmak; sınav girilebilir modda "
             "(Senkron/Asenkron/Açık) ve **Aktif** olmalı. 1) Sınav detayında "
             "(`/exams/$id`) **Sınav odasını aç (Open exam room)**'a bas. 2) **Sınava "
-            "başla (Start exam)**. Sorular ve **Kalan süre** görünür. 'Yakında/Bitti' "
-            "sınavda giriş düğmesi çıkmaz; Zamansız sınavda oturum yoktur."
+            "başla (Start exam)**. Sorular ve **Kalan süre** görünür. Giremiyorsan en "
+            "sık nedenler: sınav henüz başlamadı veya bitti, **Zamansız** modda, derse "
+            "kayıtlı değilsin, önceki deneme zaten teslim edildi, süre doldu ya da "
+            "deneme hakkın kalmadı."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -773,7 +1048,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "çıktıktan sonra tekrar **Sınav odasını aç** → **Sınava devam et**; kalan "
             "süre ve cevapların korunur. **Retake (yeni deneme):** 'Deneme hakkı' açık ve "
             "azami sayı belirlenmişse her yeni giriş bir deneme kullanır. **Süre çıkışta "
-            "bile durmaz.**"
+            "bile durmaz.** 'Yeniden giriş kapalı', 'deneme hakkı kalmadı', 'süre doldu' "
+            "veya 'deneme zaten teslim edildi' durumunda aynı denemeye dönemezsin."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -792,11 +1068,13 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Öğrenciye not verme / notlandırma (Öğretmen+).",
         "response_id": "exam_grade_instructions",
         "response_template": (
-            "Ön koşul: **sınav bitmiş** olmalı (bitene kadar 'Öğrenci notla' düğmesi "
-            "pasiftir). 1) Sınav detayı → **Öğrenci notla (Grade a student)**. 2) Öğrenciyi "
+            "1) Sınav detayı → **Öğrenci notla (Grade a student)**. 2) Öğrenciyi "
             "seç, **Not** (0–100 tam sayı) gir, kaydet ve onayla. Metin cevaplar otomatik "
             "puanlanmaz; **Cevap Kâğıdı**'ndaki otomatik puanı referans alıp nihai notu "
-            "elle verirsin. Verilen not sonuç tablosunda **Kaldır** ile silinebilir."
+            "elle verirsin. Hedef hesap Öğrenci olmalı, sınavın dersine kayıtlı olmalı "
+            "ve kendi hesabını notlandıramazsın. Okul ayarından kaldırılmış bir sınav "
+            "türünde not kaydetmek 409 ile reddedilir. Verilen not sonuç tablosunda "
+            "**Kaldır** ile silinebilir."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -815,8 +1093,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Sınavı canlı izleme (Öğretmen+).",
         "response_id": "exam_live_monitor_info",
         "response_template": (
-            "Ön koşul: sınav başlamış (Yakında değil) ve girilebilir modda; yönetim "
-            "yetkisi. Sınav detayı → **Canlı İzleme (Live Monitor)** (`/exams/$id/live`). "
+            "Ön koşul: sınavın dersinde yönetim yetkisi. Backend canlı görüntü için "
+            "ayrıca 'başlamış olmalı' veya belirli bir mod şartı aramaz. Sınav detayı → "
+            "**Canlı İzleme (Live Monitor)** (`/exams/$id/live`). "
             "Üstteki sayaçlar (Başlamadı/Devam ediyor/Teslim edildi/Süresi doldu/Katılmadı) "
             "ve **Canlı Liste**'de ilerleme, kalan süre, durum görünür. Sınav bitince ekran "
             "'Son Durum'a döner. Öğrenciler bu ekranı göremez."
@@ -868,7 +1147,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Ön koşul: ödevin verildiği dersin kayıtlı öğrencisisin. 1) **Ödevler** "
             "(`/homework`) → ilgili ödevin detayına (`/homework/$id`) gir. 2) **Ödevi "
             "teslim et** panelinde cevabını yaz ve/veya dosya ekle. 3) Gönder. Teslim "
-            "yalnızca Öğrenciye açıktır; **Son teslim** tarihine dikkat et."
+            "yalnızca Öğrenciye açıktır; **Son teslim** tarihine dikkat et. Teslim "
+            "notlandırıldıktan sonra öğrenci metni veya dosyayı değiştiremez/silemez; "
+            "dosya okulun yükleme sınırını aşarsa 413 hatası alınır."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -880,6 +1161,37 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Ödevimi göndermek istiyorum",
         ],
         "must_not_match": ["homework_view", "homework_grade", "exam_save_answer"],
+    },
+    {
+        "intent": "homework_withdraw_submission",
+        "category": "homework",
+        "description": "Öğrencinin kendi ödev teslimini geri çekmesi.",
+        "response_id": "homework_withdraw_submission_instructions",
+        "response_template": (
+            "Yalnız exact **Öğrenci** rolü kendi teslimini geri çekebilir. **Ödevler** "
+            "(`/homework`) → ödev detayı (`/homework/$id`) → **Ödevi teslim et** "
+            "panelinde **Teslimi geri çek**'e basıp uyarıyı onayla. Bu işlem teslim "
+            "metnini ve eklenen **bütün dosyaları kalıcı siler**; ödevin kendisini "
+            "veya öğretmenin başka öğrencilere verdiği kaydı silmez. Düğme yalnız bir "
+            "teslim varken ve sonuç/not yokken görünür. Notlandırılmış teslim donmuştur: "
+            "geri çekme 409 verir; önce öğretmenin notu kaldırması gerekir. Teslim yoksa "
+            "404, dersten çıkarıldıysan 403, ödevin hedef kitlesinde değilsen güvenlik "
+            "için 404 alınır. Son teslim tarihi geçmiş olması tek başına geri çekmeyi "
+            "engellemez; daha sonra yeniden gönderirsen yeni teslim geç olarak işaretlenir."
+        ),
+        "auth_required": True,
+        "min_role": "ogrenci",
+        "example_questions": [
+            "Ödev teslimimi nasıl geri çekerim?",
+            "Gönderdiğim ödevi tamamen silmek istiyorum",
+            "Teslimi geri çek düğmesi neden görünmüyor?",
+            "Notlandırılmış ödevi geri çekerken 409 alıyorum",
+            "Ödev teslimini silince ek dosyalar ne olur?",
+            "Öğretmen öğrencinin teslimini geri çekebilir mi?",
+        ],
+        "must_not_match": [
+            "homework_submit", "homework_grade", "homework_manage", "homework_assign",
+        ],
     },
     {
         "intent": "homework_assign",
@@ -902,6 +1214,40 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Sınıfıma ödev vermek istiyorum",
         ],
         "must_not_match": ["homework_grade", "homework_submit", "exam_create"],
+    },
+    {
+        "intent": "homework_manage",
+        "category": "homework",
+        "description": "Var olan ödev kaydını düzenleme veya tümüyle silme (Öğretmen+).",
+        "response_id": "homework_manage_instructions",
+        "response_template": (
+            "Yönettiğin dersin detayında (`/courses/$id`) **Ödevler** sekmesine geç. "
+            "Ödev satırının **İşlemler** menüsünde **Düzenle** ile başlık, açıklama, "
+            "aynı dersin konusu ve gelecekteki son teslim tarihini değiştir; **Sil** ile "
+            "ödevi onaylayarak kaldır. Ders oluşturucusu/atanmış öğretmen yalnız "
+            "yönettiği derste, Yönetici/ADMIN okul kapsamında işlem yapabilir. Yeni "
+            "son tarih geçmişteyse veya konu başka derse aitse 400 alınır. Backend'de "
+            "hedef kitleyi daraltan bir değişiklik, kapsam dışına çıkacak öğrencinin "
+            "teslimi ya da sonucu varsa 409 ile bütünüyle reddedilir; eşzamanlı konu "
+            "değişiminde de kaydı yeniden okuyup denemek gerekebilir. **Ödevi silmek**, "
+            "öğrencilerin teslim metinlerini, ek dosyalarını ve not/sonuçlarını da "
+            "kalıcı siler; yalnız bir öğrencinin kendi teslimini kaldırması farklı olan "
+            "**Teslimi geri çek** işlemidir."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Var olan ödevi nasıl düzenlerim?",
+            "Ödevin son teslim tarihini değiştirmek istiyorum",
+            "Ödev kaydını tamamen silersem teslimler ne olur?",
+            "Ödevin konusunu başka dersin konusuna taşıyamıyorum",
+            "Hedef kitleyi daraltırken neden 409 alıyorum?",
+            "Öğrenci ödevin kendisini silebilir mi?",
+        ],
+        "must_not_match": [
+            "homework_assign", "homework_submit", "homework_withdraw_submission",
+            "homework_grade", "course_subject_manage",
+        ],
     },
     {
         "intent": "homework_grade",
@@ -935,7 +1281,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Karneni görmek için menüden **Karnem (Report card)** veya `/marks`'a git. "
             "Üstte **Genel ortalama** (sayı + harf notu, /100), altında her ders için "
             "**Ders ortalaması** ve sınav bazında **Ağırlık** ve **Not** görünür. Karnem "
-            "yalnızca Öğrenci rolüne açıktır; notu girilmemiş sınav '—' gösterir."
+            "yalnızca Öğrenci rolüne açıktır; notu henüz girilmemiş sınav rapor "
+            "listesine eklenmez."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -1057,25 +1404,24 @@ INTENTS: Final[list[dict[str, Any]]] = [
     {
         "intent": "event_attendance_mark",
         "category": "attendance",
-        "description": "Etkinlikte kendi yoklamasını işaretleme.",
+        "description": "Etkinlik katılımcılarının yoklamasını işaretleme (Öğretmen+).",
         "response_id": "event_attendance_instructions",
         "response_template": (
-            "1) `/events` → ilgili etkinlik kartına tıkla. 2) **Katılım durumum (My "
-            "attendance)** bölümünde durumu seç (**Var / Yok / Geç / Mazeretli**). "
-            "3) **Yoklamamı kaydet (Save my attendance)**. Etkinlikte herkes kendini "
-            "işaretleyebilir; Öğretmen+ başkasını da işaretleyebilir."
+            "1) `/events` → ilgili etkinlik kartına tıkla. 2) Etkinliğin katılımcı "
+            "listesinde öğrenci için **Var / Yok / Geç / Mazeretli** durumunu seç. "
+            "3) Kaydet. Etkinlik yoklamasını yalnız Öğretmen ve üstü işaretleyebilir; "
+            "hedef öğrenci etkinliğin katılımcı kitlesinde olmalı. Öğrenci veya Veli "
+            "kendi katılımını işaretleyemez."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "ogretmen",
         "example_questions": [
-            "Etkinlikte kendimi nasıl işaretlerim?",
-            "Etkinlik yoklamasına nasıl katılırım?",
-            "Katılım durumumu nasıl kaydederim?",
-            "Etkinliğe geldiğimi nasıl belirtirim?",
-            "Kendi yoklamamı işaretleme",
-            "Etkinlikte var olarak işaretlenmek istiyorum",
-            "Etkinliğe geldim, var demek istiyorum",
-            "Etkinlikte kendimi var olarak göstermek istiyorum",
+            "Etkinlik yoklamasını nasıl işaretlerim?",
+            "Etkinlikte öğrenciyi var nasıl yazarım?",
+            "Katılımcının durumunu nasıl kaydederim?",
+            "Etkinlik katılım listesi nerede?",
+            "Öğrenci kendi etkinlik yoklamasını işaretleyebilir mi?",
+            "Etkinlikte yoklama alacağım",
         ],
         "must_not_match": ["attendance_view", "roll_call"],
     },
@@ -1124,6 +1470,70 @@ INTENTS: Final[list[dict[str, Any]]] = [
     },
     # --- Defter --------------------------------------------------------------
     {
+        "intent": "note_import_ocr",
+        "category": "notebook",
+        "description": "PDF/TXT/Markdown içeriğini kişisel Defter notuna aktarma ve OCR sınırı.",
+        "response_id": "note_import_ocr_instructions",
+        "response_template": (
+            "**Defter** (`/notes`) sayfasında **İçe aktar**'a basıp PDF, TXT veya "
+            "Markdown dosyanı seç. Hezarfen dosyadaki mevcut metni tarayıcıda çıkarır; "
+            "satır sonu, sayfa numarası ve gürültüyü temizleyerek düzenlenebilir bir "
+            "**Başlık** ve Markdown **İçerik** önizlemesi hazırlar. Kontrol edip "
+            "**Oluştur**'a basınca yalnız sana ait yeni bir Defter notu kaydedilir. "
+            "Bu araç görüntü tabanlı/taranmış PDF'ye kendi başına OCR uygulamaz: "
+            "'metin çıkarılamadı' uyarısında dosyayı önce bir OCR aracıyla aranabilir "
+            "PDF/TXT'ye dönüştürüp yeniden seç. Bozuk karakter uyarısı çıkarsa metni "
+            "oluşturmadan önce elle düzelt. İçe aktarma özgün dosyayı ek olarak "
+            "saklamaz; dosyayı da tutmak istiyorsan notu açıp **Ekler → Dosya ekle** kullan."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "PDF'yi Defter notuna nasıl içe aktarırım?",
+            "Taranmış PDF için OCR yapılıyor mu?",
+            "TXT dosyasından kişisel not oluşturmak istiyorum",
+            "Not içe aktarırken metin çıkarılamadı diyor",
+            "PDF aktarımındaki bozuk karakterleri nasıl düzeltirim?",
+            "Markdown dosyamı Deftere import edebilir miyim?",
+        ],
+        "must_not_match": [
+            "note_create", "note_file_manage", "upload_problem",
+            "course_note_manage", "course_materials_info",
+        ],
+    },
+    {
+        "intent": "note_file_manage",
+        "category": "notebook",
+        "description": "Kişisel Defter notunun eklerini yükleme, görüntüleme, indirme ve silme.",
+        "response_id": "note_file_manage_instructions",
+        "response_template": (
+            "Kişisel not eklerini yönetmek için **Defter** (`/notes`) sayfasında not "
+            "kartını aç ve okuyucu içindeki **Ekler** bölümüne git. **Dosya ekle** ile "
+            "yükleyebilir, dosya kartından **Görüntüle** veya **İndir** diyebilir, "
+            "**Sil** ile yalnız o eki onaylayarak kaldırabilirsin; çizimler için "
+            "**Çizim** seçeneği de vardır. Her not en fazla **10 dosya** taşır ve "
+            "dosya başına okulun `max_file_bytes` sınırı uygulanır (varsayılan yaklaşık "
+            "5 MiB): tavan doluysa önce bir eki sil, fazla boyutta 413 alınır. Boş veya "
+            "bozuk multipart dosya 400'dür. Bazı türler uygulama içinde önizlenmez; "
+            "bu, dosyanın kaybolduğu anlamına gelmez, **İndir** ile açabilirsin. "
+            "Kişisel not ve ekleri yalnız sahibine aittir; başka kullanıcının notu 404 ile gizlenir."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Kişisel notuma dosya nasıl eklerim?",
+            "Defter notundaki eki nasıl silerim?",
+            "Not ekini nereden indiririm?",
+            "Defterde on birinci dosyayı neden ekleyemiyorum?",
+            "Not dosyasında önizleme desteklenmiyor diyor",
+            "Kişisel notuma çizim eklemek istiyorum",
+        ],
+        "must_not_match": [
+            "note_create", "note_import_ocr", "upload_problem",
+            "course_note_manage", "course_materials_info",
+        ],
+    },
+    {
         "intent": "note_create",
         "category": "notebook",
         "description": "Defterde dosya ekli not oluşturma.",
@@ -1132,10 +1542,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "1) **Defter (Notebook)** menüsünden `/notes`'a git, **Yeni not (New note)**'a "
             "bas. 2) **Başlık** (zorunlu, ≤200) ve isteğe bağlı **İçerik** (≤10.000) gir. "
             "3) **Ekler** bölümünde **Dosya ekle** ile en fazla 10 dosya ekle. 4) **Oluştur**. "
-            "Notlar yalnızca sahibine görünür; dosya boyut sınırı okul ayarındandır (varsayılan ~5 MiB)."
+            "Notlar yalnızca sahibine görünür. 10 dosyaya ulaştığında önce bir eki "
+            "silmelisin; dosya boyut sınırı okul ayarındandır (varsayılan ~5 MiB) ve "
+            "aşılırsa 413 hatası alınır."
         ),
         "auth_required": True,
-        "min_role": "ogrenci",
+        "min_role": "veli",
         "example_questions": [
             "Nasıl not alırım?",
             "Deftere not eklemek istiyorum",
@@ -1143,7 +1555,57 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Nota dosya ekleyebilir miyim?",
             "Yeni not nasıl yazılır?",
         ],
-        "must_not_match": ["report_card_view"],
+        "must_not_match": ["note_edit", "note_delete", "report_card_view"],
+    },
+    {
+        "intent": "note_edit",
+        "category": "notebook",
+        "description": "Kişisel Defter notunu düzenleme.",
+        "response_id": "note_edit_instructions",
+        "response_template": (
+            "Kişisel notunu değiştirmek için: 1) **Defter (Notebook)** menüsünden "
+            "`/notes` sayfasını aç. 2) İlgili not kartındaki **İşlem** menüsünden "
+            "**Düzenle**'yi seç. 3) Başlığı veya içeriği değiştirip **Güncelle**'ye "
+            "bas ve onayla. Yalnızca kendi Defter notlarını düzenleyebilirsin."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Kişisel bir not nasıl düzenlenir?",
+            "Defterdeki notu değiştirmek istiyorum",
+            "Not kartını nasıl güncellerim?",
+            "Not başlığını değiştirme",
+            "Defter notunu düzenleme nerede?",
+        ],
+        "must_not_match": [
+            "note_create", "note_delete", "exam_grade_student",
+            "homework_grade", "language_theme", "school_settings",
+        ],
+    },
+    {
+        "intent": "note_delete",
+        "category": "notebook",
+        "description": "Kişisel Defter notunu silme.",
+        "response_id": "note_delete_instructions",
+        "response_template": (
+            "Kişisel notunu silmek için: 1) **Defter (Notebook)** menüsünden "
+            "`/notes` sayfasını aç. 2) İlgili not kartındaki **İşlem** menüsünden "
+            "**Sil**'i seç. 3) Açılan onay penceresinde silme işlemini onayla. "
+            "Yalnızca kendi Defter notlarını silebilirsin."
+        ),
+        "auth_required": True,
+        "min_role": "veli",
+        "example_questions": [
+            "Kişisel bir not nasıl silinir?",
+            "Defterdeki bir notu kaldırmak istiyorum",
+            "Not kartını nasıl silebilirim?",
+            "Yanlış yazılan notu silme",
+            "Defterden not silme nerede?",
+        ],
+        "must_not_match": [
+            "note_create", "note_edit", "course_remove_student",
+            "exam_grade_student", "homework_grade", "staff_work_manage",
+        ],
     },
     # --- Mesai ---------------------------------------------------------------
     {
@@ -1152,11 +1614,14 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Kendi mesai giriş/çıkışı (Öğretmen/Yönetici).",
         "response_id": "work_checkin_instructions",
         "response_template": (
-            "Ön koşul: bu sayfa ADMIN hesabında bulunmaz. 1) `/work` "
-            "(Mesai) sayfasını aç. 2) 'Giriş yapılmadı' ise **Giriş yap (Check in)**; iş "
+            "Arayüzde `/work` bağlantısı Öğretmen/Yönetici hesabında görünür; ADMIN "
+            "navigasyonunda gösterilmez (backend Teacher+ kontrolü ADMIN çağrısını da "
+            "kabul eder). 1) `/work` (Mesai) sayfasını aç. 2) 'Giriş yapılmadı' ise "
+            "**Giriş yap (Check in)**; iş "
             "bitince **Çıkış yap (Check out)**. 3) **Son kayıtlar**'da giriş/çıkış/süre ve "
             "Açık/Kapalı durumunu görürsün. Saatler sunucu damgalıdır; aynı anda tek açık "
-            "mesai olabilir."
+            "mesai olabilir. 'Zaten giriş yaptın' hatasında önce açık kaydı **Çıkış "
+            "yap** ile kapat; 'giriş yapılmadı' hatasında çıkıştan önce **Giriş yap**."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -1208,7 +1673,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "oluştur (Create term)**. 2) **Ad**, **Başlangıç**, **Bitiş** (GG/AA/YYYY) gir; "
             "bitiş başlangıçtan önce olamaz (tarihler geçmişte olabilir). 3) **Oluştur**. "
             "Dersi döneme bağlamak, ders oluşturma/düzenleme formundaki **Dönem** seçicisinden "
-            "yapılır. Dönem silinince bağlı dersler silinmez, 'Atanmamış' olur."
+            "yapılır. Bir dönem herhangi bir ders veya şubeye bağlıysa silme işlemi "
+            "409 ile reddedilir; önce bu bağlantıları kaldırmalısın."
         ),
         "auth_required": True,
         "min_role": "yonetici",
@@ -1229,10 +1695,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "school_settings_instructions",
         "response_template": (
             "`/management/settings` (Okul ayarları) sayfasında "
-            "**Sınav türleri** (Ad + Ağırlık 1–100), **Yoklama durumları** (Var/Yok/Geç/"
-            "Mazeretli kilitlidir, silinemez), **Not bantları** (Alt sınır + Etiket) ve "
-            "**Not dosyası boyut sınırı** (0.001–25 MiB) yönetilir. **Satır ekle** ile ekle, "
-            "çöp kutusuyla sil, sonra **Kaydet**. Kaydet yalnızca değişiklik varken aktiftir."
+            "**Değerlendirme** sekmesinde sınav türü/ağırlığı, yoklama durumları ve "
+            "not bantları; **Yemekhane** sekmesinde rezervasyon kapanış süresi, öğün "
+            "saatleri ve beslenme etiketleri; **Sistem** sekmesinde not/dosya yükleme "
+            "limiti ile Çelebi sohbet geçmişi, konu ve mesaj limitleri yönetilir. "
+            "**Satır ekle** ile ekle, çöp kutusuyla sil, sonra **Kaydet**. Bu okul "
+            "geneli sayfa kişisel hesap/avatar **Ayarlar** penceresinden farklıdır."
         ),
         "auth_required": True,
         "min_role": "yonetici",
@@ -1260,7 +1728,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "menü pasif); değişiklik sonraki işlemde hemen geçerli olur.\n"
             "**Etkili kullanım:** kalabalık listede önce **arama/filtre** ile daralt; "
             "rolü yanlışlıkla düşürmemek için değişiklikten önce satırdaki adı teyit et. "
-            "Profil düzeltmek için kullanıcının satırından profiline geçip alanları güncelle."
+            "Kendi rolünü ve sistemdeki son ADMIN'in rolünü değiştiremezsin. Rol değişimi "
+            "ders kaydı/öğretmen ataması, randevu slotu, etkinlik kaydı ve beyaz tahta "
+            "üyelikleri gibi role bağlı ilişkileri etkileyebilir. Profil düzeltmek için "
+            "kullanıcının satırından profiline geçip alanları güncelle."
         ),
         "auth_required": True,
         "min_role": "admin",
@@ -1301,11 +1772,11 @@ INTENTS: Final[list[dict[str, Any]]] = [
     {
         "intent": "pomodoro_use",
         "category": "pomodoro",
-        "description": "Pomodoro odak oturumu başlatma/bitirme (tüm roller).",
+        "description": "Öğrencinin Pomodoro odak oturumu başlatması/bitirmesi.",
         "response_id": "pomodoro_instructions",
         "response_template": (
-            "Pomodoro, sunucu saatiyle damgalanan kişisel odak kaydıdır; giriş yapan "
-            "her kullanıcı kendi oturumunu tutabilir. 1) `/pomodoro` sayfasına git. "
+            "Pomodoro, sunucu saatiyle damgalanan ve yalnız **Öğrenci** hesabının "
+            "başlatabildiği kişisel odak kaydıdır. 1) `/pomodoro` sayfasına git. "
             "2) **Odağı başlat (Start focus)** ile oturumu aç — aynı anda tek açık "
             "oturum olabilir. 3) Çalışman bitince **Odağı bitir (Finish focus)**'a bas. "
             "Sayfada **Toplam odak** süreni ve **Son oturumlar** geçmişini görürsün; "
@@ -1355,9 +1826,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Mesajlar** (`/messages`), kullanıcılar arasında bire-bir, posta tarzı "
             "yazışma içindir. Sol menüden **Mesajlar**'ı aç: **Gelen kutusu**ndaki "
             "mesajları okuyabilir, mesajları **Arşiv**'e veya **Çöp**'e taşıyabilir, "
-            "yeni mesaj oluşturup konu + metin yazarak gönderebilirsin. Karşı tarafın "
-            "kopyası senin silmenden etkilenmez. (Bu bölüm yeni ekleniyor; arayüzün "
-            "son hâli sürüme göre değişebilir.)"
+            "yeni mesaj oluşturup konu + metin yazarak gönderebilirsin. Bir iletiyi "
+            "kalıcı silmek için önce **Çöp** klasörüne taşıyıp oradan sil; karşı tarafın "
+            "kopyası senin arşivleme/silme işlemlerinden etkilenmez. Kendine mesaj "
+            "gönderemezsin."
         ),
         "auth_required": True,
         "min_role": "veli",
@@ -1377,14 +1849,15 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "study_club_info_message",
         "response_template": (
             "**Etüt** ve **Kulüp**, dersin iki özel türüdür — ders altyapısının "
-            "aynısını kullanırlar (kayıt, oturum, yoklama, hatta sınav). Sol menüde "
-            "**Etüt** (`/studies`) ve **Kulüp** (`/clubs`) ayrı listeler olarak "
-            "görünür; oluştururken tür seçilir. Katılım ve yönetim kuralları dersle "
-            "aynıdır: Öğretmen+ oluşturur, öğrenci kaydolur; kontenjan (kapasite) "
-            "sınırı konabilir."
+            "aynısını kullanırlar (kayıt, oturum, yoklama, sınav). Ayrı sol menü "
+            "öğeleri değillerdir: **Eğitim/Dersler** (`/courses`) sayfasındaki "
+            "**Etüt** ve **Kulüp** filtrelerinden açılırlar; `/studies` ve `/clubs` "
+            "adresleri de bu filtreli listeye yönlendirir. Öğretmen+ oluşturur; "
+            "öğrenciyi ders yöneticisi roster üzerinden kaydeder, öğrenci kendi "
+            "kendine kaydolmaz. Kontenjan sınırı konabilir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Etüt nedir?",
             "Kulüp nasıl çalışıyor?",
@@ -1401,8 +1874,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "parent_role_info",
         "response_template": (
             "**Ne:** **Veli**, kendisine bağlanan öğrencileri **salt-okunur** izleyen "
-            "roldür: bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
-            "Mesajlar'ı kullanabilir. Veli hesabı sınava giremez, derse kaydolamaz ve "
+            "roldür: bağlı öğrencinin not/karnesini, yoklamasını, ödev raporunu, şube "
+            "üyeliklerini ve Pomodoro geçmişini görüntüleyebilir; Mesajlar'ı kullanabilir. "
+            "Veli ayrıca uygun randevuyu ve çocuğu için yemeği ayırabilir. Veli hesabı "
+            "sınava giremez, derse kaydolamaz ve "
             "yoklamada işaretlenmez — bu işlemler öğrenciye özeldir.\n"
             "**Nereden/nasıl:** Bağlı öğrencilerini **Çocuklarım** sayfasından "
             "(`/students`) görürsün; bir çocuğu seçip notlarına/karnesine ve "
@@ -1429,11 +1904,13 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Okul ücretleri/ödeme bilgisinin nerede görüleceği.",
         "response_id": "fees_info_message",
         "response_template": (
-            "Okul **ücretleri** ve ödeme bilgilerini menüdeki **Ücretler** "
-            "sayfasından görürsün; borç ve ödeme durumu burada listelenir."
+            "Kendi okul ücret ve ödeme ekstreni **Ücretlerim** (`/payments`) "
+            "sayfasından görürsün. Öğrencide kendi borç/ödeme durumu, Velide bağlı "
+            "çocuğu seçerek salt-okunur ekstre görünür. Okulun tahsilat yönetimi ise "
+            "ayrı `/management/payments` sayfasıdır."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Okul ücretlerini nereden görürüm?",
             "Ödeme bilgilerim nerede?",
@@ -1450,7 +1927,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Ne:** **Ödemeler** (`/management/payments`, Yönetici+) okulun ücret ve "
             "ödeme kayıtlarını yönettiğin sayfadır (öğrencilerin borç/tahsilat durumu).\n"
             "**Nereden/nasıl:** `/management/payments`'ı aç; öğrenci/döneme göre süz, "
-            "ödeme kaydını gör ve gerekli güncellemeleri yap.\n"
+            "ödeme kaydını gör; tahsilat, iade veya ters kayıt işlemini ilgili satırdan "
+            "yap. Defter satırları sonradan düzenlenip silinmez: düzeltmeler yeni "
+            "refund/reversal satırı ekleyerek append-only tutulur.\n"
             "**Not:** Bu yönetim sayfasıdır; öğrenci/velinin kendi **Ödeme ekstresi** "
             "ayrı sayfadır (`/payments`)."
         ),
@@ -1477,13 +1956,15 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "öğrenci ve ders bilgisini görürsün.\n"
             "**Etkili kullanım:** Şube, öğrencileri ve dersleri bir arada tutmanın yolu — "
             "bir derse toplu öğrenci alırken hangi şubede olduklarını buradan teyit et. "
-            "(Bir şubeye öğrenci alma/çıkarma işlemi ilgili dersin/şubenin listesinden yapılır.)"
+            "Şube oluşturma/düzenleme ve üye-ders bağlama Yönetici+ işlemidir; Teacher+ "
+            "listeyi okuyabilir. Öğrenci kendi üyeliğini profilindeki üyeliklerden, Veli "
+            "ise bağlı çocuğun ekranından görür. Üyesi veya bağlı dersi olan şube "
+            "silinemez; önce bağlantıları kaldırmak gerekir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "ogretmen",
         "example_questions": [
             "Şubeler sayfası nerede?",
-            "Hangi şubedeyim?",
             "Şube listesini nereden görürüm?",
             "Sınıflar kısmında ne yapabilirim?",
             "Şubeler ne işe yarar?",
@@ -1491,16 +1972,50 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": [],
     },
     {
+        "intent": "class_section_manage",
+        "category": "school",
+        "description": "Şube/sınıf grubu oluşturma, üye ve ders bağlantılarını yönetme.",
+        "response_id": "class_section_manage_instructions",
+        "response_template": (
+            "Şube yönetimi için **Şubeler** (`/management/classes`, Yönetici+) "
+            "sayfasını aç. **Şube oluştur** ile zorunlu sınıf adını; isteğe bağlı "
+            "sınıf düzeyi, dönem ve sınıf öğretmenini gir. Mevcut "
+            "şubenin detayında düzenleme/silme, öğrenci ekleme-çıkarma ve ders "
+            "bağlama-ayırma işlemleri vardır. Oluşturma formunda ayrı bir **kapasite** "
+            "alanı yoktur. Şubeye öğrenci eklemek bağlı derslere "
+            "kayıtları tek işlemde kurar; öğrenci zaten üyeyse, şube/ders kapasitesi "
+            "dolmuşsa veya bağlı ders bulunamazsa işlem 409 ile bütünüyle reddedilir. "
+            "Üyesi ya da bağlı dersi olan şube silinemez; önce ilişkileri kaldır. "
+            "Buradaki **şube/sınıf grubu**, `/courses` üzerindeki **ders oluşturma** "
+            "işleminden farklıdır."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Yeni bir şube nasıl oluştururum?",
+            "Sınıf grubu açmak istiyorum",
+            "Şubeye öğrenci nasıl eklenir?",
+            "Dersi bir şubeye nasıl bağlarım?",
+            "Şubeden öğrenciyi çıkarmak istiyorum",
+            "Bağlı dersi olan şubeyi neden silemiyorum?",
+        ],
+        "must_not_match": [
+            "branches_info", "course_create", "course_enroll_student",
+            "course_remove_student",
+        ],
+    },
+    {
         "intent": "calendar_info",
         "category": "general",
-        "description": "Takvim / haftalık ders programı sayfası.",
+        "description": "Aylık Takvim sayfası ve birleşik plan öğeleri.",
         "response_id": "calendar_info_message",
         "response_template": (
-            "**Takvim** sayfasında etkinlikler, ders oturumları ve haftalık "
-            "**program** takvim görünümünde listelenir; günlere göre planı buradan izlersin."
+            "**Takvim** (`/calendar`) aylık görünümde sınav, ödev, etkinlik, randevu "
+            "ve ders oturumlarını birleştirir. **Bugün** düğmesiyle geçerli aya/güne "
+            "dönebilir, bir günü seçerek o günün ayrıntılarını görebilirsin."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Takvim sayfasını nasıl açarım?",
             "Haftalık ders programım nerede?",
@@ -1517,8 +2032,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Bugün** panelinde günün özeti bir arada görünür: yaklaşan sınavlar, "
             "ödevler ve etkinlikler tek ekranda listelenir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Bugün panelinde neleri görürüm?",
             "Bugün paneli ne işe yarar?",
@@ -1535,8 +2050,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Soru bankası**, öğretmenlerin hazır soru şablonlarını saklayıp "
             "sınavlara eklediği depodur; tekrar kullanılabilir sorular burada tutulur."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "ogretmen",
         "example_questions": [
             "Soru bankası ne işe yarar?",
             "Soru bankası nerede?",
@@ -1545,20 +2060,64 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["exam_add_question", "parent_info"],
     },
     {
+        "intent": "question_bank_manage",
+        "category": "exams",
+        "description": "Soru bankası şablonlarını oluşturma, paylaşma, düzenleme ve silme.",
+        "response_id": "question_bank_manage_instructions",
+        "response_template": (
+            "**Soru bankası** (`/question-bank`) Öğretmen+ içindir. **Soru oluştur** "
+            "ile yönetebildiğin dersi ve o dersin konusunu seç; soru türü, metin, "
+            "puan, seçenek/doğru cevap ve isteğe bağlı görselleri kaydet. Yeni şablon "
+            "daima **Yalnız ben** (private) doğar; **Okulla paylaşılan** görünürlüğüne "
+            "geçişte onay istenir. Paylaşımı sonradan private'a alsan bile daha önce "
+            "sınavlara kopyalanmış sorular geri silinmez. Listeyi sahip, konu, görünürlük "
+            "ve metinle süzebilirsin. Öğretmen ve Yönetici kendi şablonunu düzenleyip "
+            "siler; ADMIN okul kapsamındaki bütün şablonları yönetebilir. Başka bir "
+            "öğretmenin private şablonu 404 ile gizlenir; okulla paylaşılan şablonu "
+            "görebilsen de sahibi/ADMIN değilsen değiştirme 403'tür. Konu köken "
+            "bilgisidir: silinirse şablonda boşalır; şablonu sınava eklerken hedef "
+            "sınavın dersinden bir konu seçmek gerekir. Şablonu silmek, ondan daha önce "
+            "üretilmiş bağımsız sınav sorularını silmez. Eşzamanlı güncelleme sürekli "
+            "çakışırsa 409 ile yeniden okuma/deneme istenir."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Soru bankasına yeni soru şablonu nasıl eklerim?",
+            "Bankadaki kendi sorumu nasıl düzenlerim?",
+            "Soru şablonunu okulla paylaşmak istiyorum",
+            "Başka öğretmenin banka sorusunu silebilir miyim?",
+            "Şablonun konusu silinirse ne olur?",
+            "Banka sorusunu silince sınavdaki kopyası da silinir mi?",
+        ],
+        "must_not_match": [
+            "question_bank_info", "exam_add_question", "question_ask",
+            "question_solve", "question_approve", "course_subject_manage",
+        ],
+    },
+    {
         "intent": "notification_settings_info",
         "category": "account",
-        "description": "Bildirim ayarlarının nereden değiştirileceği.",
+        "description": "Üst bardaki Bildirim Merkezi; ayrı tercih ekranı yok.",
         "response_id": "notification_settings_message",
         "response_template": (
-            "**Bildirim** tercihlerini ayarlar bölümünden düzenleyebilirsin; hangi "
-            "olaylarda bildirim alacağını buradan seçer veya kapatırsın."
+            "Şu an bildirimleri olay türüne göre açıp kapatan veya ses/e-posta tercihi "
+            "sunan ayrı bir ayar ekranı yok. Üst bardaki **zil** simgesi Bildirim "
+            "Merkezi'ni açar; mesaj, etkinlik, sınav ve ödev bildirimlerini burada "
+            "görürsün. Bir bildirimi **× / Sil** ile kapatabilir ya da **Tümünü sil** "
+            "ile listeyi temizleyebilirsin. Bildirime basmak ilgili sayfayı açar; mesaj "
+            "bildirimi ayrıca okundu olarak işaretlenir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Bildirim ayarlarını nereden değiştiririm?",
             "Bildirimleri nasıl kapatırım?",
             "Bildirim tercihleri nerede?",
+            "Bildirimleri tek tek nasıl silerim?",
+            "Tüm bildirimleri nasıl temizlerim?",
+            "E-posta bildirimini açabilir miyim?",
+            "Bildirim sesi kapatılıyor mu?",
         ],
         "must_not_match": ["school_settings", "language_theme"],
     },
@@ -1568,14 +2127,15 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "description": "Menü bölümlerinin genel özeti (hangi bölümde ne var).",
         "response_id": "nav_overview_message",
         "response_template": (
-            "Sol menü şu bölümlerden oluşur: **Bugün**; **Eğitim** (Takvim); "
-            "**Akademik** (Ödevler, Sınavlar, Soru bankası); **Planlama** "
-            "(Etkinlikler, Randevular); **Çalışma alanı** (Defter, Beyaz tahtalar); "
-            "**Öğrenci yönetimi** (Şubeler, Öğrenci notları/yoklamaları); **Okul "
-            "hizmetleri** (Yemekler); **Topluluk** (Mesajlar, Soru havuzu); **Okul "
-            "yönetimi** / Yönetim (Personel mesaisi); **Ayarlar** (Dönemler, "
-            "Ücretler, Kullanıcılar). **ADMIN** ek olarak kullanıcı ve rol "
-            "yönetimi yapar. Hangi bölümü açmak istediğini yazarsan yolunu veririm."
+            "Sol menüde rolüne göre şu gruplar görünür: **Dersler** (Dersler, Ödevler, "
+            "Sınavlar, Soru bankası, öğrencide Karnem); **Planlama** (Etkinlikler, "
+            "Takvim, Randevular); **Çalışma alanı** (Defter, Beyaz tahtalar, öğrencide "
+            "Pomodoro, personelde Mesai); **Öğrenciler** (Çocuklarım veya Şubeler, "
+            "Öğrenci notları/yoklaması/pomodoroları); **Hizmetler** (Yemekler, uygun "
+            "rolde Ücretler); **Topluluk** (Mesajlar, Soru havuzu); **Okul** (Personel "
+            "mesai, okul ayarları, dönemler, ödemeler ve ADMIN'de Kullanıcılar). "
+            "**Profilim**, kişisel **Ayarlar** ve **Rehber** hesap menüsündedir; yetkin "
+            "olmayan öğeler gizlenir."
         ),
         "auth_required": False,
         "min_role": "ziyaretci",
@@ -1595,10 +2155,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_id": "event_view_message",
         "response_template": (
             "Okuldaki **etkinlikleri** menüdeki **Etkinlikler** (`/events`) "
-            "sayfasından görürsün; yaklaşan ve katılacağın etkinlikler burada listelenir."
+            "sayfasından görürsün. Backend oturumlu kullanıcıya yalnız kendi katılacağı "
+            "etkinlikleri değil, okulun etkinlik listesini döndürür; audience alanı "
+            "beklenen katılımcıyı belirtir, görünürlük filtresi değildir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Etkinlikleri nerede görürüm?",
             "Etkinlikler sayfası nerede?",
@@ -1615,8 +2177,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Sınav** takvimini ve **tarih**lerini **Sınavlar** (`/exams`) "
             "sayfasından görürsün; yaklaşan sınavların tarihleri burada listelenir."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "veli",
         "example_questions": [
             "Sınav tarihleri nerede yazıyor?",
             "Sınav takvimimi nereden görürüm?",
@@ -1633,8 +2195,8 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Öğretmenin yüklediği **ders notları** ve **PDF/dosya**lar ilgili "
             "dersin sayfasındadır: **Dersler** (`/courses`) → ders → Ders notları."
         ),
-        "auth_required": False,
-        "min_role": "ziyaretci",
+        "auth_required": True,
+        "min_role": "ogrenci",
         "example_questions": [
             "Ders notları nerede?",
             "Öğretmenin yüklediği PDF nerede?",
@@ -1654,6 +2216,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "bölümünden uygun saati seç, **Randevu al**'a bas. Talebin "
             "**Randevularım** altında görünür ve öğretmen onayına düşer. Randevu "
             "alma yalnızca Öğrenci ve Veli'ye açıktır."
+            " Veli randevuyu çocuğu adına değil kendi requester hesabıyla alır. Slot "
+            "başlamış/doluysa, aynı saatte başka randevun varsa veya öğretmen artık "
+            "uygun rolde değilse 409 alırsın. İptali yalnız talebi açan kullanıcı yapar; "
+            "öğretmenin önerdiği yeni saati **Kabul et/Reddet** ile yanıtlayabilirsin."
         ),
         "auth_required": True,
         "min_role": "veli",
@@ -1675,7 +2241,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "**Randevular** (`/appointments`) → **Açtığım "
             "saatler** bölümünde **Saat aç** (veya **Yeni saat**) ile müsait "
             "randevu saati yayınla. Öğrenci ve veliler bu saatlerden randevu talep "
-            "eder; gelen talepleri **Randevu talepleri**'nden yönetirsin."
+            "eder; gelen talepleri **Randevu talepleri**'nden yönetirsin. Pending veya "
+            "onaylı randevusu bulunan tekil saat/tekrarlı seri silinemez; önce talebin "
+            "durumunu çözmelisin."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -1696,8 +2264,10 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_template": (
             "**Randevular** (`/appointments`) → **Randevu "
             "talepleri** bölümünde gelen talepleri görürsün; her talepte **Onayla** "
-            "ile kabul et (gerekirse reddet). Onaylanan randevu, ilgili öğrenci/"
-            "velinin **Randevularım**'ında görünür."
+            "ile kabul et (gerekirse reddet) veya **Başka saat öner**. Onaylanan "
+            "randevu, ilgili öğrenci/velinin **Randevularım**'ında görünür. Karşı saati "
+            "requester kabul/reddeder; eski ya da artık geçerli olmayan teklife basmak "
+            "409 verir. Öğretmen/Yönetici randevuyu requester adına iptal edemez."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -1742,7 +2312,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Yemek için yer ayırmak üzere **Yemekler** (`/meals`) → ilgili menü/"
             "öğüne gir, **Yer ayır**'a bas. Rezervasyonun **Rezerve edildi** olarak "
             "görünür; **Rezervasyonu iptal et** ile geri alabilirsin. Yer ayırma "
-            "Öğrenci (kendisi) ve Veli'ye (bağlı çocuğu) açıktır."
+            "Öğrenci (kendisi) ve Veli'ye (bağlı çocuğu) açıktır. Geçmiş tarih, iptal "
+            "eşiği, doluluk, yeniden-rezervasyon tavanı veya eşzamanlı değişiklik 409 "
+            "üretebilir; sayfayı yenileyip güncel kapasite ve son saati kontrol et."
         ),
         "auth_required": True,
         "min_role": "veli",
@@ -1756,15 +2328,50 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "must_not_match": ["meal_view", "meal_menu_manage"],
     },
     {
+        "intent": "meal_service_mark",
+        "category": "meals",
+        "description": "Yemekte Servis edildi/Gelmedi kaydı tutma (Öğretmen+).",
+        "response_id": "meal_service_mark_instructions",
+        "response_template": (
+            "**Yemekler** (`/meals`) → ilgili menü detayı (`/meals/$id`) → "
+            "**Servis kaydı** sekmesine git. Öğrenci/personel satırında **Servis "
+            "edildi** veya **Gelmedi** seç; rezervasyonsuz gelen biri için arama "
+            "alanından hesabı seçip **Servis edildi** de. Bu kayıt Öğretmen, Yönetici "
+            "ve ADMIN'e açıktır; öğrenci kendi kaydını işaretleyemez. Aynı menü+kişi "
+            "için tek satır vardır, yeniden işaretlemek mevcut durumu düzeltir. "
+            "Rezervasyon zorunlu değildir ve hedef mevcut herhangi bir kullanıcı "
+            "olabilir; geçersiz durum veya kullanıcı 400, olmayan menü 404 verir. "
+            "Servis kaydı **parayı değiştirmez**: rezerve olup gelmeyen kişi yine "
+            "ücretlendirilir, rezervasyonsuz servis edilen kişiye sırf bu işaretle "
+            "ücret yazılmaz. Öğretmen yalnız kaydedilmiş servis satırlarını görür; "
+            "Yönetici/ADMIN rezervasyon denetimini de birleşik listede görür."
+        ),
+        "auth_required": True,
+        "min_role": "ogretmen",
+        "example_questions": [
+            "Yemek servisinde öğrenciyi servis edildi nasıl işaretlerim?",
+            "Öğrenci yemeğe gelmedi kaydı nereden tutulur?",
+            "Rezervasyonsuz gelen kişiyi nasıl servis listesine eklerim?",
+            "Servis kaydını yanlış işaretledim düzeltebilir miyim?",
+            "Gelmedi işareti öğrencinin ücretini geri alır mı?",
+            "Öğrenci kendi yemek yoklamasını işaretleyebilir mi?",
+        ],
+        "must_not_match": [
+            "event_attendance_mark", "meal_book", "meal_view",
+            "meal_menu_manage", "meal_dietary_profile_manage",
+        ],
+    },
+    {
         "intent": "meal_menu_manage",
         "category": "meals",
-        "description": "Menü/öğün/kredi yönetimi (Yönetici+).",
+        "description": "Menü/öğün ve yemek içeriklerini yönetme (Yönetici+).",
         "response_id": "meal_menu_instructions",
         "response_template": (
             "**Yemekler** (`/meals`) → **Menü yayınla** ile "
-            "yeni menü/öğün oluştur, **Yemek ekle** ile öğüne yemek ekle. Öğrenci "
-            "**Kredi** yönetimi için **Kredi kaydet** kullanılır. Menü ve kredi "
-            "yönetimi yalnızca Yönetici ve ADMIN'e açıktır."
+            "yeni menü/öğün oluştur, **Yemek ekle** ile öğüne yemek ekle; menü ve "
+            "yemek içeriği yönetimi Yönetici+ içindir. Öğrencinin güvenlik kaydı olan "
+            "**Beslenme profili** ayrı bir işlemdir; **Kredi kaydetme** ise yalnız "
+            "ADMIN hesabında görünür."
         ),
         "auth_required": True,
         "min_role": "yonetici",
@@ -1772,24 +2379,87 @@ INTENTS: Final[list[dict[str, Any]]] = [
             "Menü nasıl yayınlarım?",
             "Yeni menü oluşturmak istiyorum",
             "Öğüne yemek eklemek istiyorum",
+            "Yemek menüsünü nasıl düzenlerim?",
+            "Menü kapasitesini nasıl değiştiririm?",
+        ],
+        "must_not_match": [
+            "meal_book", "meal_view", "meal_credit_manage",
+            "meal_service_mark", "meal_dietary_profile_manage",
+        ],
+    },
+    {
+        "intent": "meal_dietary_profile_manage",
+        "category": "meals",
+        "description": "Öğrencinin beslenme/alerji profilini yazma (Yönetici/ADMIN).",
+        "response_id": "meal_dietary_profile_manage_instructions",
+        "response_template": (
+            "Öğrencinin okul tarafından tutulan beslenme kaydını değiştirmek için "
+            "**Yemekler** (`/meals`) → bir menü detayı → **Yönet** → **Öğrenci "
+            "kaydı** bölümünde öğrenciyi seç. Okul ayarlarındaki sözlükten alerji/"
+            "beslenme etiketlerini işaretle, gerekirse en fazla 500 karakterlik "
+            "**Mutfak notu** yaz ve **Kaydet**. Bu güvenlik kaydına yalnız Yönetici "
+            "ve ADMIN yazabilir; Öğretmen okuyabilir, Öğrenci kendi ve Veli bağlı "
+            "çocuğunun profilini görebilir fakat hiçbiri değiştiremez. Etiket listesi "
+            "en fazla 10 öğedir ve tamamı okulun `dietary_tags` sözlüğünde bulunmalıdır; "
+            "bilinmeyen/fazla etiket, uzun not veya öğrenci olmayan hedef 400, olmayan "
+            "kullanıcı 404 verir. Boş etiket listesi 'bilinen kısıt yok' demektir; "
+            "boş/null mutfak notu mevcut notu temizler. Menüdeki çakışma uyarıları bu "
+            "profil ile yemek etiketlerinin kesişiminden hesaplanır."
+        ),
+        "auth_required": True,
+        "min_role": "yonetici",
+        "example_questions": [
+            "Öğrencinin beslenme profilini nasıl güncellerim?",
+            "Alerji etiketlerini öğrenciye nereden eklerim?",
+            "Mutfak notunu temizlemek istiyorum",
+            "Öğretmen beslenme profilini değiştirebilir mi?",
+            "Bilinmeyen dietary tag hatası neden geliyor?",
+            "Öğrenci kendi alerji kaydını düzenleyebilir mi?",
+        ],
+        "must_not_match": [
+            "meal_menu_manage", "meal_service_mark", "meal_view",
+            "school_settings", "meal_credit_manage",
+        ],
+    },
+    {
+        "intent": "meal_credit_manage",
+        "category": "meals",
+        "description": "Öğrenci yemek kredisi kaydetme (yalnız ADMIN).",
+        "response_id": "meal_credit_instructions",
+        "response_template": (
+            "Öğrenci yemek kredisi yalnız **ADMIN** tarafından kaydedilebilir. "
+            "`/meals` sayfasından bir öğün detayını aç, öğrenci hesabını seç ve **Hizmet** "
+            "sekmesindeki **Kredi kaydet** bölümünde tutar (isteğe bağlı yöntem/not) girip "
+            "onayla. Kredi kaydı seçili öğüne bağlı değildir; öğrencinin append-only yemek "
+            "hesabına işlenir. Yönetici menü ve beslenme "
+            "profillerini düzenleyebilir ancak kredi kaydetme kontrolü onda görünmez."
+        ),
+        "auth_required": True,
+        "min_role": "admin",
+        "example_questions": [
+            "Öğrenciye yemek kredisi nasıl eklerim?",
             "Yemek kredisi nasıl kaydedilir?",
             "Kredi kaydetme nerede?",
+            "Öğrencinin yemek bakiyesine kredi yüklemek istiyorum",
+            "Yönetici yemek kredisi ekleyebilir mi?",
         ],
-        "must_not_match": ["meal_book", "meal_view"],
+        "must_not_match": ["meal_menu_manage", "meal_book", "fees_manage"],
     },
     # --- Soru havuzu (T1; frontend /questions "Soru havuzu"; sınav "Soru
     # bankası"/question-bank'ten AYRI. Veli havuzdan hariç) --------------------
     {
         "intent": "question_ask",
         "category": "questions",
-        "description": "Soru havuzuna soru sorma (Öğrenci+, Veli hariç).",
+        "description": "Soru havuzuna soru sorma (yalnız Öğrenci).",
         "response_id": "question_ask_instructions",
         "response_template": (
             "**Topluluk** grubundaki **Soru havuzu** (`/questions`) sayfasına git. "
             "**Soru sor**'a bas; **Konu**, **Soru detayı** ve isteğe bağlı **Görsel** "
             "ekleyip gönder. Sorun önce **Bekliyor** durumundadır; bir öğretmen "
-            "onaylayınca **Onaylandı** olur ve herkese görünür. Soru havuzu Öğrenci "
-            "ve üstüne açıktır (Veli hariç)."
+            "onaylayınca **Onaylandı** olur ve havuza erişebilen Öğrenci/Öğretmen/"
+            "Yönetici/ADMIN hesaplarına görünür. Yeni soru sorma yalnız exact "
+            "**Öğrenci** rolündedir; personel soru çözebilir/modere edebilir ama öğrenci "
+            "adına yeni soru soramaz. Veli soru havuzuna erişemez."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -1831,7 +2501,9 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_template": (
             "**Soru havuzu** (`/questions`) → soru detayında "
             "**Onayla** ile bekleyen soruyu yayınla, gerekirse **Reddet**. Onaylanan "
-            "soru **Onaylandı** olur ve herkese görünür. Onaylama Öğretmen ve üstüne açıktır."
+            "soru **Onaylandı** olur ve havuza erişen rollere görünür. **Reddet**, soru "
+            "kaydıyla birlikte çözümleri ve görselleri kalıcı olarak siler; onaylamadan "
+            "önce içeriği kontrol et. Moderasyon Öğretmen ve üstüne açıktır."
         ),
         "auth_required": True,
         "min_role": "ogretmen",
@@ -1875,8 +2547,12 @@ INTENTS: Final[list[dict[str, Any]]] = [
         "response_template": (
             "Yeni beyaz tahta için **Beyaz tahtalar** (`/whiteboards`) → **Yeni tahta** "
             "ile **Başlık** gir, isteğe bağlı **Katılımcılar** ekle, oluştur. Tahta "
-            "içinde **Kilitle/Kilidi aç**, **Temizle** ve **Tahtayı kapat** kontrolleri "
-            "vardır; Öğretmen+ **Toplu davet** ile sınıf/etkinlik katılımcısı çağırabilir."
+            "içinde **Kilitle/Kilidi aç**, **Temizle**, **Tahtayı kapat** ve silme "
+            "kontrolleri yalnız oluşturucudadır; kapatma kalıcı salt-okunur durumdur ve "
+            "yeniden açma yoktur. Boş/kilitli/kapalı tahtayı temizleme 409 verebilir. "
+            "Öğretmen+ **Toplu davet** ile sınıf, ders veya etkinlik katılımcısı "
+            "çağırabilir; kapasite aşılırsa toplu ekleme bütünüyle reddedilir. Tahtayı "
+            "silmek çizim geçmişini de kalıcı siler."
         ),
         "auth_required": True,
         "min_role": "ogrenci",
@@ -1896,6 +2572,18 @@ INTENTS: Final[list[dict[str, Any]]] = [
 # Ortak kelimeleri (bugün, menü, program, panel...) IDF'i kirletip OOS ayrımını
 # bozuyordu; sayfa-arama/bölüm-özeti intent'leri deterministik kuralla kapsanır.
 RULE_ONLY_INTENTS: Final[frozenset[str]] = frozenset({
+    # Defter CRUD eylemleri kısa ve yüksek-kesinlikli kurallarla ayrılır. Özellikle
+    # "silmek/değiştirmek" ortak kalıplarının başka intent'lerin n-gram skorunu
+    # şişirmesine izin verilmez.
+    "note_edit", "note_delete", "note_import_ocr", "note_file_manage",
+    "personal_settings", "technical_error_help",
+    "upload_problem", "chatbot_service_problem",
+    # Yakın CRUD alanları aynı kelimeleri paylaşır (not/dosya/konu/ödev/menü/soru).
+    # Bunları yalnız yüksek-kesinlikli eylem kuralları tetikler; bilgi intent'lerinin
+    # örnekleriyle similarity'de birbirine kaymalarına izin verilmez.
+    "course_subject_manage", "course_note_manage", "course_teacher_manage",
+    "homework_withdraw_submission", "homework_manage",
+    "meal_service_mark", "meal_dietary_profile_manage", "question_bank_manage",
     "fees_info", "fees_manage", "branches_info", "calendar_info", "today_info",
     "question_bank_info", "notification_settings_info", "nav_overview",
     "event_view", "exam_schedule_info", "course_materials_info",
@@ -1911,9 +2599,10 @@ RULE_ONLY_INTENTS: Final[frozenset[str]] = frozenset({
 FALLBACK: Final[dict[str, str]] = {
     "response_id": "fallback_clarification",
     "response_template": (
-        "Bu isteği tam anlayamadım. Hezarfen'de ders, sınav, karne, yoklama, defter, "
-        "mesai veya hesap ayarları hakkında 'nasıl yaparım?' tarzında daha açık bir "
-        "soru sorabilir misin?"
+        "Bu isteği tam anlayamadım. Hezarfen'de profil/ayarlar, ders/şube, sınav, "
+        "ödev, karne/yoklama, Defter, randevu, yemek/ödeme, Mesajlar veya dosya ve "
+        "hata sorunları hakkında daha açık yazabilir misin? Örneğin sayfayı, bastığın "
+        "düğmeyi ve varsa hata metnini söyle: 'Ödev dosyam 413 veriyor' gibi."
     ),
 }
 
@@ -1938,15 +2627,23 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "logout_how": None,
     "session_info": None,
     "account_access_problem": "/login",
-    "profile_edit": "/profile",
+    "profile_view": "/profile/me",
+    "profile_edit": "/profile/me",
+    "personal_settings": None,
     "language_theme": None,
     "roles_permissions": None,
     "access_denied_help": None,
+    "technical_error_help": None,
+    "upload_problem": None,
+    "chatbot_service_problem": None,
     "navigation_help": "/",
     "course_view": "/courses",
     "course_create": "/courses",
     "course_enroll_student": "/courses",
     "course_remove_student": "/courses",
+    "course_subject_manage": "/courses",
+    "course_note_manage": "/courses",
+    "course_teacher_manage": "/courses",
     "lesson_session_add": "/courses",
     "roll_call": "/courses",
     "exam_modes_info": None,
@@ -1960,7 +2657,9 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "exam_live_monitor": "/exams",
     "homework_view": "/homework",
     "homework_submit": "/homework",
+    "homework_withdraw_submission": "/homework",
     "homework_assign": "/homework",
+    "homework_manage": "/courses",
     "homework_grade": "/homework",
     "report_card_view": "/marks",
     "weighted_average_info": "/marks",
@@ -1970,7 +2669,11 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "event_attendance_mark": "/events",
     "student_attendance_lookup": "/management/student-attendance",
     "event_create": "/events",
+    "note_import_ocr": "/notes",
+    "note_file_manage": "/notes",
     "note_create": "/notes",
+    "note_edit": "/notes",
+    "note_delete": "/notes",
     "work_checkin_out": "/work",
     "staff_work_manage": "/management/staff-work",
     "term_manage": "/management/terms",
@@ -1986,9 +2689,11 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "fees_info": "/payments",
     "fees_manage": "/management/payments",
     "branches_info": "/management/classes",
+    "class_section_manage": "/management/classes",
     "calendar_info": "/calendar",
     "today_info": "/",
     "question_bank_info": "/question-bank",
+    "question_bank_manage": "/question-bank",
     "notification_settings_info": None,
     "nav_overview": None,
     "event_view": "/events",
@@ -2000,7 +2705,10 @@ INTENT_ROUTES: Final[dict[str, str | None]] = {
     "appointment_requests": "/appointments",
     "meal_view": "/meals",
     "meal_book": "/meals",
+    "meal_service_mark": "/meals",
     "meal_menu_manage": "/meals",
+    "meal_dietary_profile_manage": "/meals",
+    "meal_credit_manage": "/meals",
     "question_ask": "/questions",
     "question_solve": "/questions",
     "question_approve": "/questions",
@@ -2024,7 +2732,7 @@ ROUTE_LABELS: Final[dict[str, str]] = {
     "/marks": "Karnem",
     "/attendance": "Yoklama",
     "/notes": "Defter",
-    "/profile": "Profili düzenle",
+    "/profile/me": "Profilim",
     "/guide": "Rehber",
     "/work": "Mesai",
     "/management/student-marks": "Öğrenci notları",
@@ -2062,17 +2770,18 @@ def route_for(intent_name: str) -> tuple[str, str] | None:
 ROLE_CAPABILITIES: Final[dict[str, str]] = {
     "veli": (
         "Veli olarak, sana bağlanan öğrencilerin **salt-okunur gözlemcisisin**: "
-        "bağlı öğrencinin notlarını/karnesini ve yoklamasını görüntüleyebilir, "
-        "etkinlikleri ve dersleri izleyebilirsin. Veli hesabı sınava giremez, derse "
-        "kaydolamaz ve yoklamada işaretlenmez — bunlar öğrenciye özeldir. "
-        "Öğrenci bağlantısını ADMIN yapar. Kendi profilini düzenleyebilir ve "
-        "Mesajlar'ı kullanabilirsin."
+        "bağlı öğrencinin not/karnesini, yoklamasını, ödev raporunu, şube üyeliğini "
+        "ve Pomodoro geçmişini görüntüleyebilirsin. Bağlı çocuk için yemek ayırabilir, "
+        "kendi hesabınla randevu alabilir ve ödeme ekstresini okuyabilirsin. Veli "
+        "sınava giremez, soru havuzunu kullanamaz ve öğrenci işlemlerini yapamaz. "
+        "Öğrenci bağlantısını ADMIN kurar; kendi profilin, Defter ve Mesajlar sana açıktır."
     ),
     "ogrenci": (
-        "Öğrenci olarak şunları yapabilirsin: derslere kaydolmak ve sınavlara girmek "
-        "(**Sınav odası**), notlarını **Karnem**'de ağırlıklı ortalamayla görmek, "
-        "**Yoklama** raporunu takip etmek, kişisel **Defter** tutmak, etkinliklerde "
-        "kendi katılımını işaretlemek ve profilini düzenlemek. "
+        "Öğrenci olarak kayıtlı olduğun dersleri görüp sınavlara girebilir, ödev teslim "
+        "edebilir ve yalnız sana açık **Pomodoro**'yu kullanabilirsin. Notlarını "
+        "**Karnem**'de, devamını **Yoklama**'da izler; Defter, Mesajlar, Soru havuzu "
+        "ve Beyaz tahtaları kullanırsın. Derse kaydı ve etkinlik yoklamasını okul "
+        "personeli yapar; kendi katılımını kendin işaretleyemezsin. "
         "Örneğin 'karnemi nerede görürüm' ya da 'sınava nasıl girerim' diye sorabilirsin."
     ),
     "ogretmen": (
@@ -2083,15 +2792,18 @@ ROLE_CAPABILITIES: Final[dict[str, str]] = {
         "Örneğin 'sınav nasıl oluşturulur' ya da 'yoklama nasıl alınır' diye sorabilirsin."
     ),
     "yonetici": (
-        "Yönetici olarak öğretmenin tüm yetkilerine ek olarak: **her dersi/etkinliği "
-        "düzenleyip silmek** (başkasınınki dâhil), **Okul ayarlarını** ve **Dönemleri** "
-        "yönetmek, **Personel mesaisini** görüp düzeltmek. "
+        "Yönetici olarak okul genelindeki ders, etkinlik, şube, dönem, ayar, ödeme ve "
+        "personel mesaisi işlemlerini yönetirsin. Yetki modeli saf miras değildir: "
+        "yalnız Öğrenciye açık sınav odası/Pomodoro/yeni havuz sorusu gibi işlemleri "
+        "üst rol olduğun için yapamazsın. "
         "Örneğin 'okul ayarları nerede' ya da 'dönem nasıl oluşturulur' diye sorabilirsin."
     ),
     "admin": (
-        "ADMIN olarak yöneticinin tüm yetkilerine ek olarak: **kullanıcı rollerini "
-        "değiştirmek** (kendi rolün hariç) ve herhangi bir kullanıcının profilini "
-        "düzenlemek. Not: ADMIN'de kişisel mesai kaydı yoktur. "
+        "ADMIN olarak okul yönetimine ek **kullanıcı rollerini değiştirebilir** (kendi "
+        "rolün ve son ADMIN hariç), veli–öğrenci bağlantılarını ve kullanıcı "
+        "profillerini yönetebilirsin. Exact-role öğrenci işlemleri ADMIN'e açılmaz. "
+        "Arayüz ADMIN menüsünde kişisel Mesai bağlantısını göstermese de backend'in "
+        "Teacher+ work endpoint'i ADMIN isteğini teknik olarak kabul eder. "
         "Örneğin 'kullanıcı rolü nasıl değiştirilir' diye sorabilirsin."
     ),
 }

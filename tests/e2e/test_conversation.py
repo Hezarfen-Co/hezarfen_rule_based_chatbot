@@ -57,7 +57,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
     ]),
     ("v03_hesap_sorunu", "ziyaretci", [
         ("yeni hesap açmak istiyorum", {"i": "register_how"}),
-        ("giremiyorum", {"i": "account_access_problem"}),
+        ("hesabıma giremiyorum", {"i": "account_access_problem"}),
         ("görüşürüz", {"i": "farewell"}),
     ]),
     ("v04_rol_merak", "ziyaretci", [
@@ -140,7 +140,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
     ]),
     ("o03_sifre_sorunu", "ogrenci", [
         ("şifremi unuttum", {"i": "account_access_problem"}),
-        ("giremiyorum", {"i": "account_access_problem"}),
+        ("hesabıma giremiyorum", {"i": "account_access_problem"}),
         ("teşekkürler", {"i": "thanks"}),
     ]),
     ("o04_devamsizlik", "ogrenci", [
@@ -712,7 +712,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
     ]),
     ("o39_defter_detay", "ogrenci", [
         ("yeni not oluşturmak istiyorum", {"i": "note_create"}),
-        ("deftere dosya ekleyebilir miyim", {"i": "note_create"}),
+        ("deftere dosya ekleyebilir miyim", {"i": "note_file_manage"}),
         ("çok sağol", {"i": "thanks"}),
     ]),
     ("o40_erisim_sifre", "ogrenci", [
@@ -793,7 +793,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
     ("o55_uzun_sorun_cozme", "ogrenci", [  # uzun oturum (7 mesaj)
         ("merhaba", {"i": "greeting"}),
         ("şifremi unuttum", {"i": "account_access_problem"}),
-        ("giremiyorum", {"i": "account_access_problem"}),
+        ("hesabıma giremiyorum", {"i": "account_access_problem"}),
         ("tamam", {"fb": True}),
         ("sınav odasına nasıl girerim", {"i": "exam_enter_room"}),
         ("cevabımı nasıl kaydederim", {"i": "exam_save_answer"}),
@@ -883,7 +883,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
     # ------------------------- ÖĞRETMEN (30) --------------------------------
     ("t31_ders_sinif", "ogretmen", [
         ("ders açmak istiyorum", {"i": "course_create"}),
-        ("sınıf oluşturmak istiyorum", {"i": "course_create"}),
+        ("sınıf oluşturmak istiyorum", {"i": "class_section_manage"}),
         ("çok sağol", {"i": "thanks"}),
     ]),
     ("t32_oturum_yoklama", "ogretmen", [
@@ -1002,7 +1002,7 @@ CONVERSATIONS: list[tuple[str, str, list[tuple[str, dict]]]] = [
         ("görüşürüz", {"i": "farewell"}),
     ]),
     ("t55_sinif_yonetimi", "ogretmen", [
-        ("sınıf oluşturmak istiyorum", {"i": "course_create"}),
+        ("sınıf oluşturmak istiyorum", {"i": "class_section_manage"}),
         ("dersime öğrenci kaydetmek istiyorum", {"i": "course_enroll_student"}),
         ("öğrenciyi dersten çıkarmak istiyorum", {"i": "course_remove_student"}),
         ("çok sağol", {"i": "thanks"}),

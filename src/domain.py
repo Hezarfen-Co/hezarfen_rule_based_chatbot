@@ -21,6 +21,96 @@ from .normalize import folded_tokens
 
 _MIN_TOKEN_LEN: Final[int] = 3
 
+# Hezarfen işlevleriyle ilgisi olmayan, yanlış n-gram benzerliği üretmesi bilinen
+# konu kökleri. Bu kapı hem düşük-seviye değerlendirmede hem kullanıcı motorunda
+# aynı OOS sözleşmesini korur.
+FAR_OOS_TOPICS: Final[frozenset[str]] = frozenset({
+    "hediye", "diyet", "kilo", "burc", "fal", "kripto", "bitcoin", "tarif",
+    "siir", "fikra", "mac", "sevgili", "flort", "mezun", "meslek", "kariyer",
+    "python", "dongu", "pizza", "pizzaci", "film", "hava", "yagmur", "kantin",
+    "kutuphane", "universite", "sarj", "lasti", "baskent", "stres", "otobus",
+    "motivasyon", "kahve", "pisir", "istanbul",
+})
+
+# Yalnız gözlenen, ayırt edici OOS yazım hataları. Genel fuzzy uygulanmaz:
+# böylece ör. ``kilitli`` ve ``kiosk`` gibi ürün içi sözcükler etkilenmez.
+_FAR_OOS_EXACT_TYPOS: Final[frozenset[str]] = frozenset({
+    "kil", "kio", "hdeiye", "mezu",
+})
+
+_SCHOOL_SUBJECTS: Final[tuple[str, ...]] = (
+    "matem", "fizik", "kimya", "biyoloji", "turkce", "ingilizce",
+)
+_CONTENT_TUTORING_ACTIONS: Final[tuple[str, ...]] = (
+    "formul", "anlat", "ozet", "coz",
+)
+
+
+def _has_prefix(tokens: list[str], prefixes: Iterable[str]) -> bool:
+    return any(
+        token.startswith(prefix)
+        for token in tokens
+        for prefix in prefixes
+    )
+
+
+def is_explicitly_out_of_scope(query: str) -> bool:
+    """Yüksek-kesinlikli okul-dışı konu/istek var mı?
+
+    Bu kapı genel bir konu sınıflandırıcı değildir. Yalnız benchmarkta gerçek
+    yanlış yönlendirme ürettiği görülen, ürün işlevleriyle çakışmayan başlıkları
+    ve dar çiftleri yakalar. Yemek modülündeki okul beslenme/diyet profili açıkça
+    istisnadır.
+    """
+
+    tokens = folded_tokens(query)
+    if not tokens:
+        return False
+
+    if set(tokens) & _FAR_OOS_EXACT_TYPOS:
+        return True
+
+    dietary_product_context = (
+        _has_prefix(tokens, ("beslenme", "alerji", "mutfak"))
+        or (
+            _has_prefix(tokens, ("diyet",))
+            and _has_prefix(tokens, ("profil",))
+            and _has_prefix(tokens, ("ogrenci", "yemek"))
+        )
+    )
+    for topic in FAR_OOS_TOPICS:
+        if topic == "diyet" and dietary_product_context:
+            continue
+        if any(
+            token == topic or (len(topic) >= 4 and token.startswith(topic))
+            for token in tokens
+        ):
+            return True
+
+    if _has_prefix(tokens, _SCHOOL_SUBJECTS) and _has_prefix(
+        tokens, _CONTENT_TUTORING_ACTIONS
+    ):
+        return True
+    if _has_prefix(tokens, ("odev",)) and _has_prefix(tokens, ("coz",)):
+        return True
+    if _has_prefix(tokens, ("odev",)) and "czer" in tokens:
+        return True
+    if _has_prefix(tokens, ("beden",)) and _has_prefix(tokens, ("ders",)):
+        return True
+    if _has_prefix(tokens, ("sinif",)) and _has_prefix(tokens, ("caliskan",)):
+        return True
+    if _has_prefix(tokens, ("okul",)) and _has_prefix(tokens, ("tatil",)):
+        return True
+    if _has_prefix(tokens, ("yasindasin",)):
+        return True
+    if (
+        any(token.isdigit() for token in tokens)
+        and _has_prefix(tokens, ("arti",))
+        and _has_prefix(tokens, ("kac",))
+    ):
+        return True
+    return False
+
 # Jenerik/işlevsel kelimeler (katlanmış). Hem in-scope hem OOS'ta geçtikleri için
 # alan sinyali taşımazlar; söz varlığından ve sorgu içerik tokenlarından elenir.
 STOPWORDS: Final[frozenset[str]] = frozenset(
@@ -111,6 +201,13 @@ def is_in_domain(query: str, vocab: set[str] | None = None) -> bool:
       yanlış-dost yüzünden alan-içi sayılmasını azaltır.
     """
 
+    query_tokens = folded_tokens(query)
+    if is_explicitly_out_of_scope(query):
+        return False
+    # Çelebi ürün kullanımını anlatır; öğrencinin ödevini çözmek ürün işlevi
+    # değildir. Açık "ödev + çöz" kalıbını okul kelimesi içeriyor diye alan-içi
+    # saymak, n-gram katmanında homework_submit yanlışına yol açıyordu.
+    # Açık "ödev + çöz" kalıbı yukarıdaki yüksek-kesinlikli kapıdadır.
     vocab = vocab if vocab is not None else get_domain_vocab()
     content = _content_tokens(query)
     if not content:

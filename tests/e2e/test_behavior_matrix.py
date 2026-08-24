@@ -29,7 +29,7 @@ def ask(query: str, role: str = "ogrenci") -> dict:
 
 
 # =============================================================================
-# 1) INTENT MATRİSİ — 47 intent'in tamamı: doğal ifade -> intent + response_id
+# 1) INTENT MATRİSİ — katalogdaki tüm intent'ler: doğal ifade -> intent + response_id
 # =============================================================================
 # (rol, kullanıcı mesajı, beklenen intent)
 INTENT_MATRIX: list[tuple[str, str, str]] = [
@@ -48,17 +48,25 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "oturumu nasıl kapatırım", "logout_how"),
     ("ogrenci", "oturum süresi ne kadar", "session_info"),
     ("ziyaretci", "şifremi unuttum", "account_access_problem"),
+    ("ogrenci", "kendi profilimi açmak istiyorum", "profile_view"),
     ("ogrenci", "telefon numaramı değiştirmek istiyorum", "profile_edit"),
+    ("ogrenci", "kişisel ayarlar kısmını nereden açarım", "personal_settings"),
     ("ogrenci", "uygulamayı ingilizceye çevirmek istiyorum", "language_theme"),
     # --- rol / gezinme ---
     ("ogrenci", "roller ve yetkiler nedir", "roles_permissions"),
     ("ogrenci", "bu içeriğe erişimin yok hatası alıyorum", "access_denied_help"),
+    ("ogrenci", "işlem başarısız diyor neden", "technical_error_help"),
+    ("ogrenci", "boş dosyayı neden yükleyemiyorum", "upload_problem"),
+    ("ogrenci", "chatbot bridge bağlı değil diyor", "chatbot_service_problem"),
     ("ogrenci", "menüde gezinmeyi anlamadım", "navigation_help"),
     # --- dersler ---
     ("ogrenci", "derslerimi nereden görürüm", "course_view"),
     ("ogretmen", "yeni ders açmak istiyorum", "course_create"),
     ("ogretmen", "dersime öğrenci kaydetmek istiyorum", "course_enroll_student"),
     ("ogretmen", "öğrenciyi dersten çıkarmak istiyorum", "course_remove_student"),
+    ("ogretmen", "dersime yeni müfredat konusu eklemek istiyorum", "course_subject_manage"),
+    ("ogretmen", "sınıfla paylaşılacak ders notu eklemek istiyorum", "course_note_manage"),
+    ("yonetici", "derse başka bir öğretmen atamak istiyorum", "course_teacher_manage"),
     ("ogretmen", "ders oturumu eklemek istiyorum", "lesson_session_add"),
     ("ogretmen", "yoklama almak istiyorum", "roll_call"),
     # --- sınavlar ---
@@ -74,7 +82,9 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     # --- ödev ---
     ("ogrenci", "verilen ödevleri nereden takip ederim", "homework_view"),
     ("ogrenci", "ödevimi teslim etmek istiyorum", "homework_submit"),
+    ("ogrenci", "ödev teslimimi geri çekmek istiyorum", "homework_withdraw_submission"),
     ("ogretmen", "öğrencilere ödev vermek istiyorum", "homework_assign"),
+    ("ogretmen", "ödevin son teslim tarihini değiştirmek istiyorum", "homework_manage"),
     ("ogretmen", "ödev teslimlerini notlandırmak istiyorum", "homework_grade"),
     # --- notlar / karne ---
     ("ogrenci", "karnemi görmek istiyorum", "report_card_view"),
@@ -88,6 +98,10 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogretmen", "etkinlik oluşturmak istiyorum", "event_create"),
     # --- defter / mesai / yönetim ---
     ("ogrenci", "deftere not eklemek istiyorum", "note_create"),
+    ("ogrenci", "not kartının içeriğini değiştirmek istiyorum", "note_edit"),
+    ("ogrenci", "eski notu silmek istiyorum", "note_delete"),
+    ("ogrenci", "pdf dosyasını defter notuna içe aktarmak istiyorum", "note_import_ocr"),
+    ("veli", "kişisel notuma bir dosya eklemek istiyorum", "note_file_manage"),
     ("ogretmen", "mesai girişi yapmak istiyorum", "work_checkin_out"),
     ("yonetici", "personel mesailerini görmek istiyorum", "staff_work_manage"),
     ("yonetici", "akademik dönem oluşturmak istiyorum", "term_manage"),
@@ -103,10 +117,12 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogrenci", "veli hesabı ne işe yarar", "parent_info"),
     # --- kapsam genişletme ---
     ("ogrenci", "okul ücretlerini nereden görürüm", "fees_info"),
-    ("ogrenci", "şubeler sayfası nerede", "branches_info"),
+    ("ogretmen", "şubeler sayfası nerede", "branches_info"),
+    ("yonetici", "yeni bir şube oluşturmak istiyorum", "class_section_manage"),
     ("ogrenci", "takvim sayfasını nasıl açarım", "calendar_info"),
     ("ogrenci", "bugün panelinde neleri görürüm", "today_info"),
     ("ogretmen", "soru bankası ne işe yarar", "question_bank_info"),
+    ("ogretmen", "soru bankasına yeni şablon eklemek istiyorum", "question_bank_manage"),
     ("ogrenci", "bildirim ayarlarını nereden değiştiririm", "notification_settings_info"),
     ("yonetici", "menüde hangi bölümler var", "nav_overview"),
     ("ogrenci", "etkinlikleri nerede görürüm", "event_view"),
@@ -118,7 +134,10 @@ INTENT_MATRIX: list[tuple[str, str, str]] = [
     ("ogretmen", "gelen randevu taleplerini onaylamak istiyorum", "appointment_requests"),
     ("ogrenci", "yemek menüsünü nereden görürüm", "meal_view"),
     ("ogrenci", "öğün için yer ayırmak istiyorum", "meal_book"),
+    ("ogretmen", "yemekte öğrenciyi servis edildi işaretlemek istiyorum", "meal_service_mark"),
     ("yonetici", "yeni yemek menüsü yayınlamak istiyorum", "meal_menu_manage"),
+    ("yonetici", "öğrencinin beslenme profilini güncellemek istiyorum", "meal_dietary_profile_manage"),
+    ("admin", "öğrenciye yemek kredisi eklemek istiyorum", "meal_credit_manage"),
     ("ogrenci", "soru havuzuna soru sormak istiyorum", "question_ask"),
     ("ogrenci", "bir soruya çözüm göndermek istiyorum", "question_solve"),
     ("ogretmen", "havuzdaki soruları onaylamak istiyorum", "question_approve"),
@@ -177,7 +196,44 @@ GATING_MATRIX: list[tuple[str, str, str | None, bool | None]] = [
     # Etkinlik yoklaması işaretleme backend'de Öğretmen+ -> öğrenci denied, öğretmen ALLOW.
     ("etkinlik yoklamamı işaretlemek istiyorum", "ogrenci", "role_insufficient", None),
     ("etkinlik yoklamamı işaretlemek istiyorum", "ogretmen", None, True),
+    # Kendi mesaisi Öğretmen/Yöneticiye açık, ADMIN'de yoktur.
+    ("mesai giriş yap", "ogretmen", None, True),
+    ("mesai giriş yap", "admin", "role_insufficient", False),
     ("mesajlarım nerede", "veli", None, True),
+    # Soru sorma yalnız öğrenci, yemek kredisi yalnız ADMIN.
+    ("soru havuzuna soru sormak istiyorum", "ogretmen", "role_insufficient", None),
+    ("öğrenciye yemek kredisi eklemek istiyorum", "yonetici", "role_insufficient", None),
+    ("öğrenciye yemek kredisi eklemek istiyorum", "admin", None, True),
+    # Şube görüntüleme Teacher+, yönetimi yalnız Yönetici+.
+    ("yeni bir şube oluşturmak istiyorum", "ogretmen", "role_insufficient", None),
+    ("yeni bir şube oluşturmak istiyorum", "yonetici", None, True),
+    # Kişisel Defter ekleri bütün oturumlu rollerde OWN; ziyaretçide giriş gerekir.
+    ("kişisel notuma dosya eklemek istiyorum", "ziyaretci", "login_required", False),
+    ("kişisel notuma dosya eklemek istiyorum", "veli", None, True),
+    # Ders içeriği yönetimi: yönetilen ders Öğretmen, okul kapsamı Yönetici/ADMIN.
+    ("dersime konu eklemek istiyorum", "ogrenci", "role_insufficient", False),
+    ("dersime konu eklemek istiyorum", "ogretmen", None, True),
+    ("ders notu eklemek istiyorum", "ogrenci", "role_insufficient", False),
+    ("ders notu eklemek istiyorum", "ogretmen", None, True),
+    # Ders kadrosu yalnız Yönetici/ADMIN.
+    ("derse öğretmen atamak istiyorum", "ogretmen", "role_insufficient", False),
+    ("derse öğretmen atamak istiyorum", "yonetici", None, True),
+    ("derse öğretmen atamak istiyorum", "admin", None, True),
+    # Teslim geri çekme exact Öğrenci; ödev kaydını yönetme Öğretmen+.
+    ("ödev teslimimi geri çekmek istiyorum", "ogrenci", None, True),
+    ("ödev teslimimi geri çekmek istiyorum", "ogretmen", "role_insufficient", False),
+    ("ödevi tamamen silmek istiyorum", "ogrenci", "role_insufficient", False),
+    ("ödevi tamamen silmek istiyorum", "ogretmen", None, True),
+    # Yemek servis kaydı Öğretmen+, beslenme profili yazma Yönetici/ADMIN.
+    ("yemekte servis edildi işaretlemek istiyorum", "ogrenci", "role_insufficient", False),
+    ("yemekte servis edildi işaretlemek istiyorum", "ogretmen", None, True),
+    ("öğrencinin beslenme profilini değiştirmek istiyorum", "ogretmen", "role_insufficient", False),
+    ("öğrencinin beslenme profilini değiştirmek istiyorum", "yonetici", None, True),
+    # Soru bankası CRUD Öğretmen+; öğrenciye kapalı.
+    ("soru bankasına şablon eklemek istiyorum", "ogrenci", "role_insufficient", False),
+    ("soru bankasına şablon eklemek istiyorum", "ogretmen", None, True),
+    ("soru bankasına şablon eklemek istiyorum", "yonetici", None, True),
+    ("soru bankasına şablon eklemek istiyorum", "admin", None, True),
 ]
 
 
@@ -206,6 +262,30 @@ class RoleGatingMatrixTests(unittest.TestCase):
         self.assertNotIn("Sınav oluştur", resp["text"])   # buton/adım imzası
         self.assertNotIn("Ders seç", resp["text"])
         self.assertNotIn("Öğretmen", resp["text"])         # ayrıcalıklı rol adı
+
+    def test_new_intent_scopes_match_backend_ownership(self) -> None:
+        from src.role_spaces import get_role_space
+
+        expected = {
+            ("veli", "note_file_manage"): "own",
+            ("ogrenci", "note_import_ocr"): "own",
+            ("ogretmen", "course_subject_manage"): "managed_course",
+            ("yonetici", "course_subject_manage"): "school",
+            ("ogretmen", "course_note_manage"): "managed_course",
+            ("yonetici", "course_teacher_manage"): "school",
+            ("ogrenci", "homework_withdraw_submission"): "enrolled_course",
+            ("ogretmen", "homework_manage"): "managed_course",
+            ("ogretmen", "meal_service_mark"): "school",
+            ("yonetici", "meal_dietary_profile_manage"): "school",
+            ("ogretmen", "question_bank_manage"): "own",
+            ("yonetici", "question_bank_manage"): "own",
+            ("admin", "question_bank_manage"): "school",
+        }
+        for (role, intent), scope in expected.items():
+            with self.subTest(role=role, intent=intent):
+                view = get_role_space(role).view_for(intent)
+                self.assertEqual(view.outcome.value, "allow")
+                self.assertEqual(view.scope.value, scope)
 
 
 # =============================================================================
@@ -327,6 +407,7 @@ class NavigationBehaviorTests(unittest.TestCase):
             ("okul ayarlarını değiştirmek istiyorum", "yonetici", "/management/settings"),
             ("kullanıcı rolünü değiştirmek istiyorum", "admin", "/admin/users"),
             ("siteye nasıl giriş yaparım", "ziyaretci", "/login"),
+            ("profil fotoğrafımı değiştirmek istiyorum", "ogrenci", "/profile/me"),
         ]:
             with self.subTest(query=query):
                 resp = ask(query, role)

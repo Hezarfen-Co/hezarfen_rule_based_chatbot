@@ -88,7 +88,9 @@ class OutOfScopeSuggestionTests(unittest.TestCase):
     """Bilmiyorsa: 'anlayamadım, bunu mu?' + aynı uzaydan aday öneriler."""
 
     def test_ambiguous_offers_clarification_with_candidates(self) -> None:
-        resp = ask("bir yerde hata verdi yardım et", "ogrenci")
+        # Bağlamsız "hata verdi" artık bilinçli teknik triyaj intent'idir; bu
+        # örnek ise gerçekten iki yardım niyeti arasında belirsiz kalır.
+        resp = ask("bir yerde takıldım yardım et", "ogrenci")
         self.assertEqual(resp["response_id"], "clarification_prompt")
         self.assertIn("anlayamadım", resp["text"])
         clar = resp["clarification"]

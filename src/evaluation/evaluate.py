@@ -19,6 +19,7 @@ from typing import Any
 from .benchmark import OOS_LABEL, load_benchmark
 from ..catalog import INTENTS
 from ..decision import DEFAULT_THRESHOLD, _is_confusable_pair
+from ..engine import Engine
 from .metrics import (
     accuracy,
     macro_f1,
@@ -43,6 +44,7 @@ def run_evaluation(
     matcher = matcher or get_default_matcher()
     records = records if records is not None else load_benchmark()
     labels = {i["intent"] for i in INTENTS}
+    engine = Engine()
 
     in_pairs: list[tuple[str, str]] = []          # (true, pred|__fallback__)
     covered_pairs: list[tuple[str, str]] = []      # yalnızca kapsananlar
@@ -69,7 +71,15 @@ def run_evaluation(
         expected = r["expected_intent"]
         if expected == OOS_LABEL:
             oos_total += 1
-            if pred is None:
+            # OOS recall kullanıcıya görünen TAM motor davranışını ölçer. Yalnız
+            # ``process`` kararını kullanmak, Engine'in daha önce çalışan canlı-
+            # veri/işlem sınırı kapılarını atlar ve doğru ``out_of_scope_action``
+            # retlerini yanlış ürün tahmini sayardı.
+            response = engine.handle({
+                "query": r["question"],
+                "session": {"role": role, "authenticated": authenticated},
+            })
+            if response["intent"] is None:
                 oos_caught += 1
             continue
 

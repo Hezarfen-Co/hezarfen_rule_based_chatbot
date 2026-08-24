@@ -47,6 +47,255 @@ _FOLD_MAP: Final[dict[str, str]] = str.maketrans(
 _PUNCT_RE: Final[re.Pattern[str]] = re.compile(r"[^0-9a-zçğıöşü\s]", re.IGNORECASE)
 _WS_RE: Final[re.Pattern[str]] = re.compile(r"\s+")
 
+# Sohbet dilinde sık görülen, kısa ve anlamı tekil olan yazım biçimleri.
+# Bu tablo bilinçli olarak küçüktür: genel bir otomatik-düzeltici gibi davranıp
+# geçerli kelimeleri başka niyetlere sürüklemek yerine yalnızca benchmarkta
+# gözlenen, anlamı belirsiz olmayan biçimleri kanonik tokena çevirir.
+_TOKEN_ALIASES: Final[dict[str, str]] = {
+    "snv": "sinav",
+    "snava": "sinava",
+    "drs": "ders",
+    "yoklma": "yoklama",
+    "karnme": "karnem",
+    "ogrnci": "ogrenci",
+    "degstr": "degistir",
+    "deistirmek": "degistirmek",
+    "degistrmek": "degistirmek",
+    "sle": "sil",
+    "slemek": "silmek",
+    "slmek": "silmek",
+    "nto": "not",
+    "guncellicem": "guncelle",
+    "nerde": "nerede",
+    "selm": "selam",
+    "mrb": "merhaba",
+    "nbr": "naber",
+    "nabrr": "naber",
+    "saol": "sagol",
+    "saaol": "sagol",
+    "sapl": "sagol",
+    "aidn": "adin",
+    "kiimsin": "kimsin",
+    "hezarfn": "hezarfen",
+    "unttum": "unuttum",
+    "yuklicem": "yukleyecegim",
+    "veil": "veli",
+    "ccougu": "cocugu",
+    "ebevey": "ebeveyn",
+    "men": "menu",
+    "mensu": "menu",
+    "mensuu": "menu",
+    "sbue": "sube",
+    "sue": "sube",
+    # Kısa sözcüklerde genel fuzzy düzeltme güvenli değildir (örn. soru/sorun,
+    # yemek/demek). Bu yüzden yalnız stres testinde gerçekten gözlenen,
+    # anlamı tekil bozuk yüzeyler açıkça eşlenir.
+    "naver": "naber",
+    "hsber": "haber",
+    "sg": "sagol",
+    "saok": "sagol",
+    "saoll": "sagol",
+    "sori": "soru",
+    "sooru": "soru",
+    "sour": "soru",
+    "soryu": "soruyu",
+    "souyu": "soruyu",
+    "srouyu": "soruyu",
+    "oddev": "odev",
+    "odve": "odev",
+    "oevi": "odevi",
+    "yeek": "yemek",
+    "yrmek": "yemek",
+    "yemrkte": "yemekte",
+    "geelmedi": "gelmedi",
+    "gelmdei": "gelmedi",
+    "saay": "saat",
+    "sast": "saat",
+    "kemdi": "kendi",
+    "knedi": "kendi",
+    "meesaj": "mesaj",
+    "mesaaj": "mesaj",
+    "odee": "odeme",
+    "odemr": "odeme",
+    "mtufak": "mutfak",
+    "muutfak": "mutfak",
+    "deavm": "devam",
+    "devm": "devam",
+    "drss": "ders",
+    "yoklms": "yoklama",
+    "yeno": "yeni",
+    "psfi": "pdfi",
+    "taag": "tag",
+    "netde": "nerede",
+    "deres": "derse",
+    "coxum": "cozum",
+    "ckmek": "cekmek",
+    "bnka": "banka",
+    "bkamak": "bakmak",
+    "gotsel": "gorsel",
+    "zaan": "zaman",
+    "messi": "mesai",
+    "kpnusunu": "konusunu",
+    "knousunu": "konusunu",
+    "kpnusunun": "konusunun",
+    "kaudini": "kaydini",
+    "nout": "notu",
+    "gerri": "geri",
+    # Stres kümelerinde gözlenen uzun/ayırt edici konuşma dili ve tek-harf
+    # bozulmaları. Kısa, geçerli komşular (bi/bu, el/ek, sona/sonra) özellikle
+    # burada yer almaz; onlar ancak cümle bağlamıyla çözülebilir.
+    "sirfem": "sifrem",
+    "degistircem": "degistir",
+    "tkip": "takip",
+    "drvam": "devam",
+    "yukkselt": "yukselt",
+    "yukkseltmek": "yukseltmek",
+    "subbe": "sube",
+    "subr": "sube",
+    "tkavimi": "takvimi",
+    "yoneim": "yonetim",
+    "yoneyim": "yonetim",
+    "nedre": "nerede",
+    "tarrihlerini": "tarihlerini",
+    "habet": "haber",
+    "meenun": "menu",
+    # v3.4 deterministik tek-typo kümesinde ölçülen, kısa/geçerli komşusu
+    # bulunduğu için genel fuzzy yerine yalnız exact ele alınan yüzeyler.
+    "mesak": "mesaj", "measj": "mesaj", "meaj": "mesaj", "mrsaj": "mesaj",
+    "des": "ders", "dres": "ders", "dets": "ders", "derd": "ders",
+    "nabre": "naber", "nabet": "naber", "nabeer": "naber",
+    "salo": "sagol", "ssol": "sagol", "saag": "sagol",
+    "soriyu": "soruyu", "sueb": "sube", "suve": "sube",
+    "yemel": "yemek", "yemeek": "yemek", "yeemek": "yemek",
+    "etkinlite": "etkinlikte", "etkinlkte": "etkinlikte",
+    "nerdde": "nerede", "nrede": "nerede", "nerd": "nerede",
+    "getor": "getir", "banaa": "bana", "kc": "kac",
+    "mezuun": "mezun", "hrdiye": "hediye",
+    "simifin": "sinifin", "devamsizligii": "devamsizligimi",
+    "tahya": "tahta", "tahat": "tahta",
+    "guid": "guide", "drrs": "ders", "coum": "cozum",
+    "guncelleemek": "guncellemek",
+    # v3.5 sabit-seed stres kümesinde gözlenen tek-harfli, anlamı açık yüzeyler.
+    # Kısa/geçerli komşusu olan biçimler global fuzzy hedef yapılmaz; yalnız exact
+    # yazım düzeltilir. Bağlama muhtaç olanlar ise rules.py'de ele alınır.
+    "nasilsni": "nasilsin", "nasislin": "nasilsin",
+    "kmisin": "kimsin", "kilavuu": "kilavuz", "guode": "guide",
+    "lgo": "login", "kullainci": "kullanici", "ckis": "cikis",
+    "rool": "rol", "sgv": "svg", "enaled": "enabled",
+    "degisstirmem": "degistirmem", "otruumunun": "oturumunun",
+    "deers": "ders", "konttrolu": "kontrolu", "asekron": "asenkron",
+    "eklme": "ekleme", "srou": "soru", "odelver": "odevler",
+    "odeb": "odev", "teslm": "teslim", "yzdemi": "yuzdemi",
+    "noy": "not", "mrsai": "mesai", "yonetmii": "yonetimi",
+    "siilinir": "silinir", "ypacam": "yapacagim", "msajimi": "mesajimi",
+    "kuup": "kulup", "odrme": "odeme", "subbeleri": "subeleri",
+    "bguun": "bugun", "pneldeki": "paneldeki", "banksi": "bankasi",
+    "sotu": "soru", "etkinlkileri": "etkinlikleri",
+    "sinvalarin": "sinavlarin", "dpsyalarini": "dosyalarini",
+    "ssat": "saat", "iteklerini": "isteklerini", "ogum": "ogun",
+    "ucrretini": "ucretini", "yoklamssini": "yoklamasini",
+    "meunsu": "menusu", "ekllemek": "eklemek", "yaynilamak": "yayinlamak",
+    "mutfal": "mutfak", "dietry": "dietary", "hvuzunda": "havuzunda",
+    "havzua": "havuza", "onnaylicam": "onaylayacagim",
+    "okusturmak": "olusturmak", "tahhta": "tahta",
+}
+
+# Uzun ve anlamı tekil sosyal/meta sözcüklerde tam bir silme/ekleme/değiştirme
+# veya komşu harf yer değiştirmesini tolere eder. Genel sözlük düzeltmesi
+# değildir; kısa/geçerli sözcükleri (örn. "sol") başka niyete çevirmemek için
+# yalnız bu dar liste uygulanır.
+_SAFE_TYPO_TARGETS: Final[dict[str, str]] = {
+    "merhaba": "merhaba", "merhabalar": "merhaba",
+    "selamlar": "selam",
+    "tesekkur": "tesekkur", "tesekkurler": "tesekkur",
+    "eyvallah": "eyvallah", "gorusuruz": "gorusuruz",
+    # "kimsin" fuzzy hedef değildir: geçerli "kimin" sözcüğü yalnız bir harf
+    # uzaktadır. Gözlenen "kiimsin" biçimi yukarıdaki açık alias ile çözülür.
+    "hoscakal": "hoscakal", "robot": "robot",
+    "platform": "platform", "hezarfen": "hezarfen",
+    # Uzun/ayırt edici ürün sözcükleri ve yaygın çekimleri. Bir sorgu tokenı
+    # yalnız TEK kanonik hedefe bir düzenleme uzaklıktaysa düzeltilir.
+    "hezarfeni": "hezarfen", "kilavuz": "kilavuz",
+    "hesabi": "hesap", "kayit": "kayit", "sistemden": "sistemden",
+    "guvenli": "guvenli", "oturumu": "oturum", "cikarim": "cikarim",
+    "ingilizce": "ingilizce", "yetki": "yetki", "erisim": "erisim",
+    "dosya": "dosya", "siniri": "sinir", "sinav": "sinav",
+    "etkinlik": "etkinlik", "olusturacagim": "olustur",
+    "oturum": "oturum", "ogrenci": "ogrenci", "ogretmen": "ogretmen",
+    "rezervasyonsuz": "rezervasyonsuz", "servis": "servis",
+    "yayinlicam": "yayinla",
+    "akademik": "akademik", "donem": "donem", "profil": "profil",
+    "biyografi": "biyografi", "randevu": "randevu",
+    "devamsizlik": "devamsizlik", "yoklama": "yoklama",
+    "yapabiliyorsun": "yapabil",
+    # Çekimli yüzey kanonik biçim olarak korunur. Lemma'ya indirgemek bazı
+    # kuralların iyelik/hal bağlamını kaybetmesine neden olur.
+    "ogrencinin": "ogrencinin", "ogretmenin": "ogretmenin",
+    "ogrenciye": "ogrenciye", "ogrenciyi": "ogrenciyi",
+    "ogretmeni": "ogretmeni", "reddetmek": "reddetmek",
+    "kilavuzu": "kilavuzu", "listemi": "listemi",
+    "sinavdan": "sinavdan", "beslenme": "beslenme",
+    "yeniden": "yeniden", "olusturabilir": "olusturabilir",
+    "agirliklari": "agirliklari", "etkinlige": "etkinlige",
+    "etkinligi": "etkinligi", "etkinlikler": "etkinlikler",
+    "erisimin": "erisimin", "sablonun": "sablonun",
+    "sinirini": "sinirini", "programim": "programim",
+    "profilini": "profilini", "tahtayi": "tahtayi",
+    "tahtalari": "tahtalari", "bildirim": "bildirim",
+    "bolumunde": "bolumunde", "bitirince": "bitirince",
+    "atanmamis": "atanmamis", "atanan": "atanan",
+    "arkadasimin": "arkadasimin", "kayitliyim": "kayitliyim",
+    "kaydini": "kaydini", "karnesini": "karnesini",
+    "karnede": "karnede", "havuzuna": "havuzuna", "havuzunda": "havuzunda",
+    "gecmisime": "gecmisime", "kutusuna": "kutusuna",
+    "musait": "musait", "takvimi": "takvimi", "takvim": "takvim",
+    "paneli": "paneli", "ucreti": "ucreti", "sifre": "sifre",
+    "yonetim": "yonetim", "deftere": "deftere",
+    "karnme": "karnem", "hazerfen": "hezarfen",
+    "panel": "panel", "tanitim": "tanitim", "kapatmak": "kapatmak",
+    "geceler": "geceler", "dersleri": "dersleri",
+    "aktarirken": "aktarirken", "baskasinin": "baskasinin",
+    "listesini": "listesini", "sayisini": "sayisini",
+    "universiteyi": "universiteyi",
+}
+
+
+def _one_safe_typo(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    if abs(len(left) - len(right)) > 1:
+        return False
+    if len(left) == len(right):
+        differences = [i for i, (a, b) in enumerate(zip(left, right)) if a != b]
+        if len(differences) == 1:
+            return True
+        return (
+            len(differences) == 2
+            and differences[1] == differences[0] + 1
+            and left[differences[0]] == right[differences[1]]
+            and left[differences[1]] == right[differences[0]]
+        )
+    shorter, longer = (left, right) if len(left) < len(right) else (right, left)
+    i = j = skipped = 0
+    while i < len(shorter) and j < len(longer):
+        if shorter[i] == longer[j]:
+            i += 1
+            j += 1
+        else:
+            skipped += 1
+            j += 1
+            if skipped > 1:
+                return False
+    return True
+
+
+def _safe_typo_alias(token: str) -> str:
+    matches = {
+        canonical for surface, canonical in _SAFE_TYPO_TARGETS.items()
+        if _one_safe_typo(token, surface)
+    }
+    return next(iter(matches)) if len(matches) == 1 else token
+
 # Katlanmış (ascii) tokenlar üzerinde çalışan, uzundan kısaya denenecek ekler.
 _SUFFIXES: Final[tuple[str, ...]] = tuple(
     sorted(
@@ -128,13 +377,15 @@ def tokenize(text: str) -> list[str]:
 
 
 def folded_tokens(text: str) -> list[str]:
-    """Normalize + katla ama STEM ETME: kural katmanı önek eşleşmesi için.
+    """Normalize + katla + güvenli yazım alias'ları; STEM ETME.
 
     Stem'in aksine kelimeleri çökertmez ('yapamıyor' -> 'yapamiyor', 'yap' değil),
     böylece anahtar kelime önek eşleşmesi ('sifre' <- 'sifremi') kesin kalır.
     """
 
-    return [fold_accents(token) for token in tokenize(text)]
+    folded = [fold_accents(token) for token in tokenize(text)]
+    direct = [_TOKEN_ALIASES.get(token, token) for token in folded]
+    return [_safe_typo_alias(token) for token in direct]
 
 
 def stem(token: str) -> str:

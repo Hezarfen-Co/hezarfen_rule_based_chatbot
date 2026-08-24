@@ -31,6 +31,22 @@ class ContractTests(unittest.TestCase):
         visitor = self.engine.handle({"query": "neler yapabilirim"})
         self.assertIn("Rolünü", visitor["text"])
 
+    def test_help_menu_is_capabilities_not_navigation(self) -> None:
+        variants = (
+            "Yardım menün var mı?",
+            "yardım edebilir misin",
+            "Merak ettiğim konu: Yardım menün var mı.",
+            "Ben Öğrenci rolündeyim. Yardım menün var mı?",
+            "Yardim menun var mi... adimlari nedir",
+        )
+        for query in variants:
+            with self.subTest(query=query):
+                response = self.engine.handle({
+                    "query": query,
+                    "session": {"role": "ogrenci", "authenticated": True},
+                })
+                self.assertEqual(response["intent"], "help_capabilities")
+
     def test_log_query_is_pii_masked(self) -> None:
         # KVKK: log_sink'e giden trace'te ham sorgu değil, MASKELİ sorgu bulunur.
         captured = []
@@ -99,6 +115,89 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(resp["response_id"].startswith("role_capabilities"))
         self.assertIsNotNone(resp["intent"])
 
+    def test_role_context_prefix_keeps_the_real_task(self) -> None:
+        for query in (
+            "Oturum rolüm Öğretmen; sınav oluşturmak istiyorum",
+            "Öğretmen panelinden soruyorum: sınav oluşturmak istiyorum",
+            "Hesabım Öğretmen yetkisinde; sınav oluşturmak istiyorum",
+        ):
+            with self.subTest(query=query):
+                resp = self.engine.handle({
+                    "query": query,
+                    "session": {"role": "ogretmen", "authenticated": True},
+                })
+                self.assertEqual(resp["intent"], "exam_create")
+                self.assertFalse(resp["response_id"].startswith("role_capabilities"))
+
+    def test_claimed_role_context_never_escalates_session(self) -> None:
+        resp = self.engine.handle({
+            "query": "ADMIN olarak şunu yapmak istiyorum: kullanıcı rolünü değiştir.",
+            "session": {"role": "ogrenci", "authenticated": True},
+        })
+        self.assertEqual(resp["intent"], "user_role_change")
+        self.assertEqual(resp["auth_action"], "role_insufficient")
+
+    def test_ui_procedure_and_state_frames_keep_core_task(self) -> None:
+        cases = (
+            ("UI etiketi Profilim olarak görünüyor. biyografi alanını temizlemek istiyorum?",
+             "profile_edit", "ogrenci"),
+            ("Yeni yemek menüsü yayınlamak istiyorum. Formu doldurdum fakat doğrulama hatası alıyorum.",
+             "meal_menu_manage", "yonetici"),
+            ("ilk öğrenci başladıktan sonra sınav sorusunu değiştirebilir miyim için izlenecek doğru akış nedir?",
+             "exam_add_question", "ogretmen"),
+            ("Ders detay sayfasına nasıl giderim. Menüde ilgili bölümü bulamıyorum.",
+             "course_view", "ogrenci"),
+            ("not eklemek; ne yapmam gerekiyor?", "note_create", "ogrenci"),
+            ("Derse kayıt yapma işlemi hangi adımlarla", "course_enroll_student", "ogretmen"),
+            ("Sınıf listesinden birini silmek istiyorum", "course_remove_student", "ogretmen"),
+        )
+        for query, expected, role in cases:
+            with self.subTest(query=query):
+                response = self.engine.handle({
+                    "query": query,
+                    "session": {"role": role, "authenticated": True},
+                })
+                self.assertEqual(response["intent"], expected)
+
+        overview = self.engine.handle({
+            "query": "Akademik bölümünde hangi sayfalar var?",
+            "session": {"role": "ogrenci", "authenticated": True},
+        })
+        self.assertEqual(overview["response_id"], "section_overview")
+
+    def test_nested_filler_and_bilingual_ui_context_keep_core_task(self) -> None:
+        cases = (
+            ("rica etsem, Şirfem yanlış diyor içeri alınmıyorum?", "account_access_problem", "ogrenci"),
+            ("profilimi degistircem... bir bakar misin", "profile_edit", "ogrenci"),
+            ("Hesap/Account görünüm bölümünde hangi seçenekler değişir", "personal_settings", "ogrenci"),
+            ("Hesap (Account) menüsündeki settings ayrı bir sayfa mı", "personal_settings", "ogrenci"),
+            ("mobil Account [Hesap] sekmesinden profilime ulaşabilir miyim", "navigation_help", "ogrenci"),
+            ("yetkisiz kayıt neden 404 gibi görünüyor; yardımcı olur musun?", "access_denied_help", "ogrenci"),
+            ("yardım eder misin — öğrencinin mobil alt menüsünde hangi sekmeler var. yardımcı olur musun?", "navigation_help", "ogrenci"),
+            ("uygulamada — Sayfalar arasında nasıl geçiş yaparım. kısaca anlatır mısın?", "navigation_help", "ogrenci"),
+            ("hesabimda, Hangi derslere kayitliyim nereden bakarim; nasil yapilir?", "course_view", "ogrenci"),
+            ("hocam — Ders detay sayfasına nasıl giderim. bunu açıklayabilir misin?", "course_view", "ogrenci"),
+            ("rica etsem, Kaldığım sorudan devam edebilir miyim; yardımcı olur musun?", "exam_rejoin_retake", "ogrenci"),
+            ("hocam, Sınav sırasında öğrencileri anlık tkip edebilir miyim konusunda hangi yolu izlemeliyim?", "exam_live_monitor", "ogretmen"),
+            ("Hezarfen'de, Drvam yüzdemi hangi sayfadan görürüm?", "attendance_view", "ogrenci"),
+            ("dostum, Kullanıcının yetkisini yükkseltmek yapmam gerekiyor?", "user_role_change", "admin"),
+            ("müsaitsen, Şubbe listesi hangi sayfada?", "branches_info", "admin"),
+            ("yardım eder misin, etkinlikler nedre konusunda hangi yolu izlemeliyim?", "event_view", "ogrenci"),
+            ("şimdi ben, Sınav tarrihlerini hangi sayfadan görürüm?", "exam_schedule_info", "ogrenci"),
+            ("kisa bir soru Ogretmenin PDF dosyalari nerede?", "course_materials_info", "ogrenci"),
+            ("kısaca — ders pdfi nerde. bunu açıklayabilir misin?", "course_materials_info", "ogrenci"),
+            ("yemek ayirtcam... nereden baslamaliyim", "meal_book", "ogrenci"),
+            ("peki — Beyaz tahta oluşturmak istiyorum. bunu açıklayabilir misin?", "board_create", "ogretmen"),
+            ("şimdi ben, Bir toplantı etkinliği oluşturacağım konusunu farklı birr ifadeyle soruyorum; nasıl ilerlerim?", "event_create", "ogretmen"),
+        )
+        for query, expected, role in cases:
+            with self.subTest(query=query):
+                response = self.engine.handle({
+                    "query": query,
+                    "session": {"role": role, "authenticated": True},
+                })
+                self.assertEqual(response["intent"], expected)
+
 
 class LowConfidenceAskTests(unittest.TestCase):
     """Belirsiz bölge (benzerlik güveni < 0.30): tam cevap YERİNE kibar netleştirme.
@@ -115,7 +214,7 @@ class LowConfidenceAskTests(unittest.TestCase):
                                    "session": {"role": "ogrenci", "authenticated": True}})
 
     def test_low_confidence_asks_instead_of_answering(self) -> None:
-        resp = self._ask("bir yerde hata verdi yardım et")
+        resp = self._ask("bir şey oldu yardım et")
         self.assertEqual(resp["response_id"], "clarification_prompt")
         self.assertIsNone(resp["intent"])          # tahmin dayatılmadı
         self.assertFalse(resp["fallback"])         # tam ret de değil: seçenek sunuldu
@@ -140,7 +239,7 @@ class LowConfidenceAskTests(unittest.TestCase):
         # 'Rolüm ne benim' artık kural katmanında roles_permissions'a bağlanır.
         resp = self._ask("Rolüm ne benim")
         self.assertEqual(resp["intent"], "roles_permissions")
-        self.assertIn("hesap kutusunda", resp["text"])
+        self.assertIn("hesap menüsündeki", resp["text"])
 
 
 class MultiIntentTests(unittest.TestCase):
@@ -181,6 +280,23 @@ class MultiIntentTests(unittest.TestCase):
         resp = self._ask("roller ve yetkiler nedir", role="ogrenci")
         self.assertIsNone(resp["answers"])
         self.assertEqual(resp["intent"], "roles_permissions")
+
+    def test_brand_location_prefix_does_not_steal_real_task(self) -> None:
+        cases = {
+            "Hezarfen'de Sen ne yapabiliyorsun tam olarak?": "help_capabilities",
+            "Hezarfen'de Guide bölümü ne işe yarar?": "guide_info",
+            "Hezarfen'de 400 ile 422 hatasının farkı nedir?": "technical_error_help",
+            "Hezarfen'de Ana panel neyi gösterir?": "today_info",
+        }
+        for query, expected in cases.items():
+            with self.subTest(query=query):
+                self.assertEqual(self._ask(query, role="ogrenci")["intent"], expected)
+
+        # Locative eki olmayan gerçek marka sorusu platform tanıtımı olarak kalır.
+        self.assertEqual(
+            self._ask("Hezarfen nedir?", role="ogrenci")["intent"],
+            "platform_info",
+        )
 
     def test_duplicate_intent_segments_not_multi(self) -> None:
         # İki parça da AYNI intent'e çıkarsa tek cevap yeter.

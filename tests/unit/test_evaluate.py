@@ -63,6 +63,15 @@ class RunEvaluationTests(unittest.TestCase):
         # Yüksek eşik OOS recall'ı artırır.
         self.assertGreaterEqual(high["oos_recall"], low["oos_recall"])
 
+    def test_oos_recall_counts_full_engine_boundary_denials(self) -> None:
+        records = [
+            {"question": "Gerçek öğrenci listesini buraya getir",
+             "expected_intent": "oos", "role": "ogretmen"},
+            {"question": "Bana bir şiir yazar mısın",
+             "expected_intent": "oos", "role": "ogrenci"},
+        ]
+        self.assertEqual(run_evaluation(records=records)["oos_recall"], 1.0)
+
     def test_format_report_runs(self) -> None:
         text = format_report(self.report)
         self.assertIn("Macro-F1", text)

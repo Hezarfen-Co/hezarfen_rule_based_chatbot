@@ -44,7 +44,7 @@
 {"question": "Dersleri döneme göre süzebilir miyim?", "expected_intent": "course_view", "role": "ogrenci"}
 {"question": "Öğretmen olarak yeni bir ders açmak istiyorum", "expected_intent": "course_create", "role": "ogretmen"}
 {"question": "Ders ekleme düğmesi nerede?", "expected_intent": "course_create", "role": "ogretmen"}
-{"question": "Bir sınıf oluşturmak istiyorum nasıl yaparım?", "expected_intent": "course_create", "role": "ogretmen"}
+{"question": "Bir sınıf oluşturmak istiyorum nasıl yaparım?", "expected_intent": "class_section_manage", "role": "ogretmen"}
 {"question": "Bir öğrenciyi dersime nasıl eklerim?", "expected_intent": "course_enroll_student", "role": "ogretmen"}
 {"question": "Sınıf listeme öğrenci almak istiyorum", "expected_intent": "course_enroll_student", "role": "ogretmen"}
 {"question": "Derse kayıt yapma işlemi nasıl?", "expected_intent": "course_enroll_student", "role": "ogretmen"}
@@ -111,6 +111,14 @@
 {"question": "Kişisel not almak istiyorum nasıl?", "expected_intent": "note_create", "role": "ogrenci"}
 {"question": "Deftere dosya ekli not eklemek istiyorum", "expected_intent": "note_create", "role": "ogrenci"}
 {"question": "Yeni not oluşturma nerede?", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "not değiştirmek", "expected_intent": "note_edit", "role": "ogrenci"}
+{"question": "notumu düzenlemek istiyorum", "expected_intent": "note_edit", "role": "ogretmen"}
+{"question": "Defterimdeki kaydın başlığını güncellemek istiyorum", "expected_intent": "note_edit", "role": "veli"}
+{"question": "Bu notun içeriğini düzeltmek istiyorum", "expected_intent": "note_edit", "role": "admin"}
+{"question": "not silmek", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "ben not silmek", "expected_intent": "note_delete", "role": "yonetici"}
+{"question": "Defterimdeki eski yazıyı kaldırmak istiyorum", "expected_intent": "note_delete", "role": "veli"}
+{"question": "notumu silmek istiyorum", "expected_intent": "note_delete", "role": "admin"}
 {"question": "Mesaiye giriş kaydı nasıl açarım?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
 {"question": "İşe geldiğimi nasıl damgalarım?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
 {"question": "Çıkış saatimi nasıl kaydederim?", "expected_intent": "work_checkin_out", "role": "ogretmen"}
@@ -155,6 +163,9 @@
 {"question": "En sevdiğin film hangisi", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Telefonumun şarjı çabuk bitiyor", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Yarın hava yağmurlu mu", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Gerçek öğrenci listesini buraya getir", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "ogretmen"}
+{"question": "Sistemde toplam kaç kullanıcı var", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "admin"}
+{"question": "Kayıtlı öğretmenlerin sayısını bana söyle", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "yonetici"}
 {"question": "Çok teşekkür ederim ya", "expected_intent": "thanks", "role": "ogrenci"}
 {"question": "sağ olasın", "expected_intent": "thanks", "role": "ogrenci"}
 {"question": "eyvallah hocam", "expected_intent": "thanks", "role": "ogrenci"}
@@ -196,7 +207,7 @@
 {"question": "Ücret ödemelerimi nerede takip ederim?", "expected_intent": "fees_info", "role": "ogrenci"}
 {"question": "Okul ücreti hangi sayfada?", "expected_intent": "fees_info", "role": "ogrenci"}
 {"question": "Ödeme durumumu nereden görürüm?", "expected_intent": "fees_info", "role": "ogrenci"}
-{"question": "Şube bilgimi nereden öğrenirim?", "expected_intent": "branches_info", "role": "ogrenci"}
+{"question": "Şube bilgimi nereden öğrenirim?", "expected_intent": "profile_view", "role": "ogrenci"}
 {"question": "Okulun şubeleri hangi sayfada?", "expected_intent": "branches_info", "role": "ogrenci"}
 {"question": "Şube listesi nerede?", "expected_intent": "branches_info", "role": "ogrenci"}
 {"question": "Takvimi nereden açarım?", "expected_intent": "calendar_info", "role": "ogrenci"}
@@ -240,7 +251,7 @@
 {"question": "Öğün için yer ayırtmak istiyorum", "expected_intent": "meal_book", "role": "ogrenci"}
 {"question": "Yeni yemek menüsü yayınlamak istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
 {"question": "Öğüne yeni yemek eklemek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
-{"question": "Öğrenci yemek kredisi girmek istiyorum", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "Öğrenci yemek kredisi girmek istiyorum", "expected_intent": "meal_credit_manage", "role": "yonetici"}
 {"question": "Soru havuzunda soru sormak istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
 {"question": "Takıldığım soruyu havuza nasıl sorarım", "expected_intent": "question_ask", "role": "ogrenci"}
 {"question": "Soru havuzuna soru göndermek istiyorum", "expected_intent": "question_ask", "role": "ogrenci"}
@@ -259,3 +270,332 @@
 {"question": "Ödeme yönetimi nerede", "expected_intent": "fees_manage", "role": "yonetici"}
 {"question": "Öğrenci ödemelerini nereden yönetirim", "expected_intent": "fees_manage", "role": "yonetici"}
 {"question": "Ücret tahsilatını nereden takip ederim", "expected_intent": "fees_manage", "role": "admin"}
+{"question": "notu silmek istiyorum", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "Not kartındaki kaydı kaldırabilir miyim?", "expected_intent": "note_delete", "role": "veli"}
+{"question": "Defterimdeki notlardan birini sileceğim", "expected_intent": "note_delete", "role": "ogretmen"}
+{"question": "Yanlış yazdığım notu kaldır", "expected_intent": "note_delete", "role": "admin"}
+{"question": "notu silebilirmiyim", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "not slmek istiyorum", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "defterdeki notu slemek", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "notu kaldır", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "eski defter notunu temizlemek istiyorum", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "ben not değiştirmek", "expected_intent": "note_edit", "role": "ogrenci"}
+{"question": "notu güncelle", "expected_intent": "note_edit", "role": "ogrenci"}
+{"question": "not başlığını değiştir", "expected_intent": "note_edit", "role": "veli"}
+{"question": "nota yazdığım içeriği güncelleyebilir miyim", "expected_intent": "note_edit", "role": "ogrenci"}
+{"question": "defterde yazdığımı düzeltmek istiyorum", "expected_intent": "note_edit", "role": "ogretmen"}
+{"question": "defterdeki notu güncellicem", "expected_intent": "note_edit", "role": "ogrenci"}
+{"question": "kişisel notta değişiklik yapacağım", "expected_intent": "note_edit", "role": "veli"}
+{"question": "not eklemek", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "defterime hatırlatma yazmak istiyorum", "expected_intent": "note_create", "role": "veli"}
+{"question": "yeni bir not yazacağım", "expected_intent": "note_create", "role": "ogretmen"}
+{"question": "not almak istiyorum", "expected_intent": "note_create", "role": "ogrenci"}
+{"question": "sınav notunu silmek", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrenci notunu değiştirmek", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "Ayşe'nin sınav notunu düzeltmek istiyorum", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "sınav puanını değiştirmek istiyorum", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrencinin notunu kaldırmak istiyorum", "expected_intent": "exam_grade_student", "role": "yonetici"}
+{"question": "ödev notunu silmek", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "ödev puanını değiştirmek", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "teslim notunu düzeltmek", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "öğrencinin ödev puanını kaldırmak", "expected_intent": "homework_grade", "role": "yonetici"}
+{"question": "not bandını silmek", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "okuldaki not bandını değiştirmek", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "not aralıklarını güncellemek", "expected_intent": "school_settings", "role": "admin"}
+{"question": "öğrenci kaydını kaldırmak", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "ders kaydını silmek", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "sınıftan öğrencinin kaydını kaldır", "expected_intent": "course_remove_student", "role": "yonetici"}
+{"question": "mesai kaydını silmek", "expected_intent": "staff_work_manage", "role": "yonetici"}
+{"question": "kapalı mesaiyi kaldırmak", "expected_intent": "staff_work_manage", "role": "admin"}
+{"question": "randevuyu iptal etmek", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "randevu talebimi geri çekmek istiyorum", "expected_intent": "appointment_book", "role": "veli"}
+{"question": "yemek rezervasyonumu silmek", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "başkasının notunu sil", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "arkadaşımın notunu değiştirmek istiyorum", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "başka birinin notuna müdahale edebilir miyim", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "öğretmenin telefonunu öğrenmek istiyorum", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "saol", "expected_intent": "thanks", "role": "ogrenci"}
+{"question": "sınava geri döncem", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "öğrenciyi puanlıcam", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrenciyi öğretmen yapcam", "expected_intent": "user_role_change", "role": "admin"}
+{"question": "etkinlikler nerde", "expected_intent": "event_view", "role": "ogrenci"}
+{"question": "ders pdfi nerde", "expected_intent": "course_materials_info", "role": "ogrenci"}
+{"question": "randevuyu onaylıcam", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "yemek ayırtcam", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "menü yayınlıcam", "expected_intent": "meal_menu_manage", "role": "yonetici"}
+{"question": "soruyu onaylıcam", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "sınava gircem", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "ödevi yüklicem", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "profilimi degistircem", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "baskasinin notu", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "Ali'nin notunu düzelt", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "sınav notunu güncelle", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrencinin notunu değil kaydını sil", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrenciyi değil notunu sil", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "hocam yanlış puan girdim nasıl geri alırım", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "teslimin puanını geri al", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "rosterdan çıkar", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "mailimi duzelt", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "snv olustur", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "snava gircem", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "drs açcam", "expected_intent": "course_create", "role": "ogretmen"}
+{"question": "yoklma al", "expected_intent": "roll_call", "role": "ogretmen"}
+{"question": "karnme bak", "expected_intent": "report_card_view", "role": "ogrenci"}
+{"question": "ogrnci notunu degstr", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrenci puanını düzelt", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrenci puanını sil", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "sınav puanını kaldır", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "öğrenci kaydını sil", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "rosterdan öğrenciyi çıkar", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrencinin notunu değil kaydını kaldır", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "başkasının notunu değiştirmek", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "benim notumu sil", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "ödev teslim puanını düzelt", "expected_intent": "homework_grade", "role": "ogretmen"}
+{"question": "not bandını güncelle", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "sınav oluştur ve yoklama al", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "profil sayfamı görmek istiyorum", "expected_intent": "profile_view", "role": "ogrenci"}
+{"question": "kazandığım rozetleri hangi ekranda bulurum", "expected_intent": "profile_view", "role": "ogrenci"}
+{"question": "odak ve ödev istatistiklerim profilimde nerede", "expected_intent": "profile_view", "role": "ogretmen"}
+{"question": "avatar fotoğrafımı yenilemek istiyorum", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "biyografi alanını temizlemek istiyorum", "expected_intent": "profile_edit", "role": "ogretmen"}
+{"question": "görünen ismim yanlış, nereden düzeltirim", "expected_intent": "profile_edit", "role": "veli"}
+{"question": "hesap menüsündeki kişisel ayar penceresini arıyorum", "expected_intent": "personal_settings", "role": "ogrenci"}
+{"question": "vurgu rengini varsayılana nasıl döndürürüm", "expected_intent": "personal_settings", "role": "ogretmen"}
+{"question": "ayarlar penceresinde hangi kişisel seçenekler var", "expected_intent": "personal_settings", "role": "veli"}
+{"question": "tema dil ve renk seçimlerini aynı yerde yapabilir miyim", "expected_intent": "language_theme", "role": "ogrenci"}
+{"question": "zil menüsündeki tüm uyarıları temizlemek istiyorum", "expected_intent": "notification_settings_info", "role": "ogrenci"}
+{"question": "bir bildirimi listeden nasıl kaldırırım", "expected_intent": "notification_settings_info", "role": "ogretmen"}
+{"question": "yalnız e-posta bildirimi açma seçeneği var mı", "expected_intent": "notification_settings_info", "role": "yonetici"}
+{"question": "mesaj bildirimine basınca ne oluyor", "expected_intent": "notification_settings_info", "role": "veli"}
+{"question": "409 çakışma hatası aldım neyi kontrol etmeliyim", "expected_intent": "technical_error_help", "role": "ogrenci"}
+{"question": "dosya yüklerken 413 döndü", "expected_intent": "upload_problem", "role": "ogretmen"}
+{"question": "429 çok fazla istek uyarısı ne demek", "expected_intent": "technical_error_help", "role": "ogrenci"}
+{"question": "veritabanı 503 döndürdü tekrar deneyeyim mi", "expected_intent": "technical_error_help", "role": "yonetici"}
+{"question": "kaydet düğmesine bastım ama çalışmıyor", "expected_intent": "technical_error_help", "role": "ogrenci"}
+{"question": "isteğim başarısız oldu hata metnini nereye yazayım", "expected_intent": "technical_error_help", "role": "veli"}
+{"question": "yazma isteği zaman aşımına uğradı yeniden göndereyim mi", "expected_intent": "technical_error_help", "role": "admin"}
+{"question": "oturum süresi dolduğu için 401 alıyorum", "expected_intent": "session_info", "role": "ogrenci"}
+{"question": "403 rol mü ders yetkisi mi demek", "expected_intent": "access_denied_help", "role": "ogretmen"}
+{"question": "yetkisiz kayıt neden 404 gibi görünüyor", "expected_intent": "access_denied_help", "role": "yonetici"}
+{"question": "admin neden pomodoro başlatamıyor", "expected_intent": "pomodoro_use", "role": "admin"}
+{"question": "admin kendi mesai girişini yapabilir mi", "expected_intent": "work_checkin_out", "role": "admin"}
+{"question": "öğretmen öğrenci gibi sınav odasına girebilir mi", "expected_intent": "exam_enter_room", "role": "ogretmen"}
+{"question": "üst rol her öğrenci işlemini yapabilir mi", "expected_intent": "roles_permissions", "role": "yonetici"}
+{"question": "telefonda sınavlar sekmesini göremiyorum", "expected_intent": "navigation_help", "role": "ogretmen"}
+{"question": "veli mobil menüsünde neden dersler yok", "expected_intent": "navigation_help", "role": "veli"}
+{"question": "öğrencinin mobil alt menüsünde hangi sekmeler var", "expected_intent": "navigation_help", "role": "ogrenci"}
+{"question": "okul ayarlarında chatbot mesaj sınırı nerede", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "öğün saatlerini okul genelinde ayarlamak istiyorum", "expected_intent": "school_settings", "role": "admin"}
+{"question": "beslenme etiketleri hangi ayarlar sekmesinde", "expected_intent": "school_settings", "role": "yonetici"}
+{"question": "sınıf dolu olduğu için öğrenci ekleyemiyorum", "expected_intent": "course_enroll_student", "role": "ogretmen"}
+{"question": "öğretmen hesabını öğrenci diye derse kaydedebilir miyim", "expected_intent": "course_enroll_student", "role": "yonetici"}
+{"question": "dersten çıkardığım öğrencinin eski sınav sonuçları silinir mi", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrenciyi roster listesinden kaldıramadım", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "derse yeni bir oturum eklemem gerekiyor", "expected_intent": "lesson_session_add", "role": "ogretmen"}
+{"question": "ders oturumunun bitişi başlangıçtan önce hatası veriyor", "expected_intent": "lesson_session_add", "role": "ogretmen"}
+{"question": "sınav oluşturma sadece sınav modlarını açıkla", "expected_intent": "exam_modes_info", "role": "ogrenci"}
+{"question": "sınav başlamadı uyarısı yüzünden odaya giremiyorum", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "deneme hakkım kalmadığı için sınav açılmıyor", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "zamansız sınavın odasına neden girilmiyor", "expected_intent": "exam_enter_room", "role": "ogrenci"}
+{"question": "ilk öğrenci başladıktan sonra sınav sorusunu değiştirebilir miyim", "expected_intent": "exam_add_question", "role": "ogretmen"}
+{"question": "sınav sorusu değiştirirken attempts started hatası aldım", "expected_intent": "exam_add_question", "role": "ogretmen"}
+{"question": "kendi hesabıma sınav notu veremiyorum", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "ayar listesinden silinen sınav türüne not girerken 409 aldım", "expected_intent": "exam_grade_student", "role": "yonetici"}
+{"question": "yeniden giriş kapalı olduğu için sınava dönemiyorum", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "teslim edilmiş denemeye tekrar bağlanabilir miyim", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "notlandırılan ödev teslimimi artık değiştiremiyorum", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "ödev dosyam okul limitini aşıp 413 veriyor", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "defter notuna on birinci dosyayı ekleyemiyorum", "expected_intent": "note_file_manage", "role": "ogrenci"}
+{"question": "başkasına ait defter notu neden bulunamadı görünüyor", "expected_intent": "privacy_security", "role": "ogrenci"}
+{"question": "zaten mesai girişi yaptın uyarısında ne yapmalıyım", "expected_intent": "work_checkin_out", "role": "ogretmen"}
+{"question": "giriş yapmadan mesai çıkışı veremiyorum", "expected_intent": "work_checkin_out", "role": "yonetici"}
+{"question": "ders bağlı olduğu için akademik dönemi silemiyorum", "expected_intent": "term_manage", "role": "yonetici"}
+{"question": "şubeye bağlı dönem silinir mi", "expected_intent": "term_manage", "role": "admin"}
+{"question": "öğrenciyi etkinlikte var olarak işaretlemek istiyorum", "expected_intent": "event_attendance_mark", "role": "ogretmen"}
+{"question": "öğrenci kendi etkinlik katılımını kaydedebilir mi", "expected_intent": "event_attendance_mark", "role": "ogrenci"}
+{"question": "öğretmen hesabıyla soru havuzuna yeni soru sorabilir miyim", "expected_intent": "question_ask", "role": "ogretmen"}
+{"question": "öğrenciye yemek kredisi yüklemek istiyorum", "expected_intent": "meal_credit_manage", "role": "admin"}
+{"question": "yönetici hesabında kredi kaydet düğmesi niye yok", "expected_intent": "meal_credit_manage", "role": "yonetici"}
+{"question": "yemek bakiyesine tutar ekleme işlemi nerede", "expected_intent": "meal_credit_manage", "role": "admin"}
+{"question": "etütleri dersler ekranında nasıl filtrelerim", "expected_intent": "study_club_info", "role": "ogrenci"}
+{"question": "kulübe kendi kendime kayıt olabilir miyim", "expected_intent": "study_club_info", "role": "ogrenci"}
+{"question": "takvim haftalık değil aylık mı çalışıyor", "expected_intent": "calendar_info", "role": "veli"}
+{"question": "randevular takvim ekranında gösteriliyor mu", "expected_intent": "calendar_info", "role": "ogrenci"}
+{"question": "ücretlerim sayfasından borç dökümüne bakmak istiyorum", "expected_intent": "fees_info", "role": "ogrenci"}
+{"question": "veliyim çocuğumun ödeme ekstresini nereden açarım", "expected_intent": "fees_info", "role": "veli"}
+{"question": "soru bankası öğrenci hesabında neden görünmüyor", "expected_intent": "question_bank_info", "role": "ogrenci"}
+{"question": "öğretmenin yüklediği ders dosyasını indiremedim", "expected_intent": "course_materials_info", "role": "ogrenci"}
+{"question": "profilime giden doğru adres profile me mi", "expected_intent": "profile_view", "role": "ogrenci"}
+{"question": "hangi ders ve şube üyeliklerim var", "expected_intent": "profile_view", "role": "ogrenci"}
+{"question": "hakkında alanımı tamamen boşaltmak istiyorum", "expected_intent": "profile_edit", "role": "veli"}
+{"question": "doğum tarihini gelecekte seçince neden kaydetmiyor", "expected_intent": "profile_edit", "role": "ogretmen"}
+{"question": "ayarlar ayrı sayfa mı yoksa pencere mi", "expected_intent": "personal_settings", "role": "ogrenci"}
+{"question": "hesap görünüm bölümünde hangi seçenekler değişir", "expected_intent": "personal_settings", "role": "veli"}
+{"question": "profil avatarına svg yükleyemiyorum", "expected_intent": "upload_problem", "role": "ogrenci"}
+{"question": "kendi profilimde üyelik ve istatistikleri arıyorum", "expected_intent": "profile_view", "role": "yonetici"}
+{"question": "profil fotoğrafını kaldırınca varsayılan avatar gelir mi", "expected_intent": "profile_edit", "role": "ogrenci"}
+{"question": "kayıt başarılı yazdı ama yeni bilgilerle giriş yapamıyorum", "expected_intent": "account_access_problem", "role": "ziyaretci"}
+{"question": "kullanıcı adı neden nokta ile başlayamıyor", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "aynı kullanıcı adıyla ikinci hesap açılır mı", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "kullanıcı adı hangi karakterleri kabul ediyor", "expected_intent": "register_how", "role": "ziyaretci"}
+{"question": "yanlış kullanıcı ile yanlış şifre neden aynı 401 mesajını veriyor", "expected_intent": "account_access_problem", "role": "ziyaretci"}
+{"question": "öğrenci silmek istiyorum", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrenciyi silmek istiyorum", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "ders listesinden öğrenciyi kaldıracağım", "expected_intent": "course_remove_student", "role": "yonetici"}
+{"question": "yeni şube oluştururken kapasiteyi nerede giriyorum", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "sınıf grubu açmak ders açmakla aynı mı", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "şubeye öğrenci eklerken bağlı ders dolu hatası aldım", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "şubeden öğrenciyi çıkarınca ders kayıtları ne olur", "expected_intent": "class_section_manage", "role": "admin"}
+{"question": "dersi şubeye bağlamak istiyorum", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "şubedeki ders bağlantısını ayırmam lazım", "expected_intent": "class_section_manage", "role": "admin"}
+{"question": "üyeleri olan şubeyi silmeye çalışınca 409 geliyor", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "öğretmen olarak yeni sınıf grubu oluşturabilir miyim", "expected_intent": "class_section_manage", "role": "ogretmen"}
+{"question": "multipart içinde file alanı yok diyor", "expected_intent": "upload_problem", "role": "ogrenci"}
+{"question": "boş dosyayı ek olarak kabul etmiyor", "expected_intent": "upload_problem", "role": "veli"}
+{"question": "okulun dosya boyut sınırını aştım", "expected_intent": "upload_problem", "role": "ogretmen"}
+{"question": "desteklenmeyen dosya türü uyarısı neden çıkar", "expected_intent": "upload_problem", "role": "ogrenci"}
+{"question": "ek limitim dolu olduğu için yeni dosya yüklenmiyor", "expected_intent": "upload_problem", "role": "ogrenci"}
+{"question": "ders notuna onuncudan sonra dosya eklenir mi", "expected_intent": "course_note_manage", "role": "ogretmen"}
+{"question": "görsel olarak svg neden desteklenmiyor", "expected_intent": "upload_problem", "role": "ogretmen"}
+{"question": "dosya yükleme isteği bozuk multipart dönüyor", "expected_intent": "upload_problem", "role": "admin"}
+{"question": "çelebi yanıt vermiyor servis mi kapalı", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "ai service is not enabled mesajı ne anlatıyor", "expected_intent": "chatbot_service_problem", "role": "yonetici"}
+{"question": "no ai service is connected right now hatası aldım", "expected_intent": "chatbot_service_problem", "role": "admin"}
+{"question": "chatbot bridge çalışıyor ama bağlı görünmüyor", "expected_intent": "chatbot_service_problem", "role": "admin"}
+{"question": "sohbet mesajı uzun zamandır pending", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "çelebi timed_out durumuna düştü", "expected_intent": "chatbot_service_problem", "role": "ogretmen"}
+{"question": "çelebi transport hatasıyla cevaplamadı", "expected_intent": "chatbot_service_problem", "role": "yonetici"}
+{"question": "chatbotta thread limiti doldu ne silmeliyim", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "chatbot threadini silersem mesajları da gider mi", "expected_intent": "chatbot_service_problem", "role": "veli"}
+{"question": "chatbot 429 için ne kadar beklemeliyim", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "asenkron sınavda süre zorunlu hatası alıyorum", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "senkron sınav süre alanını neden kabul etmiyor", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "açık mod sınava başlangıç tarihi yazabilir miyim", "expected_intent": "exam_create", "role": "yonetici"}
+{"question": "sınav süresi zaman penceresine sığmıyor", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "sınav duration en fazla kaç saat olabilir", "expected_intent": "exam_create", "role": "ogretmen"}
+{"question": "canlı izleme için sınavın başlaması şart mı", "expected_intent": "exam_live_monitor", "role": "ogretmen"}
+{"question": "sınav bitmeden öğrencinin notunu girebilir miyim", "expected_intent": "exam_grade_student", "role": "ogretmen"}
+{"question": "not verilmemiş sınav neden karnede hiç görünmüyor", "expected_intent": "report_card_view", "role": "ogrenci"}
+{"question": "sınav denemesi teslim edildiği için cevap değişmiyor", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "sınavın süresi dolduktan sonra yeniden bağlanabilir miyim", "expected_intent": "exam_rejoin_retake", "role": "ogrenci"}
+{"question": "notlandırılmış ödev dosyasını neden silemiyorum", "expected_intent": "homework_submit", "role": "ogrenci"}
+{"question": "ödev hedef kitlesini daraltırken 409 aldım", "expected_intent": "homework_manage", "role": "ogretmen"}
+{"question": "ödev yalnız seçilen öğrencilere nasıl atanır", "expected_intent": "homework_assign", "role": "ogretmen"}
+{"question": "ödeve not verildikten sonra teslim geri çekilir mi", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "randevu slotu dolu olduğu için talep açamıyorum", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "randevu saatim başka görüşmeyle çakışıyor", "expected_intent": "appointment_book", "role": "veli"}
+{"question": "başlamış randevu için 409 geldi", "expected_intent": "appointment_book", "role": "ogrenci"}
+{"question": "öğretmenin önerdiği yeni randevu saatini kabul edeceğim", "expected_intent": "appointment_book", "role": "veli"}
+{"question": "onaylı talep bulunan randevu saatini silemiyorum", "expected_intent": "appointment_slot_open", "role": "ogretmen"}
+{"question": "randevu serisini silmek neden reddediliyor", "expected_intent": "appointment_slot_open", "role": "yonetici"}
+{"question": "randevu için başka saat önermek istiyorum", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "eski randevu teklifine basınca 409 oluyor", "expected_intent": "appointment_requests", "role": "ogrenci"}
+{"question": "öğretmen olarak öğrencinin randevusunu iptal edebilir miyim", "expected_intent": "appointment_requests", "role": "ogretmen"}
+{"question": "yemek rezervasyonu doluluk yüzünden 409 verdi", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "öğün kapasitesi tamamen dolu", "expected_intent": "meal_book", "role": "veli"}
+{"question": "yemek için son rezervasyon saatini kaçırdım", "expected_intent": "meal_book", "role": "ogrenci"}
+{"question": "aynı öğüne yeniden rezervasyon tavanına ulaştım", "expected_intent": "meal_book", "role": "veli"}
+{"question": "yemek kredisi seçtiğim öğüne mi yazılıyor", "expected_intent": "meal_credit_manage", "role": "admin"}
+{"question": "ödeme kaydını silmek yerine ters kayıt mı açmalıyım", "expected_intent": "fees_manage", "role": "yonetici"}
+{"question": "yanlış tahsilatı iade etmek istiyorum", "expected_intent": "fees_manage", "role": "admin"}
+{"question": "ödeme ledger satırı neden düzenlenmiyor", "expected_intent": "fees_manage", "role": "yonetici"}
+{"question": "aynı request key farklı ödeme tutarında neden reddediliyor", "expected_intent": "fees_manage", "role": "admin"}
+{"question": "mesajı kalıcı silmek için önce çöpe mi taşımalıyım", "expected_intent": "messages_use", "role": "ogrenci"}
+{"question": "mesajımı silince alıcının kopyası da silinir mi", "expected_intent": "messages_use", "role": "veli"}
+{"question": "kendime mesaj gönderemiyorum neden", "expected_intent": "messages_use", "role": "ogretmen"}
+{"question": "havuz sorusunu reddetmek çözümleri de kalıcı siler mi", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "soru havuzunda pending soruyu kim görebilir", "expected_intent": "question_approve", "role": "ogretmen"}
+{"question": "tahtayı kapatırsam yeniden açabilir miyim", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "kilitli tahtayı temizlerken 409 alıyorum", "expected_intent": "board_create", "role": "ogretmen"}
+{"question": "tahtaya ders katılımcılarını toplu davet edeceğim", "expected_intent": "board_create", "role": "ogretmen"}
+{"question": "tahtayı silmek çizim geçmişini de yok eder mi", "expected_intent": "board_create", "role": "ogrenci"}
+{"question": "öğrenci kendi etkinlik yoklamasını neden işaretleyemiyor", "expected_intent": "event_attendance_mark", "role": "ogrenci"}
+{"question": "veli bağlı çocuğun pomodoro geçmişini görebilir mi", "expected_intent": "parent_info", "role": "veli"}
+{"question": "veli çocuğu adına öğretmenden randevu mu alır", "expected_intent": "parent_info", "role": "veli"}
+{"question": "mobil hesap sekmesinden profilime ulaşabilir miyim", "expected_intent": "navigation_help", "role": "ogrenci"}
+{"question": "400 ile 422 hatasının farkı nedir", "expected_intent": "technical_error_help", "role": "yonetici"}
+{"question": "bu öğrenciyi dersten çıkaracağım", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "sınıf listesinden öğrenciyi nasıl kaldırırım", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrencinin ders kaydını sonlandırmam lazım", "expected_intent": "course_remove_student", "role": "yonetici"}
+{"question": "rosterdaki remove düğmesini bulamadım", "expected_intent": "course_remove_student", "role": "ogretmen"}
+{"question": "öğrenciyi course roster içinden remove etmek istiyorum", "expected_intent": "course_remove_student", "role": "admin"}
+{"question": "öğrenci hesabını değil yalnız ders kaydını kaldıracağım", "expected_intent": "course_remove_student", "role": "yonetici"}
+{"question": "defterdeki kişisel notumu kaldıracağım", "expected_intent": "note_delete", "role": "veli"}
+{"question": "yazdığım notu silmek istiyorum", "expected_intent": "note_delete", "role": "ogrenci"}
+{"question": "kişisel notta değişiklik yapmam lazım", "expected_intent": "note_edit", "role": "ogretmen"}
+{"question": "defter kaydını yeniden düzenleyeceğim", "expected_intent": "note_edit", "role": "veli"}
+{"question": "profile me sayfasını nereden açarım", "expected_intent": "profile_view", "role": "ogrenci"}
+{"question": "profilim ekranındaki rozet ve istatistikler nerede", "expected_intent": "profile_view", "role": "veli"}
+{"question": "ayarlar penceresinde hesabımı düzenlemek istiyorum", "expected_intent": "personal_settings", "role": "ogrenci"}
+{"question": "hesap menüsündeki settings ayrı bir sayfa mı", "expected_intent": "personal_settings", "role": "ogretmen"}
+{"question": "ayarlar görünüm kısmında vurgu rengini değiştireceğim", "expected_intent": "personal_settings", "role": "veli"}
+{"question": "dosya yükleyemiyorum neden", "expected_intent": "upload_problem", "role": "ogrenci"}
+{"question": "on birinci eki ekleyemiyorum", "expected_intent": "upload_problem", "role": "ogretmen"}
+{"question": "çelebi çalışmıyor neden", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "chatbot backend servisine bağlanamıyor", "expected_intent": "chatbot_service_problem", "role": "admin"}
+{"question": "çelebi bad_reply durumuna düştü", "expected_intent": "chatbot_service_problem", "role": "yonetici"}
+{"question": "çelebi empty_reply koduyla başarısız oldu", "expected_intent": "chatbot_service_problem", "role": "ogretmen"}
+{"question": "chatbot mesajı interrupted görünüyor", "expected_intent": "chatbot_service_problem", "role": "ogrenci"}
+{"question": "şube oluşturma formunda kapasite alanı neden yok", "expected_intent": "class_section_manage", "role": "yonetici"}
+{"question": "takvim görünümü haftalık mı aylık mı", "expected_intent": "calendar_info", "role": "veli"}
+{"question": "oturumum bitince gelen 401 için yeniden mi giriş yapmalıyım", "expected_intent": "session_info", "role": "veli"}
+{"question": "PDF ders notlarımı Deftere içe aktarmak istiyorum", "expected_intent": "note_import_ocr", "role": "ogrenci"}
+{"question": "taranmış PDF dosyasında OCR yapılıyor mu", "expected_intent": "note_import_ocr", "role": "veli"}
+{"question": "Markdown dosyamı Deftere aktarabilir miyim", "expected_intent": "note_import_ocr", "role": "ogretmen"}
+{"question": "not içe aktarırken metin çıkarılamadı", "expected_intent": "note_import_ocr", "role": "admin"}
+{"question": "Defter notu aktarımındaki bozuk karakterleri nasıl düzeltirim", "expected_intent": "note_import_ocr", "role": "yonetici"}
+{"question": "ziyaretçiyim PDF'yi Deftere içe aktarabilir miyim", "expected_intent": "note_import_ocr", "role": "ziyaretci"}
+{"question": "Defter notuma dosya eklemek istiyorum", "expected_intent": "note_file_manage", "role": "ogrenci"}
+{"question": "kişisel not ekini nasıl silerim", "expected_intent": "note_file_manage", "role": "veli"}
+{"question": "Defterdeki eki nereden indiririm", "expected_intent": "note_file_manage", "role": "ogretmen"}
+{"question": "Defterde on birinci dosyayı neden ekleyemiyorum", "expected_intent": "note_file_manage", "role": "admin"}
+{"question": "Defterdeki kişisel not dosyalarına bir çizim ekleyebilir miyim", "expected_intent": "note_file_manage", "role": "yonetici"}
+{"question": "giriş yapmadan kişisel notuma dosya ekleyebilir miyim", "expected_intent": "note_file_manage", "role": "ziyaretci"}
+{"question": "dersime yeni bir müfredat konusu eklemek istiyorum", "expected_intent": "course_subject_manage", "role": "ogretmen"}
+{"question": "ders konusunun adını değiştirmem lazım", "expected_intent": "course_subject_manage", "role": "yonetici"}
+{"question": "ders konusunu silerken 409 alıyorum", "expected_intent": "course_subject_manage", "role": "admin"}
+{"question": "ödeve bağlı ders konusunu neden silemiyorum", "expected_intent": "course_subject_manage", "role": "ogretmen"}
+{"question": "öğrenci olarak ders konusunu düzenleyebilir miyim", "expected_intent": "course_subject_manage", "role": "ogrenci"}
+{"question": "veli ders için müfredat konusu oluşturabilir mi", "expected_intent": "course_subject_manage", "role": "veli"}
+{"question": "sınıfla paylaşılacak bir ders notu oluşturmak istiyorum", "expected_intent": "course_note_manage", "role": "ogretmen"}
+{"question": "ders notundaki PDF dosyasını değiştirmek istiyorum", "expected_intent": "course_note_manage", "role": "yonetici"}
+{"question": "ders notu dosyalarından bazıları yüklenmedi", "expected_intent": "course_note_manage", "role": "admin"}
+{"question": "ders notuna on birinci eki neden koyamıyorum", "expected_intent": "course_note_manage", "role": "ogretmen"}
+{"question": "öğrenci öğretmenin ders notunu silebilir mi", "expected_intent": "course_note_manage", "role": "ogrenci"}
+{"question": "veli olarak derse not ekleyebilir miyim", "expected_intent": "course_note_manage", "role": "veli"}
+{"question": "derse başka bir öğretmen atamak istiyorum", "expected_intent": "course_teacher_manage", "role": "yonetici"}
+{"question": "atanmış öğretmeni dersten çıkarmam lazım", "expected_intent": "course_teacher_manage", "role": "admin"}
+{"question": "öğretmen olarak dersin öğretmen listesini değiştirebilir miyim", "expected_intent": "course_teacher_manage", "role": "ogretmen"}
+{"question": "öğretmen atarken hedef rolü uygun değil diyor", "expected_intent": "course_teacher_manage", "role": "yonetici"}
+{"question": "atanmamış öğretmeni çıkarınca 404 aldım", "expected_intent": "course_teacher_manage", "role": "admin"}
+{"question": "öğretmeni dersten çıkarınca sınavlar silinir mi", "expected_intent": "course_teacher_manage", "role": "ogrenci"}
+{"question": "ödev teslimimi geri çekmek istiyorum", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "ödev teslimimi geri çekip gönderdiğim her şeyi kaldırmak istiyorum", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "teslimi geri çek düğmesi neden görünmüyor", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "ödev teslimini geri çekmeye çalışınca notlandırıldığı için 409 dönüyor", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "ödev teslimini silince dosyalar da gider mi", "expected_intent": "homework_withdraw_submission", "role": "ogrenci"}
+{"question": "öğretmen öğrencinin teslimini geri çekebilir mi", "expected_intent": "homework_withdraw_submission", "role": "ogretmen"}
+{"question": "var olan ödevi düzenlemek istiyorum", "expected_intent": "homework_manage", "role": "ogretmen"}
+{"question": "ödevin son teslim tarihini değiştirmem lazım", "expected_intent": "homework_manage", "role": "yonetici"}
+{"question": "ödev kaydını tamamen silersem teslimler ne olur", "expected_intent": "homework_manage", "role": "admin"}
+{"question": "ödevin bağlı olduğu ders konusunu başka bir konuyla değiştiremiyorum", "expected_intent": "homework_manage", "role": "ogretmen"}
+{"question": "ödev hedef kitlesini daraltırken 409 alıyorum", "expected_intent": "homework_manage", "role": "yonetici"}
+{"question": "öğrenci ödevin kendisini silebilir mi", "expected_intent": "homework_manage", "role": "ogrenci"}
+{"question": "yemekte öğrenciyi servis edildi işaretlemek istiyorum", "expected_intent": "meal_service_mark", "role": "ogretmen"}
+{"question": "öğünde gelmedi kaydını nasıl tutarım", "expected_intent": "meal_service_mark", "role": "yonetici"}
+{"question": "rezervasyonsuz gelen kişiyi servis listesine eklemek istiyorum", "expected_intent": "meal_service_mark", "role": "admin"}
+{"question": "servis kaydını yanlış girdim nasıl düzeltirim", "expected_intent": "meal_service_mark", "role": "ogretmen"}
+{"question": "gelmedi işareti yemek ücretini geri verir mi", "expected_intent": "meal_service_mark", "role": "yonetici"}
+{"question": "öğrenci kendi yemek yoklamasını işaretleyebilir mi", "expected_intent": "meal_service_mark", "role": "ogrenci"}
+{"question": "öğrencinin beslenme profilini güncellemek istiyorum", "expected_intent": "meal_dietary_profile_manage", "role": "yonetici"}
+{"question": "alerji etiketini öğrenciye nasıl eklerim", "expected_intent": "meal_dietary_profile_manage", "role": "admin"}
+{"question": "mutfak notunu temizlemem gerekiyor", "expected_intent": "meal_dietary_profile_manage", "role": "yonetici"}
+{"question": "öğretmen beslenme profilini değiştirebilir mi", "expected_intent": "meal_dietary_profile_manage", "role": "ogretmen"}
+{"question": "bilinmeyen dietary tag hatası alıyorum", "expected_intent": "meal_dietary_profile_manage", "role": "admin"}
+{"question": "öğrenci kendi alerji kaydını düzenleyebilir mi", "expected_intent": "meal_dietary_profile_manage", "role": "ogrenci"}
+{"question": "soru bankasına yeni bir şablon eklemek istiyorum", "expected_intent": "question_bank_manage", "role": "ogretmen"}
+{"question": "bankadaki kendi sorumu düzenlemem lazım", "expected_intent": "question_bank_manage", "role": "yonetici"}
+{"question": "soru bankasındaki şablonu okul görünürlüğüne açmak istiyorum", "expected_intent": "question_bank_manage", "role": "ogretmen"}
+{"question": "başka öğretmenin banka sorusunu silebilir miyim", "expected_intent": "question_bank_manage", "role": "yonetici"}
+{"question": "şablonun konusu silinirse ne olur", "expected_intent": "question_bank_manage", "role": "admin"}
+{"question": "banka sorusunu silince sınavdaki kopyası da silinir mi", "expected_intent": "question_bank_manage", "role": "ogrenci"}

@@ -19,13 +19,20 @@ Bilgi kaynağı: `hezarfen-site-rehberi.md`.
 ```
 Hezarfen-Rule-Based-Chatbot/
 ├─ hezarfen-site-rehberi.md    # BİLGİ KAYNAĞI: sitenin tüm sayfa/rol/akış tanımı
-├─ data/benchmark.jsonl        # değerlendirme seti (soru → beklenen intent)
+├─ data/benchmark.jsonl        # 601 elle etiketli gold soru (98 intent + OOS)
+├─ data/stress_benchmark.jsonl # yerelde üretilen 10.000 stres girdisi (git-ignored)
+├─ benchmark_qa_report.py      # tam Engine ile gerçek soru-cevap raporu üretir
+├─ BENCHMARK_SONUCLARI.md      # tüm benchmark soruları, cevapları ve PASS/FAIL sonucu
+├─ stress_benchmark.py         # 9.000 uygulama-içi + 1.000 OOS varyasyon üretir/koşar
+├─ STRES_BENCHMARK_SONUCLARI.md # 10K özet, hata kümeleri ve parça bağlantıları
+├─ STRES_BENCHMARK_SONUCLARI_parcalar/ # 25 × 400 görünür soru-cevap
+├─ SISTEM_SORU_ENVANTERI.md    # 48 frontend rotası + backend hata/rol soru yüzeyi
 │
 ├─ src/                        # ── ASISTAN MOTORU ──
 │  ├─ engine.py                # 🚪 GİRİŞ NOKTASI: handle_request(payload)->dict; boru hattını yönetir
 │  ├─ bridge.py                # 🔌 backend QUIC köprü istemcisi (hab/1, chat.reply) — aioquic
 │  ├─ bridge_contract.py       # 🔐 backend asker_role -> motor oturumu sözleşmesi (stdlib)
-│  ├─ catalog.py               # 📚 VERİ: 53 intent + cevap metinleri + route + rol modeli + rol yetenekleri
+│  ├─ catalog.py               # 📚 VERİ: 98 intent + cevap metinleri + route + rol modeli + rol yetenekleri
 │  ├─ rules.py                 # kural katmanı (yüksek kesinlik, anahtar kelime eşleşmesi)
 │  ├─ similarity.py            # benzerlik katmanı (TF-IDF karakter n-gram + kosinüs)
 │  ├─ domain.py                # alan kapısı (kapsam-dışı/OOS sorguyu eler)
@@ -83,7 +90,9 @@ Backend sözleşmesi `src/engine.py`; frontend'ler `src/cli.py` (terminal) ve
   (~%100 kesinlikle) bağlar; belirsizlikte karar vermez.
 - **Benzerlik** kalan soruları toplar; "X nasıl oluşturulur" gibi ortak fiilli
   kalıpları kural katmanı alan-ismiyle (sınav/ders/dönem) ayırır.
-- **Domain-gate** char n-gram'ın OOS zayıflığını kapatır (OOS recall %44 → %100).
+- **Domain-gate ve kapsam kapıları** char n-gram'ın OOS zayıflığını kapatır;
+  okul dışı girdilerin ürün intentine yanlış bağlanmasını engeller. Tam Engine
+  safe-rejection OOS recall %100'dür: 26 normal fallback + 3 açık veri-sınırı reddi.
 
 ## Modüller
 
@@ -96,7 +105,7 @@ Backend sözleşmesi `src/engine.py`; frontend'ler `src/cli.py` (terminal) ve
 | `safety/authorization.py` | Yetki motoru: parametre/erişim doğrulaması (IDOR/BOLA) |
 | `safety/decisions.py` | Standart `SafetyDecision` modeli + karar türleri |
 | `embedding.py` | Opsiyonel yerel embedding backend'i (opt-in, sentence-transformers) |
-| `catalog.py` | Intent kataloğu (53 intent) + yönlendirme (INTENT_ROUTES) + rol modeli + doğrulayıcı |
+| `catalog.py` | Intent kataloğu (98 intent) + yönlendirme (INTENT_ROUTES) + rol modeli + doğrulayıcı |
 | `normalize.py` | Normalizasyon + Türkçe kök bulma + katlanmış token |
 | `rules.py` | Yüksek-kesinlik kural katmanı |
 | `similarity.py` | TF-IDF karakter n-gram benzerliği |
@@ -114,12 +123,19 @@ Backend sözleşmesi `src/engine.py`; frontend'ler `src/cli.py` (terminal) ve
 ```bash
 python -m src.main --validate    # kataloğu doğrula
 python -m src.main --evaluate    # benchmark üzerinde tam metrik raporu
+python benchmark_qa_report.py    # tüm gerçek soru-cevapları BENCHMARK_SONUCLARI.md'ye yaz
+python stress_benchmark.py         # 10.000 tanısal stres sorusu + 25 parçalık Q/A raporu
+python stress_benchmark.py --strict # herhangi bir FAIL varsa CI için exit 1
 python -m src.main --chat        # etkileşimli terminal asistanı
-python -m src.web                # geliştirici web arayüzü (http://127.0.0.1:8000)
 
 # Podman ürün köprüsü (önce backend compose ayakta olmalı)
 podman compose up -d --build     # yalnız hezarfen-chatbot-bridge
 ```
+
+Ürün compose'u demo HTTP sunucusunu çalıştırmaz ve hostta `8000/8001` portu
+açmaz. Chatbot container'ı backend ağı içinde `hezarfen-backend:8090` hedefine
+**QUIC/UDP** ile bağlanır; `8090` için TCP bağlantısı veya host port yayını yoktur.
+`src.web` yalnız yerel geliştirici aracıdır ve ürün yığınının parçası değildir.
 
 **Tüm yığın (backend + frontend + chatbot) — PROJE-BAZLI (all-in-one compose yok):**
 Her repo kendi compose'uyla, backend'in ağını paylaşır. Windows/WSL2 kurulumu +
@@ -165,17 +181,24 @@ Yanıt:
 
 ## Metrikler (mevcut baseline)
 
-`python -m src.main --evaluate` (eşik 0.18 + domain-gate):
+Gold küme `data/benchmark.jsonl` içinde **601 insan etiketli soru** taşır ve 98
+intentin tamamı ile OOS'u kapsar. `python -m src.main --evaluate` sonucu
+**601/601 PASS**, accuracy ve Macro-F1 **1.00**'dır (eşik 0.18 + domain-gate).
+
+Bağımsız gold olmayan, insan etiketli seed'lerden deterministik türetilen
+`stress-v3.5.0` koşusu: **9.984/10.000 PASS (%99,84)**; kalan 16 vakanın 4'ü
+güvenli netleştirme (soft), 12'si aşırı bozulmuş/iki anlamlı hard sözleşme
+farkıdır. Tüm kullanıcıya görünen soru-cevaplar 25 Markdown parçasındadır.
 
 | Metrik | Değer | Anlamı |
 |---|---|---|
-| **Macro-F1** | **0.99** | Başlık metriği; her intent'e eşit ağırlık (nadir intent'leri saklamaz) |
-| Accuracy | %98.7 | Genel doğruluk (dengesizlikte yanıltıcı olabilir) |
-| Top-1 / Top-3 | %99 / %100 | Doğru cevap ilk 1 / ilk 3 tahminde |
-| Coverage | %98.7 | FALLBACK yerine cevap verilen in-scope oranı |
+| **Macro-F1** | **1.00** | Başlık metriği; her intent'e eşit ağırlık (nadir intent'leri saklamaz) |
+| Accuracy | %100 | Genel doğruluk (dengesizlikte yanıltıcı olabilir) |
+| Top-1 / Top-3 | %100 / %100 | Doğru cevap ilk 1 / ilk 3 tahminde |
+| Coverage | %100 | FALLBACK yerine cevap verilen in-scope oranı |
 | Accuracy-on-covered | %100 | Cevap verince doğruluk |
-| OOS recall | %100 | Kapsam dışını doğru reddetme |
-| Latency p50/p95 | ~0.4 / 2.2 ms | Sorgu başına gecikme |
+| OOS recall | %100 | Tam Engine safe-rejection: fallback + açık action/data boundary reddi |
+| Latency p50/p95 | ~2,1 / 4,8 ms | Son yerel koşu; makineye göre değişir |
 
 **Neden bu metrikler:** Macro-F1 dengesiz sınıfta kritik-ama-nadir intent'lerin
 (gizlilik, şifre) bozukluğunu saklamaz. Coverage/OOS-recall, FALLBACK'in
@@ -193,7 +216,7 @@ python -m unittest discover -s tests -t .
   **212 çok-turlu konuşma** (5 rol, 3–8 mesajlık gerçekçi oturumlar). Cevapları
   okumak için: `python -m tests.e2e.test_conversation --transcript` (konsol) veya
   `--markdown` (yerelde `KONUSMALAR.md` üretir; git-ignored, repoya konmaz).
-- **`tests/e2e/test_behavior_matrix.py` — davranış sözleşmesi**: 53 intent'in
+- **`tests/e2e/test_behavior_matrix.py` — davranış sözleşmesi**: 98 intent'in
   tamamı için "şu doğal soruya şu `response_id` döner" matrisi + rol gating
   (5 rol × yetki), güvenlik davranış tablosu, yönlendirme/netleştirme/rol-beyanı
   ve boş-girdi davranışları. Botun kullanıcıya görünen davranışının tek bakışta
@@ -259,8 +282,10 @@ ve `decide(..., matcher=m)`. (Kelime-düzeyi hibrit özellik denendi ama bu benc
 char n-gram'ı geçemedi; varsayılan kapalı.)
 
 ## Bilinen sınırlar / sıradaki adım
-- OOS recall %100 (domain-gate stopword genişletmesiyle kapatıldı); yeni jenerik
-  fiil çekimleri ortaya çıktıkça `domain.STOPWORDS` güncellenmeli.
+- Tam Engine OOS safe-rejection recall %100; üç canlı-veri gold sorgusu generic
+  fallback yerine açık `scope_boundary_data` reddi döndürüyor. Yeni jenerik fiil
+  çekimleri ortaya çıktıkça `domain.STOPWORDS` kontrollü güncellenmeli; recall
+  uğruna riskli ürün cevabı verilmemeli.
 - Güvenlik sözlükleri başlangıç niteliğinde; üretimde genişletilmeli ve gerçek
   trafikle kalibre edilmelidir.
 - **`safety/authorization.py` henüz boru hattına bağlı değil** — IDOR/BOLA

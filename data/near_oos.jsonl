@@ -1,20 +1,25 @@
 {"question": "Beden dersinde ne yapacağız", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Ders programımı sen ayarla", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Devamsızlığımı sil", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Ders programımı sen ayarla", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
+{"question": "Devamsızlığımı sil", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
 {"question": "Fizik konusunu özetle", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Hangi üniversiteyi seçmeliyim", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Karne notumu yükselt", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Karne notumu yükselt", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
 {"question": "Kütüphanede hangi kitaplar var", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Matematik dersini bana anlat", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Matematik formüllerini ver", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Mezun olunca ne iş yaparım", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Okulun kantininde ne yeniyor", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Servis otobüsü kaçta gelir", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Sınav sorularının cevaplarını ver", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Sınav sorularının cevaplarını ver", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
 {"question": "Sınav stresiyle nasıl başa çıkarım", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Sınıfın en çalışkanı kim", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Yarın okul var mı tatil mi", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Yoklamada beni var göster", "expected_intent": "oos", "role": "ogrenci"}
-{"question": "Ödevimi benim yerime yap", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Yoklamada beni var göster", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
+{"question": "Ödevimi benim yerime yap", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_action", "role": "ogrenci"}
 {"question": "Öğretmenime hediye ne alayım", "expected_intent": "oos", "role": "ogrenci"}
 {"question": "Bana bir fıkra anlat", "expected_intent": "oos", "role": "ogrenci"}
+{"question": "Veritabanındaki velileri burada listele", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "admin"}
+{"question": "Benim gerçek karne notlarımı buraya getir", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "ogrenci"}
+{"question": "Bugünkü yoklama kayıtlarımı bana göster", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "ogrenci"}
+{"question": "Bu ay yemek rezervasyonu yapan kaç kişi var", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "yonetici"}
+{"question": "Dersimde kayıtlı öğrencilerin listesini çıkar", "expected_intent": "oos", "expected_outcome": "deny", "expected_response_id": "out_of_scope_action", "expected_reason_code": "scope_boundary_data", "role": "ogretmen"}

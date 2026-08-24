@@ -27,7 +27,7 @@ Yanıt:
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from typing import Any, Callable, Final
 
 from . import dialog_state
 from . import rules
@@ -42,6 +42,7 @@ from .catalog import (
     suggestions_for,
 )
 from .access import AccessOutcome
+from .domain import FAR_OOS_TOPICS, is_explicitly_out_of_scope
 from .normalize import folded_tokens
 from .observability import new_trace_id, process
 from .role_spaces import get_role_space
@@ -73,11 +74,6 @@ ASK_LOW_MARGIN: float = 0.05
 # çarpmayıp benzerlik zayıf-eşleşme verdiğinde (ör. 'öğretmenime hediye ne alayım'
 # -> messages_use FP) netleştirmeye zorlar. Kısa ve gerçekten alan-dışı tutulur;
 # okul terimleriyle çakışmaz. Kalıcı çözüm: gömme-tabanlı OOS (bkz. kriterler.md).
-_FAR_OOS_TOPICS: frozenset[str] = frozenset({
-    "hediye", "diyet", "kilo", "burc", "fal", "kripto", "bitcoin", "tarif",
-    "siir", "fikra", "mac", "sevgili", "flort", "mezun", "meslek", "kariyer",
-})
-
 # Düşük-margin "emin değilim" YALNIZCA ilk iki aday da sosyal/meta intent iken
 # tetiklenir ('ben kimim' -> farewell ~ bot_identity, gerçek görev yok). Görev
 # intent'lerinde (report_card_view vb.) doğru-ama-düşük-güvenli bir cevabı
@@ -91,6 +87,192 @@ CLARIFICATION_PROMPT_TEXT: str = (
     "Bunu tam anlayamadım, kusura bakma 🙏 Soruyu biraz daha açık yazar mısın? "
     "Ders, sınav, karne, yoklama, defter, mesaj veya hesap ayarları hakkında "
     "'nasıl yaparım?' diye sorabilirsin."
+)
+
+_ROLE_CONTEXT_NAME = (
+    r"(?:ziyaretçi|ziyaretci|veli|öğrenci|ogrenci|öğretmen|ogretmen|"
+    r"yönetici|yonetici|admin)"
+)
+_ROLE_CONTEXT_PREFIXES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"^{_ROLE_CONTEXT_NAME}\s+hesabımla\s*[,;:]?\s+(.+)$", re.IGNORECASE),
+    re.compile(rf"^oturum\s+rolüm\s+{_ROLE_CONTEXT_NAME}\s*[;,:-]\s*(.+)$", re.IGNORECASE),
+    re.compile(rf"^{_ROLE_CONTEXT_NAME}\s+olarak\s+şunu\s+yapmak\s+istiyorum\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(rf"^ben\s+{_ROLE_CONTEXT_NAME}\s+rolündeyim\s*[.;,:-]\s*(.+)$", re.IGNORECASE),
+    re.compile(rf"^{_ROLE_CONTEXT_NAME}\s+panelinden\s+soruyorum\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(rf"^hesabım\s+{_ROLE_CONTEXT_NAME}\s+yetkisinde\s*[;,:-]\s*(.+)$", re.IGNORECASE),
+)
+
+_BRAND_CONTEXT_PREFIX: re.Pattern[str] = re.compile(
+    r"^\s*hezarfen(?:['’]?(?:de|da)|\s+uygulamasında)\s*[,;:\-]?\s+(.+)$",
+    re.IGNORECASE,
+)
+
+# Frontend aynı etiketi Türkçe/İngilizce birlikte gösterebilir. Slash, parantez
+# ve köşeli-parantez biçimleri görev metninin parçası değildir; kanonik Türkçe
+# etikete indirgenir. Bu, yalnız bilinen UI çiftlerine uygulanır.
+_UI_CANONICAL_LABELS: Final[tuple[tuple[str, str], ...]] = (
+    ("Profil", "Profile"), ("Ayarlar", "Settings"), ("Hesap", "Account"),
+    ("Dersler", "Courses"), ("Sınavlar", "Exams"), ("Ödev", "Homework"),
+    ("Mesajlar", "Messages"), ("Defter", "Notebook"), ("Kaydet", "Save"),
+    ("Kaldır", "Remove"), ("Gönder", "Submit"), ("Giriş", "Login"),
+    ("Çıkış", "Logout"), ("Yoklama", "Attendance"),
+    ("Karnem", "Report Card"), ("Randevular", "Appointments"),
+)
+_INLINE_UI_LABEL_PATTERNS: Final[tuple[tuple[re.Pattern[str], str], ...]] = tuple(
+    (
+        re.compile(
+            rf"(?<!\w)(?:{re.escape(tr)}\s*\(\s*{re.escape(en)}\s*\)|"
+            rf"{re.escape(tr)}\s*/\s*{re.escape(en)}|"
+            rf"{re.escape(en)}\s*\[\s*{re.escape(tr)}\s*\])(?!\w)",
+            re.IGNORECASE,
+        ),
+        tr,
+    )
+    for tr, en in _UI_CANONICAL_LABELS
+)
+
+
+def _canonicalize_inline_ui_labels(query: str) -> str:
+    for pattern, canonical in _INLINE_UI_LABEL_PATTERNS:
+        query = pattern.sub(canonical, query)
+    return query
+
+# Kullanıcının asıl görevini değiştirmeyen doğal/prosedürel çerçeveler. Bunlar
+# gerçek destek konuşmalarında "hangi ekranda", "menüde bulamıyorum", "amacım şu"
+# biçiminde sık görülür; çekirdek görev eşleşmesini gölgelememelidir.
+_TASK_CONTEXT_PREFIXES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^\s*arayüzde\b[^;]{0,100}\bekranındayım\s*;\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*türkçe/english\s+arayüzde\b[^;?]{0,100}\bsayfasında\s+(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*ui\s+etiketi\b[^.]{0,100}\bolarak\s+görünüyor\s*[.:;]\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*önce\s+hangi\s+sayfaya\s+gitmeliyim\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*(?:şunu\s+yapmak\s+istiyorum|yapmak\s+istediğim\s+işlem\s+şu)\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*uygulamayı\s+yeni\s+kullanıyorum\s*;\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*(?:amacım\s+şu|merak\s+ettiğim\s+konu\s+şu|şunu\s+merak\s+ediyorum)\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*(?:şunu\s+öğrenmek\s+istiyorum|merak\s+ettiğim\s+konu)\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(r"^\s*(?:soru|bir\s+sorum\s+var)\s*:\s*(.+)$", re.IGNORECASE),
+    re.compile(
+        r"^\s*(?:şimdi\s+ben|yardım\s+eder\s+misin|kısaca|uygulamada|"
+        r"hesabımda|kısa\s+bir\s+soru|hocam|dostum|rica\s+etsem|acaba|"
+        r"m[üu]saitsen|peki|bir\s+(?:şey|sey)\s+(?:soracağım|soracagim))"
+        r"\s*[,;:—-]\s*(.+)$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^\s*(?:kısa\s+bir\s+soru|kisa\s+bir\s+soru|yardım|yardim)\s+"
+        # "Yardım menün var mı?" başındaki Yardım bir söylem dolgusu değil,
+        # help_capabilities intent'inin gerçek konusudur. Çekimli menü biçimlerini
+        # de (menün/menüsü/menüde) koru.
+        r"(?!(?:men[üu]\w*|edebil\w*)\b)(.+)$",
+        re.IGNORECASE,
+    ),
+)
+
+_TASK_CONTEXT_SUFFIXES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^(.+?)\s*[.]\s*bu\s+işlem\s+hangi\s+ekrandan\s+yapılıyor\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+konusunda\s+yol\s+gösterir\s+misin\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+konusunda\s+hangi\s+yolu\s+izlemeliyim\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+hakkında\s+bilgi\s+verir\s+misin\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+konusunu\s+adım\s+adım\s+açıklayabilir\s+misin\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+konusunu\s+farklı\s+bir+\s+ifadeyle\s+soruyorum\s*;\s*nasıl\s+ilerlerim\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+için\s+izlenecek\s+doğru\s+akış\s+nedir\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+işlemini\s+yapmak\s+istiyorum\s*[.]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s+gerekiyor\s*;\s*doğru\s+işlem\s+akışı\s+nedir\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s*[—-]\s*doğru\s+yol\s+nedir\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s*[.]\s*bana\s+işlem\s+yolunu\s+anlatır\s+mısın\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s*[;]\s*bunu\s+açıklayabilir\s+misin\s*[?]?$", re.IGNORECASE),
+    re.compile(r"^(.+?)\s*[.]\s*nasıl\s+ilerlerim\s*[?]?$", re.IGNORECASE),
+    re.compile(
+        r"^(.+?)\s*[.;…—-]\s*(?:lütfen|lutfen|"
+        r"hangi\s+adımları\s+(?:sırayla\s+)?izlemeliyim|"
+        r"bir\s+bakar\s+mısın|nereden\s+(?:başlamalıyım|baslamaliyim)|"
+        r"yardım(?:cı)?\s+(?:eder|olur)\s+m[ıiuü]s[ıiuü]n|"
+        r"yardim(?:ci)?\s+(?:eder|olur)\s+m[ıiuü]s[ıiuü]n|"
+        r"nasıl\s+ilerleyeceğim|nasil\s+ilerleyecegim|doğru\s+ekran\s+hangisi|"
+        r"bunu\s+açıklayabilir\s+misin|bunu\s+aciklayabilir\s+misin|"
+        r"bunu\s+uygulamada\s+hangi\s+adımlarla\s+yaparım|"
+        r"ne\s+yapmam\s+gerekiyor|kısaca\s+anlatır\s+mısın|"
+        r"yol\s+gösterir\s+misin|mümkün\s+mü|mumkun\s+mu|hangi\s+ekranda|"
+        r"nasıl\s+yapılır|nasil\s+yapilir|ne\s+yapmalıyım|adımları\s+nedir)\s*[?]?$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(.+?)\s*[.]\s*(?:ilgili\s+işlem\s+düğmesi|kaydet['’]?e|formu\s+doldurdum|"
+        r"işlem\s+mevcut\s+durum|işlemden\s+sonra|butona\s+basınca|sayfa\s+açılıyor|"
+        r"beklediğim\s+kayıt|ekran\s+yükleniyor|yalnız\s+bazı\s+kayıtları|"
+        r"menüde\s+ilgili\s+bölümü)\b.*$",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _strip_role_context_prefix(query: str) -> str:
+    """Rol bağlamı önekini at; oturum yetkisini asla metinden değiştirme.
+
+    ``Öğretmen hesabımla ...`` gerçek bir görev sorusudur. Buna karşılık yalnız
+    ``Ben öğretmenim`` bir rol beyanı olarak kalır; desenler mutlaka önekten sonra
+    boş olmayan bir görev ister.
+    """
+
+    stripped = query.strip()
+    for pattern in _ROLE_CONTEXT_PREFIXES:
+        match = pattern.match(stripped)
+        if match:
+            task = match.group(1).strip(" \t\r\n?!.,;:…")
+            if task:
+                return task
+    return query
+
+
+def _strip_brand_context_prefix(query: str) -> str:
+    """Baştaki ürün-konum bağlamını at, gerçek görev cümlesini koru.
+
+    ``Hezarfen nedir?`` marka sorusudur ve aynen kalır. ``Hezarfen'de 422 neden
+    geliyor?`` ise 422 yardım sorusudur; locative önek platform_info kuralını
+    yanlış tetiklememelidir.
+    """
+
+    match = _BRAND_CONTEXT_PREFIX.match(query.strip())
+    if not match:
+        return query
+    task = match.group(1).strip(" \t\r\n?!.,;:…")
+    return task or query
+
+
+def _strip_task_context(query: str) -> str:
+    """Saf söylem/UI/state çerçevelerini atıp çekirdek görevi döndür."""
+
+    candidate = _canonicalize_inline_ui_labels(query).strip()
+    # Bileşik sorularda birden fazla çerçeve iç içe olabilir. Sınırlı tekrar,
+    # temizleyicinin serbest bir yeniden-yazıcıya dönüşmesini engeller.
+    for _ in range(6):
+        changed = False
+        # Söylem öneki soyulunca içte marka/rol bağlamı kalabilir. Her turda aynı
+        # dar bağlam temizleyicilerini yeniden uygulamak iç içe çerçeveleri çözer.
+        for stripper in (_strip_role_context_prefix, _strip_brand_context_prefix):
+            stripped = stripper(candidate).strip(" \t\r\n?!.,;:…")
+            if len(folded_tokens(stripped)) >= 2 and stripped != candidate:
+                candidate = stripped
+                changed = True
+                break
+        if changed:
+            continue
+        for pattern in _TASK_CONTEXT_PREFIXES + _TASK_CONTEXT_SUFFIXES:
+            match = pattern.match(candidate)
+            if not match:
+                continue
+            stripped = match.group(1).strip(" \t\r\n?!.,;:…")
+            if len(folded_tokens(stripped)) >= 2 and stripped != candidate:
+                candidate = stripped
+                changed = True
+                break
+        if not changed:
+            break
+    return candidate or query
+
+
+ENTRY_EXIT_CLARIFICATION_TEXT: str = (
+    "Buradaki giriş-çıkışla **hesaba giriş/çıkışı** mı, yoksa **personel mesai "
+    "giriş-çıkışını** mı kastediyorsun? Birini yazarsan doğru adımları anlatayım."
 )
 from .similarity import SimilarityMatcher
 
@@ -211,6 +393,16 @@ def _multi_intent_segments(query: str, role: str = "ziyaretci") -> list[tuple[st
     """
 
     raw_segments = [s.strip() for s in _MULTI_SPLIT_RE.split(query) if s.strip()]
+    # "Arayüzde Defter ekranındayım; notu düzenlemek istiyorum" iki istek
+    # değildir. İlk parça yalnız bağlamdır; aksi halde genel ekran intent'i ilk
+    # cevap olup gerçek işlemi gölgeler.
+    raw_segments = [
+        segment for segment in raw_segments
+        if not (
+            any(token.startswith("arayuz") for token in folded_tokens(segment))
+            and any(token.startswith(("ekran", "sayfa")) for token in folded_tokens(segment))
+        )
+    ]
     if len(raw_segments) < 2:
         return None
     hits: list[tuple[str, str]] = []
@@ -310,8 +502,36 @@ def _resolve_negation(query: str) -> str:
     """Olumsuzluğu çöz. Döner: yanıtlanacak OLUMLU sorgu; olumsuzluk yoksa sorgu
     aynen; saf olumsuz komutta boş string ("" = uygulama, netleştir)."""
 
-    # "A değil, B" -> son 'değil' sonrasındaki olumlu kısım.
-    matches = list(re.finditer("değil", query, re.IGNORECASE))
+    # "Öğrencinin notunu değil kaydını sil" gibi cümlelerde olumlu taraftaki
+    # nesne, olumsuz taraftaki özneyi taşır. Sadece "değil" sonrasını almak
+    # "kaydını sil" diye bağlamı kaybettirir; bu iki yüksek-kesinlikli okul
+    # kalıbını önce kanonikleştir.
+    tokens = folded_tokens(query)
+    neg_positions = [i for i, token in enumerate(tokens) if token.startswith("degil")]
+    if neg_positions:
+        neg_index = neg_positions[-1]
+        before, after = tokens[:neg_index], tokens[neg_index + 1:]
+        # Karşılaştırmalı görünüm sorusunda özneyi kaybetme: "takvim haftalık
+        # değil aylık mı" ifadesinin olumlu kısmı yalnız "aylık mı" değildir.
+        if "takvim" in before and any(
+            token.startswith(("aylik", "haftalik")) for token in after
+        ):
+            return "takvim " + " ".join(after)
+        has_student = any(token.startswith("ogrenci") for token in before)
+        has_remove = any(
+            token.startswith(("sil", "kaldir", "cikar")) for token in after
+        )
+        if has_student and has_remove:
+            if any(token.startswith(("kayit", "kayd", "roster")) for token in after):
+                return "öğrenci kaydını sil"
+            if any(token.startswith(("not", "puan")) for token in after):
+                return "öğrenci notunu sil"
+
+    # "A değil, B" -> son 'değil,' sonrasındaki olumlu kısım. Noktalama şartı,
+    # "bridge bağlı değil diyor" / "özellik aktif değil" gibi olumsuz DURUM
+    # anlatımlarının bağlamını yanlışlıkla kesmemizi engeller. Noktalamasız, anlamı
+    # kesin okul karşıtlıkları yukarıda ayrı kanonikleştirilir.
+    matches = list(re.finditer(r"değil\s*[,;:]", query, re.IGNORECASE))
     if matches:
         return query[matches[-1].end():].lstrip(" ,;:.-").strip()
     # Dar saf-olumsuz komut ('notlarımı gösterme') + soru kelimesi yok -> uygulama.
@@ -324,6 +544,19 @@ def _resolve_negation(query: str) -> str:
     kept = [p.strip() for p in re.split(r"[;,]", query)
             if p.strip() and not _clause_negated(p)]
     return ", ".join(kept)
+
+
+def _entry_exit_is_ambiguous(query: str) -> bool:
+    """Çıplak "giriş çıkış" ifadesinde hesap/mesai arasında tahmin yürütme."""
+
+    tokens = folded_tokens(query)
+    has_entry = any(token.startswith("giris") for token in tokens)
+    has_exit = any(token.startswith("cikis") for token in tokens)
+    qualified = any(
+        token.startswith(("mesai", "personel", "hesap", "oturum", "sifre", "parola"))
+        for token in tokens
+    )
+    return has_entry and has_exit and not qualified
 
 
 # --- Henüz canlı olmayan / bulunmayan özellikler ----------------------------
@@ -356,17 +589,75 @@ def _unavailable_feature(query: str) -> str | None:
 # var" gibi VERİ-çekme/sayım istekleri yanlış bir sayfaya yönlendirilmez; dürüstçe
 # "gerçek veriyi getiremem, yalnızca nasıl yapılacağını anlatırım" denir (asla yanlış).
 _DATA_FETCH_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"gerçek\b.*\b(getir|göster|listele|ver\b|çek)", re.IGNORECASE),
-    re.compile(r"\b(buraya|bana)\s+getir", re.IGNORECASE),
-    re.compile(r"liste(m|mi|sini|yi)\b.*\b(getir|çıkar|ver|göster)", re.IGNORECASE),
-    re.compile(r"\btoplam\s+kaç\b", re.IGNORECASE),
-    re.compile(r"\bkaç\s+(kullanıcı|öğrenci|öğretmen|kişi|veli)\b.*\bvar\b", re.IGNORECASE),
-    re.compile(r"\b(sistemde|veritabanında|kayıtlı)\b.*\bkaç\b", re.IGNORECASE),
+    # Kalıplar ``folded_tokens`` çıktısında çalışır: Türkçe/ASCII yazım aynı
+    # sözleşmeye gider ("gerçek" ve "gercek", "öğrenci" ve "ogrenci").
+    re.compile(r"\bgercek\b.*\b(?:getir|goster|listele|ver|cek)\w*\b"),
+    re.compile(
+        r"\b(?:not|karne|puan|devamsiz|yoklama|liste|kayit|kullanici|ogrenci|"
+        r"ogretmen|veli|rezervasyon|teslim|sayi)\w*\b.*\b(?:buraya|bana)\b.*"
+        r"\b(?:getir|goster|listele|cek)\w*\b"
+    ),
+    re.compile(
+        r"\b(?:buraya|bana)\b.*\b(?:not|karne|puan|devamsiz|yoklama|liste|kayit|"
+        r"kullanici|ogrenci|ogretmen|veli|rezervasyon|teslim|sayi)\w*\b.*"
+        r"\b(?:getir|goster|listele|cek)\w*\b"
+    ),
+    re.compile(r"\b(?:buraya|bana)\b.*\b(?:notlarim|karnem|devamsizligim|yoklamam|liste|kayit|sayi)\w*\b.*\bver\w*\b"),
+    re.compile(r"\bliste\w*\b.*\b(?:getir|ver|goster|listele)\w*\b"),
+    re.compile(r"\b(?:getir|ver|goster|listele)\w*\b.*\bliste\w*\b"),
+    # "listeden çıkar" ürün içi silme/kaldırma eylemidir. Yalnız açıkça
+    # kayıtlı bir grubun listesini üretme talebi olduğunda "çıkar" veri çekmedir.
+    re.compile(r"\bkayitli\w*\b.*\bliste\w*\b.*\bcikar\w*\b"),
+    re.compile(r"\btoplam\b.*\bkac\b|\bkac\b.*\btoplam\b"),
+    re.compile(r"\bkac\s+(?:kayitli\s+)?(?:kullanici|ogrenci|ogretmen|kisi|veli)\w*\b.*\bvar\b"),
+    re.compile(r"\b(?:sistemde|veritabanin\w*|kayitli)\b.*\b(?:kac|sayi\w*|listele|getir|goster)\w*\b"),
+    re.compile(r"\b(?:kullanici|ogrenci|ogretmen|kisi|veli)\w*\s+sayi\w*\b.*\b(?:soyle|ver|getir|goster)\w*\b"),
+    re.compile(r"\b(?:rezervasyon|teslim|yoklama|kayit)\w*\b.*\bkac\s+kisi\w*\b|\bkac\s+kisi\w*\b.*\b(?:rezervasyon|teslim|yoklama|kayit)\w*\b"),
 )
+
+_HOW_TO_DATA_TOKENS: frozenset[str] = frozenset({
+    "nasil", "nerede", "nereden", "adim", "adimlar", "ekran", "sayfa",
+})
+_EXPLICIT_LIVE_DATA_TOKENS: frozenset[str] = frozenset({
+    "gercek", "canli", "buraya", "bana", "sistemde", "veritabaninda",
+    "kayitli", "toplam",
+})
+
+_DATA_FETCH_TOKEN_ALIASES: Final[dict[str, str]] = {
+    # Yalnız canlı-veri sınırında kullanılan dar typo düzeltmeleri; normal intent
+    # eşleştirmesini global olarak değiştirmez.
+    "banna": "bana",
+    "gotser": "goster",
+    "ckiar": "cikar",
+    "ssyisini": "sayisini",
+    "ka": "kac",
+}
 
 
 def _is_data_fetch_request(query: str) -> bool:
-    return any(p.search(query) for p in _DATA_FETCH_PATTERNS)
+    tokens = [
+        _DATA_FETCH_TOKEN_ALIASES.get(token, token)
+        for token in folded_tokens(query)
+    ]
+    folded = " ".join(tokens)
+    # "bana yol göster" / "yol gösterir misin" prosedür yardımıdır; içindeki
+    # ``göster`` canlı kayıt gösterme fiili değildir. Kalıpları çalıştırmadan bu
+    # kalıp çıkarılır, sorgunun geri kalanındaki gerçek veri talebi korunur.
+    fetch_text = re.sub(r"\byol\w*\s+goster\w*\b", " ", folded)
+    if not any(pattern.search(fetch_text) for pattern in _DATA_FETCH_PATTERNS):
+        return False
+    # "Öğrenci listesini hangi ekrandan görürüm?" bir kullanım sorusudur;
+    # "gerçek listeyi buraya getir" ise içinde 'adım' geçse bile canlı veri
+    # talebidir. Açık canlı-veri işareti yoksa how-to sorusunu engelleme.
+    has_how_to = any(
+        any(token.startswith(marker) for marker in _HOW_TO_DATA_TOKENS)
+        for token in tokens
+    )
+    has_live_marker = any(
+        any(token.startswith(marker) for marker in _EXPLICIT_LIVE_DATA_TOKENS)
+        for token in tokens
+    )
+    return has_live_marker or not has_how_to
 
 
 # --- Menü bölüm-özeti (section overview) ------------------------------------
@@ -439,11 +730,16 @@ def _section_overview(query: str) -> str | None:
     for alias, canonical in _SECTION_ALIASES:
         folded = folded.replace(alias, canonical)
     for phrase, title, items in _SECTION_OVERVIEWS:
-        if phrase not in folded:
-            continue
         # Tek kelimelik bölüm adları (akademik/planlama/topluluk) için tetikleyici
         # şart; çok-kelimeli net adlar (öğrenci yönetimi...) tek başına yeter.
         multiword = " " in phrase
+        # Alt dize değil gerçek token/ifade ara: ``planlamak`` kelimesi menüdeki
+        # ``Planlama`` bölümünü tetiklememeli.
+        if multiword:
+            if not re.search(rf"(?:^|\s){re.escape(phrase)}(?:$|\s)", folded):
+                continue
+        elif phrase not in toks:
+            continue
         if not multiword and not (set(toks) & _SECTION_TRIGGERS):
             continue
         lines = [f"**{title}** bölümünde şunlar var:"]
@@ -519,24 +815,134 @@ def _topic_help_query(query: str, role: str) -> str | None:
 # yükselt", "devamsızlığımı sil", "sınav cevaplarını ver" gibi manipülasyon/do-for-me
 # istekleri yanlış bir sayfaya yönlendirilmez -> dürüstçe "bunu yapamam" (asla yanlış).
 _MANIPULATION_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\b(yerime|yerine)\b", re.IGNORECASE),
-    re.compile(r"\bsen\s+(yap|ayarla|çöz|hallet|doldur|gir|oluştur|tamamla)\b", re.IGNORECASE),
-    re.compile(r"\bbenim\s+için\s+(yap|çöz|doldur|hallet|tamamla)\b", re.IGNORECASE),
-    re.compile(r"(sınav|soru|test)\w*.*\bcevap\w*.*\b(ver|söyle|sızdır|göster)\b", re.IGNORECASE),
-    re.compile(r"\bcevap(ları|larını|ını)\b\s*\b(ver|söyle|sızdır)\b", re.IGNORECASE),
-    # 1. şahıs korunan veri + değiştirme fiili (öğrenci kendi notunu/devamsızlığını
-    # değiştiremez/silemez/yükseltemez). 'göster/gör/bak' DEĞİL -> onlar meşru görüntüleme.
-    re.compile(r"\b(notum|notumu|notlarım\w*|karnem|karnemi|ortalamam\w*|puanım\w*|"
-               r"devamsızlığım\w*|yoklamam\w*)\b.*\b(sil|kaldır|yükselt|artır|düzelt|değiştir)\b",
-               re.IGNORECASE),
-    re.compile(r"\b(sil|kaldır|yükselt|artır|düzelt)\b.*\b(notum|notumu|karnem|karnemi|"
-               r"devamsızlığım\w*|yoklamam\w*|puanım\w*)\b", re.IGNORECASE),
-    re.compile(r"\bvar\s+göster\b", re.IGNORECASE),
+    # `yerime` gerçekten botun kullanıcı adına işlem yapmasını ister. Çıplak
+    # `yerine` ise "silmek yerine ters kayıt aç" gibi meşru karşılaştırmadır.
+    re.compile(r"\b(?:benim\s+)?yerime\b"),
+    # "Sen ne yapabiliyorsun?" yetenek sorusudur; do-for-me değildir. Bu yüzden
+    # yap- fiilinde yalnız istek çekimleri kabul edilir, geniş ``yap\w*`` değil.
+    re.compile(r"\bsen\b(?:\s+\w+){0,2}\s+\b(?:yap(?:ar|iver|sana|abilir)?|(?:ayarla|coz|hallet|doldur|gir|olustur|tamamla)\w*)\b"),
+    re.compile(r"\bbenim\s+icin\b(?:\s+\w+){0,2}\s+\b(?:yap|coz|doldur|hallet|tamamla)\w*\b"),
+    re.compile(r"(?:sinav|soru|test)\w*.*\bcevap\w*.*\b(?:ver|soyle|sizdir|goster)\w*\b"),
+    re.compile(r"\bcevap\w*\b\s*\b(?:ver|soyle|sizdir)\w*\b"),
+    # 1. şahıs korunan okul verisi + değiştirme fiili. Kişisel Defter'deki
+    # "notumu sil/değiştir" meşru CRUD'dur; çıplak not ürün sözlüğünde Defter
+    # notu sayılır. Yalnız "notumu yükselt/artır" açıkça puan manipülasyonudur.
+    re.compile(r"\b(?:karnem|karnemi|ortalamam\w*|puanim\w*|devamsizligim\w*|"
+               r"yoklamam\w*)\b.*\b(?:sil|kaldir|yukselt|artir|duzelt|degistir)\w*\b"),
+    re.compile(r"\b(?:sil|kaldir|yukselt|artir|duzelt|degistir)\w*\b.*\b(?:karnem|karnemi|"
+               r"devamsizligim\w*|yoklamam\w*|puanim\w*|ortalamam\w*)\b"),
+    re.compile(r"\b(?:notum|notumu|notlarim\w*)\b.*\b(?:yukselt|artir)\w*\b"),
+    re.compile(r"\b(?:yukselt|artir)\w*\b.*\b(?:notum|notumu|notlarim\w*)\b"),
+    re.compile(r"\bvar\s+goster\w*\b"),
 )
 
 
 def _is_manipulation_request(query: str) -> bool:
-    return any(p.search(query) for p in _MANIPULATION_PATTERNS)
+    tokens = folded_tokens(query)
+    folded = " ".join(tokens)
+    if any(pattern.search(folded) for pattern in _MANIPULATION_PATTERNS):
+        return True
+
+    # Güvenlik-kritik boundary sözcüklerinde TEK yazım hatası. Genel fuzzy
+    # normalizasyon değildir: yalnız korunan nesne + tehlikeli eylem çifti aynı
+    # sorguda bulunursa devreye girer. Böylece geçerli kısa sözcükler başka
+    # intent'e sürüklenmez.
+    own_specs = (
+        ("devamsizligim", ("im", "imi", "mi")),
+        ("yoklamam", ("am", "ami")),
+        ("karnem", ("em", "emi")),
+        ("puanim", ("im", "imi")),
+        ("ortalamam", ("am", "ami")),
+    )
+    own_protected = any(
+        token.endswith(endings) and _near_stem(token, stem)
+        for token in tokens
+        for stem, endings in own_specs
+    )
+    destructive = (
+        any(token.startswith("sil") or token in {"sl", "sli", "siil", "sdl", "si"}
+            for token in tokens)
+        or _contains_near_stem(tokens, (
+            "kaldir", "cikar", "yukselt", "artir", "duzelt", "degistir",
+        ))
+    )
+    if own_protected and destructive:
+        return True
+    if (
+        any(token.startswith(("notum", "notlarim")) for token in tokens)
+        and _contains_near_stem(tokens, ("yukselt", "artir"))
+    ):
+        return True
+    if (
+        any(token in {"var", "vra"} for token in tokens)
+        and _contains_near_stem(tokens, ("goster",))
+        and _contains_near_stem(tokens, ("yoklama",))
+        and any(token == "beni" for token in tokens)
+    ):
+        return True
+    # Bu yüzeyler global alias değildir: ``sik`` bağımsız ve geçerli bir
+    # sözcük olabilir; ``vre/vet/veer`` de kısa ve belirsizdir. Yalnız açıkça
+    # korunan okul verisiyle birlikte geldiğinde tek-harfli eylem yazım hatası
+    # olarak değerlendirilir.
+    if (
+        any(token.startswith("devamsizlig") for token in tokens)
+        and any(token == "sik" for token in tokens)
+    ):
+        return True
+    if (
+        _contains_near_stem(tokens, ("sinav",))
+        and _contains_near_stem(tokens, ("soru",))
+        and _contains_near_stem(tokens, ("cevap",))
+        and any(token in {"vre", "vet", "veer"} for token in tokens)
+    ):
+        return True
+    if all(
+        condition for condition in (
+            any(token.startswith("odevim") for token in tokens),
+            _contains_near_stem(tokens, ("yerime",)),
+            any(token.startswith("yap") for token in tokens),
+        )
+    ):
+        return True
+    if (
+        any(token == "ders" for token in tokens)
+        and any(token.startswith("programim") for token in tokens)
+        and any(_near_stem(token, "sen") for token in tokens if len(token) <= 4)
+        and _contains_near_stem(tokens, ("ayarla",))
+    ):
+        return True
+    return False
+
+
+def _near_stem(token: str, stem: str) -> bool:
+    """Token başlangıcı stem'e en fazla bir ekleme/silme/değişme uzaklıkta mı?"""
+
+    if token.startswith(stem):
+        return True
+    for length in (len(stem) - 1, len(stem), len(stem) + 1):
+        if length > 0 and len(token) >= length:
+            candidate = token[:length]
+            if _levenshtein(candidate, stem) <= 1 or _adjacent_transposition(candidate, stem):
+                return True
+    return False
+
+
+def _adjacent_transposition(left: str, right: str) -> bool:
+    if len(left) != len(right):
+        return False
+    differences = [
+        index for index, (a, b) in enumerate(zip(left, right)) if a != b
+    ]
+    return (
+        len(differences) == 2
+        and differences[1] == differences[0] + 1
+        and left[differences[0]] == right[differences[1]]
+        and left[differences[1]] == right[differences[0]]
+    )
+
+
+def _contains_near_stem(tokens: list[str], stems: tuple[str, ...]) -> bool:
+    return any(_near_stem(token, stem) for token in tokens for stem in stems)
 
 
 def _build_navigation(
@@ -659,12 +1065,36 @@ def assistant_meta_from_result(result: dict[str, Any], role: str) -> dict[str, A
     intent = result.get("intent")
     view = space.view_for(intent) if isinstance(intent, str) else None
     response_id = result.get("response_id")
+    # Üst rolün öğrenciye özgü bir rapor sorusu, gerçek bir yönetim raporuna
+    # yönlendirilebilir. Bu durumda V2 metadata da özgün (kimi rollerde DENY)
+    # görünümü değil, gerçekten sunulan hedef işlemi anlatmalıdır.
+    served_intent = intent
+    if (
+        response_id == "student_report_redirect"
+        and role in _UPPER_ROLES
+        and isinstance(intent, str)
+        and intent in _STUDENT_REPORT_REDIRECT
+    ):
+        target_intent = _STUDENT_REPORT_REDIRECT[intent]
+        target_view = space.view_for(target_intent)
+        if target_view is not None and target_view.outcome is AccessOutcome.ALLOW:
+            served_intent = target_intent
+            view = target_view
     if response_id == "clarification_prompt":
         outcome = "clarify"
         reason_code = "ambiguous_query"
     elif bool(result.get("fallback")):
         outcome = "fallback"
         reason_code = "out_of_scope"
+    elif response_id == "out_of_scope_action":
+        # Gerçek alan-dışı fallback ile "canlı veriyi getir / benim yerime yap"
+        # kapsam sınırını aynı OOS kovasına atma.
+        outcome = "deny"
+        boundary = str(result.get("scope_boundary") or "action")
+        reason_code = "scope_boundary_" + boundary
+    elif response_id == "feature_unavailable":
+        outcome = "deny"
+        reason_code = "feature_unavailable"
     elif result.get("auth_action") is not None:
         outcome = "deny"
         reason_code = view.reason_code.value if view else "role_not_permitted"
@@ -703,7 +1133,7 @@ def assistant_meta_from_result(result: dict[str, Any], role: str) -> dict[str, A
         "role_space_version": space.version,
         "role_space_hash": space.content_hash,
         "outcome": outcome,
-        "action_id": intent,
+        "action_id": served_intent,
         "reason_code": reason_code,
         "navigation": navigation,
         "clarification": clarification,
@@ -975,7 +1405,8 @@ class Engine:
         # Rol beyanı/sorusu BİLGİ amaçlıdır: sorulan rolün yeteneklerini anlatır,
         # oturumun gerçek yetkisini (gating) ASLA değiştirmez. Doğrulanmış bir öğrenci
         # 'admin' yazarsa admin yeteneklerini bilgi olarak görür, admin OLMAZ.
-        declared = _declared_role(query) or _role_correction(query)
+        context_query = _strip_brand_context_prefix(_strip_role_context_prefix(query))
+        declared = _declared_role(context_query) or _role_correction(context_query)
         served_declaration = declared
         caps = capabilities_for(served_declaration) if served_declaration else None
         if caps:
@@ -1003,7 +1434,7 @@ class Engine:
             }, role)
 
         # PII maskeleme: maskelenmiş sorguyu boru hattına ver.
-        effective_query = query
+        effective_query = context_query
         if safety.decision == safety_mod.MASK_AND_ALLOW and safety.masked_message:
             effective_query = safety.masked_message
 
@@ -1022,6 +1453,11 @@ class Engine:
                     if _canon:
                         effective_query = _canon
 
+        # 1.515) Saf UI/söylem/state çerçeveleri çekirdek görevin intent'ini
+        # gölgelememeli. Örn. "Profilim sayfasında biyografiyi değiştir" içindeki
+        # sayfa etiketi profile_view'i, gerçek değişiklik görevini bastırmamalıdır.
+        effective_query = _strip_task_context(effective_query)
+
         # 1.52) Sosyal önek: "Merhaba, karnemi nerede görürüm?" -> selam kısmını soy,
         # görevi yönlendir. YALNIZCA kalan görev KURAL katmanına (yüksek-kesinlik)
         # çarpıyorsa soyulur; aksi halde 'naber nasıl gidiyor' / 'teşekkür ederim'
@@ -1037,6 +1473,11 @@ class Engine:
         pure_negation = _neg_resolved.strip() == ""
         if not pure_negation and _neg_resolved != effective_query:
             effective_query = _neg_resolved
+
+        # Üçüncü-şahıs özel-ad iyeliği kişisel Defter değil, öğrenci notlandırma
+        # bağlamıdır ("Ali'nin notunu düzelt").
+        effective_query = rules.canonicalize_named_grade_query(effective_query)
+        entry_exit_ambiguous = _entry_exit_is_ambiguous(effective_query)
 
         # 1.57) Henüz canlı olmayan/bulunmayan özellik -> yanlış yönlendirme YOK,
         # dürüstçe "henüz kullanılamıyor" (intent None, nav yok).
@@ -1106,12 +1547,49 @@ class Engine:
                 "answers": None,
                 "suggestions": suggestions,
                 "safety": safety_info,
+                "scope_boundary": _scope_kind,
+            }, role)
+
+        # 1.585) Yüksek-kesinlikli okul-dışı konu. Bu kapı scope-boundary'den
+        # SONRA, kural/benzerlikten ÖNCE çalışır: "ödevimi benim yerime yap" özel
+        # action reddini korur; "hava nasıl" gibi bir sorgunun ortak kelimelerle
+        # yanlış ürün intent'ine bağlanmasını engeller.
+        if is_explicitly_out_of_scope(effective_query):
+            if self._log_sink is not None:
+                self._log_sink({
+                    "trace_id": trace_id,
+                    "query_masked": safety_mod.mask_pii(query)[0],
+                    "role": role,
+                    "authenticated": authenticated,
+                    "short_circuit": "explicit_out_of_scope",
+                    "response_id": FALLBACK["response_id"],
+                })
+            return _attach_assistant_meta({
+                "trace_id": trace_id,
+                "response_id": FALLBACK["response_id"],
+                "text": _with_brand_note(FALLBACK["response_template"], query),
+                "intent": None,
+                "confidence": 0.0,
+                "fallback": True,
+                "auth_action": None,
+                "required_role": None,
+                "navigation": None,
+                "clarification": None,
+                "answers": None,
+                "suggestions": suggestions,
+                "safety": safety_info,
             }, role)
 
         # 1.59) Menü bölüm-özeti ("Öğrenci yönetimi bölümünde ne var?"): üst-başlık
         # sorusu -> o bölümdeki sayfaların listesi (rol notlu). help_capabilities/
         # clarify'a düşmeden net cevap.
-        _section = _section_overview(effective_query)
+        _section_rule = get_role_space(role).rule_matcher.match(effective_query)
+        _section = (
+            _section_overview(effective_query)
+            if _section_rule is None
+            or _section_rule.intent in {"nav_overview", "help_capabilities"}
+            else None
+        )
         if _section is not None:
             if self._log_sink is not None:
                 self._log_sink({
@@ -1123,7 +1601,9 @@ class Engine:
                 "trace_id": trace_id,
                 "response_id": "section_overview",
                 "text": _with_brand_note(_section, query),
-                "intent": None,
+                # Dinamik bölüm metni nav_overview intent'inin ayrıntılı sunumudur;
+                # semantik intent'i koru ki log/benchmark/frontend bunu OOS sanmasın.
+                "intent": "nav_overview",
                 "confidence": 1.0,
                 "fallback": False,
                 "auth_action": None,
@@ -1135,14 +1615,19 @@ class Engine:
                 "safety": safety_info,
             }, role)
 
-        # 1.595) Konu-yardımı: "<konu> ne yapabilirim / ne işe yarar" -> o konunun
-        # kanonik sorgusuna çevir (generic help_capabilities'e düşmesin).
-        _topic_canon = _topic_help_query(effective_query, role)
-        if _topic_canon is not None:
-            effective_query = _topic_canon
+        # 1.595) Önce gerçek çoklu isteği ve zaten özgül bir kurala çarpan görevi
+        # koru. Konu-yardımı yalnız özgül intent yoksa devreye girer; aksi halde
+        # "ders notunu düzenle — doğru akış nedir" genel ders görünümüne kayardı.
+        segments = _multi_intent_segments(effective_query, role)
+        if segments is None:
+            existing_rule = get_role_space(role).rule_matcher.match(effective_query)
+            if existing_rule is None or existing_rule.intent == "help_capabilities":
+                _topic_canon = _topic_help_query(effective_query, role)
+                if _topic_canon is not None:
+                    effective_query = _topic_canon
+                    segments = _multi_intent_segments(effective_query, role)
 
         # 1.6) Çoklu istek ('X ve Y'): her bağımsız parça ayrı yanıtlanır.
-        segments = _multi_intent_segments(effective_query, role)
         # >4 farklı işlem tek turda: net anlatmak güç -> netleştir (asla yarım cevap).
         if segments is not None and len(segments) > 4:
             text = (
@@ -1291,7 +1776,7 @@ class Engine:
             and dec["source"] == "similarity"
             and len(effective_query.split()) == 1
         )
-        ask_mode = pure_negation or single_word_similarity or (
+        ask_mode = pure_negation or entry_exit_ambiguous or single_word_similarity or (
             not response.fallback
             and dec["source"] == "similarity"
             and (
@@ -1303,13 +1788,17 @@ class Engine:
                     and top2_social
                 )
                 # Net okul-dışı konu (yalnız benzerlik) -> zayıf-eşleşme FP'sini kes.
-                or bool(_FAR_OOS_TOPICS.intersection(folded_tokens(effective_query)))
+                or bool(FAR_OOS_TOPICS.intersection(folded_tokens(effective_query)))
             )
         )
         if ask_mode:
             clarification = _build_clarification(trace, force=True)
             trace["ask_clarification"] = True
-            text = CLARIFICATION_PROMPT_TEXT
+            text = (
+                ENTRY_EXIT_CLARIFICATION_TEXT
+                if entry_exit_ambiguous
+                else CLARIFICATION_PROMPT_TEXT
+            )
             if safety.decision == safety_mod.ALLOW_WITH_WARNING and safety.user_message:
                 text = safety.user_message + "\n" + text
             if self._log_sink is not None:
@@ -1367,7 +1856,7 @@ class Engine:
             "confidence": trace["decision"]["confidence"],
             "fallback": response.fallback,
             "auth_action": None if _redirect else response.auth_action,
-            "required_role": trace["decision"]["required_role"],
+            "required_role": None if _redirect else trace["decision"]["required_role"],
             "navigation": _redirect[1] if _redirect else _build_navigation(
                 response.intent, response.auth_action, role),
             "clarification": _build_clarification(trace),

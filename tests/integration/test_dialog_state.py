@@ -37,7 +37,7 @@ class DialogFollowupTests(unittest.TestCase):
 
     def test_ordinal_after_clarify(self) -> None:
         # netleştirme sonrası "Evet, ilki." -> ilk aday (guide_info); clarify DEĞİL
-        r = _run_turns(["Bir yerde hata verdi yardım et.", "Evet, ilki."], "ogrenci")
+        r = _run_turns(["Bir şey oldu yardım et.", "Evet, ilki."], "ogrenci")
         self.assertNotEqual(r["response_id"], "clarification_prompt")
         self.assertNotIn("tam anlayamadım", r["text"])
 

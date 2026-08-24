@@ -140,6 +140,19 @@ class UpperRoleReportRedirectTests(unittest.TestCase):
                     self.assertIsNone(r["auth_action"])
                     self.assertIsNotNone(r["navigation"])
                     self.assertEqual(r["navigation"]["route"], route)
+                    target_intent = (
+                        "student_attendance_lookup"
+                        if route.endswith("student-attendance")
+                        else "student_marks_lookup"
+                    )
+                    self.assertEqual(r["assistant_meta"]["outcome"], "allow")
+                    self.assertEqual(r["assistant_meta"]["reason_code"], "allowed")
+                    self.assertEqual(r["assistant_meta"]["action_id"], target_intent)
+                    self.assertEqual(
+                        r["assistant_meta"]["navigation"]["route_key"],
+                        "student_attendance" if target_intent.endswith("attendance_lookup") else "student_marks",
+                    )
+                    self.assertIsNone(r["required_role"])
                     # öğrenci-özel sayfa VE çıkmaz metin sızmaz
                     self.assertNotIn("/marks", r["text"])
                     self.assertNotIn("/attendance", r["text"])
@@ -219,6 +232,141 @@ class KnownLimitTests(unittest.TestCase):
         # "A değil, B" da B'ye göre yanıtlanır.
         resp2 = ask("karne değil, kendi devamsızlığımı görmek istiyorum")
         self.assertEqual(resp2["intent"], "attendance_view")
+
+        # Karşılaştırmalı görünüm sorusu olumlu parçaya indirgenirken öznesini
+        # kaybetmez: "aylık mı" tek başına fallback olmamalı.
+        resp3 = ask("takvim haftalık değil aylık mı çalışıyor", "veli")
+        self.assertEqual(resp3["intent"], "calendar_info")
+
+    def test_instead_of_comparison_is_not_do_for_me_manipulation(self) -> None:
+        comparison = ask(
+            "ödeme kaydını silmek yerine ters kayıt mı açmalıyım",
+            "yonetici",
+        )
+        self.assertEqual(comparison["intent"], "fees_manage")
+        self.assertNotEqual(comparison["response_id"], "out_of_scope_action")
+
+        manipulation = ask("ödevimi benim yerime çöz", "ogrenci")
+        self.assertIsNone(manipulation["intent"])
+        self.assertEqual(manipulation["response_id"], "out_of_scope_action")
+        self.assertEqual(manipulation["assistant_meta"]["outcome"], "deny")
+        self.assertEqual(
+            manipulation["assistant_meta"]["reason_code"],
+            "scope_boundary_action",
+        )
+
+    def test_scope_boundary_is_turkish_ascii_and_inflection_robust(self) -> None:
+        for query in (
+            "Devamsizligimi sil; adimlari nedir?",
+            "Karne notumu yukselt",
+            "Yoklamada beni var goster",
+            "Ders programimi sen ayarla",
+            "Sinav sorularinin cevaplarini ver",
+            "Devamsizligimi sl",
+            "Yoklamada beni var göstr",
+            "Devamsizligimi listeden cikar",
+            "Ders programimi sen ayarl",
+            "Ders programimi senn ayarla",
+            "Dvamsizligimi sil",
+            "Karne notumu yukkselt",
+            "Odevimi benim yrrime yap",
+            "Odevimi benim yeirme yap",
+            "Devamsızlığımı si",
+            "Devamsızlığmı sil",
+            "Yoklamada beni vra göster",
+            "Devamsızlığımı sik",
+            "Sınav sorularının cevaplarını vre",
+            "Sınav sorularının cevaplarını vet",
+            "Sınav sorularının cevaplarını veer",
+        ):
+            with self.subTest(query=query):
+                result = ask(query, "ogrenci")
+                self.assertIsNone(result["intent"])
+                self.assertEqual(result["response_id"], "out_of_scope_action")
+                self.assertEqual(
+                    result["assistant_meta"]["reason_code"],
+                    "scope_boundary_action",
+                )
+
+    def test_live_data_boundary_is_separate_from_how_to_navigation(self) -> None:
+        for query in (
+            "Gercek ogrenci listesini buraya getir",
+            "Sistemde toplam kac kullanici var",
+            "Kayitli ogretmenlerin sayisini bana soyle",
+            "Dersimde kayıtlı öğrencilerin listesini çıkar",
+            "Bugünkü yoklama kayıtlarımı banna göster",
+            "Bugünkü yoklama kayıtlarımı bana götser",
+            "Dersimde kayıtlı öğrencilerin listesini çkıar",
+            "Kayıtlı öğretmenlerin ssyısını bana söyle",
+            "Sistemde toplam ka kullanıcı var; ilgili veriyi bana ver",
+        ):
+            with self.subTest(query=query):
+                result = ask(query, "yonetici")
+                self.assertIsNone(result["intent"])
+                self.assertEqual(result["response_id"], "out_of_scope_action")
+                self.assertEqual(
+                    result["assistant_meta"]["reason_code"],
+                    "scope_boundary_data",
+                )
+
+        valid_product_actions = (
+            ("Öğrenci listesini hangi ekrandan görürüm?", None, "ogretmen"),
+            ("öğrenci kaydını listeden çıkar", "course_remove_student", "ogretmen"),
+            ("not listeden çıkarmak", "note_delete", "ogrenci"),
+            ("Hangi işlerde destek olursun, bana yol göster", "help_capabilities", "ogrenci"),
+            ("Kilitli sınava nasıl girerim?", "exam_enter_room", "ogrenci"),
+            ("Kiosk üzerinden yemek rezervasyonu nasıl yapılır?", "meal_book", "ogrenci"),
+            ("Devamsızlığımı nasıl görürüm", "attendance_view", "ogrenci"),
+        )
+        for query, expected_intent, role in valid_product_actions:
+            with self.subTest(query=query):
+                result = ask(query, role)
+                self.assertNotEqual(result["response_id"], "out_of_scope_action")
+                if expected_intent is not None:
+                    self.assertEqual(result["intent"], expected_intent)
+
+    def test_explicit_school_external_topics_fallback_before_wrong_rules(self) -> None:
+        for query in (
+            "Bugün hava ne şekilde olacak",
+            "Hezarfen'de en yakın pizzacı nerede",
+            "Öğretmenime hediye ne alayım",
+            "Fizik konusunu özetle",
+            "Yarın okul var mı tatil mi",
+            "Arabamın lastiği patladı ne yapmalıyım?",
+            "Ön bilgi: Rolüm Ziyaretçi. Arabamın lastiği patladı ne yapmalıyım.",
+            "Nasıl kil veririm",
+            "Kio vermek için ne önerirsin",
+            "Öğretmenime hdeiye ne alayım",
+            "Mezu olunca ne iş yaparım",
+            "Matematik ödevimi çzer misin",
+        ):
+            with self.subTest(query=query):
+                result = ask(query, "ogrenci")
+                self.assertIsNone(result["intent"])
+                self.assertTrue(result["fallback"])
+                self.assertEqual(
+                    result["assistant_meta"]["reason_code"], "out_of_scope"
+                )
+
+        dietary = ask("Öğrencinin diyet profilini güncelle", "yonetici")
+        self.assertEqual(dietary["intent"], "meal_dietary_profile_manage")
+
+    def test_section_overview_does_not_override_specific_action(self) -> None:
+        cases = (
+            ("Ders için bir saat planlamak istiyorum. Bu işlem hangi ekrandan yapılıyor?",
+             "lesson_session_add", "ogretmen"),
+            ("Yeni bir etkinlik planlamak istiyorum; hangi ekranda?",
+             "event_create", "ogretmen"),
+            ("Yeni akademik dönem eklemek istiyorum; hangi ekranda?",
+             "term_manage", "yonetici"),
+        )
+        for query, expected_intent, role in cases:
+            with self.subTest(query=query):
+                self.assertEqual(ask(query, role)["intent"], expected_intent)
+
+        overview = ask("Akademik bölümünde hangi sayfalar var?", "ogrenci")
+        self.assertEqual(overview["response_id"], "section_overview")
+        self.assertEqual(overview["intent"], "nav_overview")
 
     def test_pure_imperative_negation_clarifies(self) -> None:
         # Dar saf-olumsuz komut ('gösterme'/'gizleme') artık uygulanmaz -> netleştir

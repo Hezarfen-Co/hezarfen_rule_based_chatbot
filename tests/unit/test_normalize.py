@@ -9,6 +9,7 @@ from src.normalize import (
     MIN_STEM_LENGTH,
     collapse_whitespace,
     fold_accents,
+    folded_tokens,
     normalize,
     roots,
     stem,
@@ -74,6 +75,98 @@ class TokenizeTests(unittest.TestCase):
 
     def test_empty(self) -> None:
         self.assertEqual(tokenize("   "), [])
+
+
+class FoldedTokensTests(unittest.TestCase):
+    def test_known_chat_typos_are_canonicalized(self) -> None:
+        self.assertEqual(
+            folded_tokens("ogrnci notunu degstr"),
+            ["ogrenci", "notunu", "degistir"],
+        )
+
+    def test_valid_tokens_are_not_changed(self) -> None:
+        self.assertEqual(folded_tokens("sınav notunu sil"), ["sinav", "notunu", "sil"])
+
+    def test_common_where_contraction_is_canonicalized(self) -> None:
+        self.assertEqual(folded_tokens("etkinlikler nerde"), ["etkinlikler", "nerede"])
+
+    def test_safe_social_and_meta_single_typos_are_canonicalized(self) -> None:
+        self.assertEqual(
+            folded_tokens("mrehaba selalmar plaftorm kiimsin"),
+            ["merhaba", "selam", "platform", "kimsin"],
+        )
+
+    def test_short_valid_words_are_not_fuzzy_rewritten(self) -> None:
+        self.assertEqual(folded_tokens("sol haber"), ["sol", "haber"])
+        self.assertEqual(folded_tokens("kimin başladığını"), ["kimin", "basladigini"])
+
+    def test_unique_product_typos_are_canonicalized(self) -> None:
+        self.assertEqual(
+            folded_tokens("Sisetmden İngilice mensü yaynılıcam"),
+            ["sistemden", "ingilizce", "menu", "yayinla"],
+        )
+        self.assertEqual(
+            folded_tokens("veil çcouğu rezervasyyonsuz sevris"),
+            ["veli", "cocugu", "rezervasyonsuz", "servis"],
+        )
+
+    def test_observed_short_typos_use_exact_aliases(self) -> None:
+        self.assertEqual(
+            folded_tokens("Sooru srouyu oddev yrmek saoll"),
+            ["soru", "soruyu", "odev", "yemek", "sagol"],
+        )
+        self.assertEqual(
+            folded_tokens("gelmdei saay knedi meesaj muutfak drss"),
+            ["gelmedi", "saat", "kendi", "mesaj", "mutfak", "ders"],
+        )
+        self.assertEqual(
+            folded_tokens("şirfem değiştirCem tkip drvam yükkselt şubbe nedre"),
+            ["sifre", "degistir", "takip", "devam", "yukselt", "sube", "nerede"],
+        )
+
+    def test_observed_inflected_product_typos_keep_surface_form(self) -> None:
+        self.assertEqual(
+            folded_tokens("öğrencnin öğrettmenin kılavzuu listeim sınabdan"),
+            ["ogrencinin", "ogretmenin", "kilavuzu", "listemi", "sinavdan"],
+        )
+        self.assertEqual(
+            folded_tokens("pannel tannıtım kaaptmak desrleri aktairrken başksaının"),
+            ["panel", "tanitim", "kapatmak", "dersleri", "aktarirken", "baskasinin"],
+        )
+
+    def test_deterministic_stress_exact_aliases_are_conservative(self) -> None:
+        self.assertEqual(
+            folded_tokens("Mesak dres Nabre salo sorıyu sueb yemeek etkinlite nrede"),
+            ["mesaj", "ders", "naber", "sagol", "soruyu", "sube", "yemek", "etkinlikte", "nerede"],
+        )
+        self.assertEqual(
+            folded_tokens("getor banaa kç mezuun hrdiye üniversietyi devamsızlığıı"),
+            ["getir", "bana", "kac", "mezun", "hediye", "universiteyi", "devamsizligimi"],
+        )
+
+    def test_v35_observed_typos_use_exact_conservative_aliases(self) -> None:
+        self.assertEqual(
+            folded_tokens("nasılsnı kmisin kılavuu Guode çkış Rool sgv enaled"),
+            ["nasilsin", "kimsin", "kilavuz", "guide", "cikis", "rol", "svg", "enabled"],
+        )
+        self.assertEqual(
+            folded_tokens("otruumunun konttrolü asekron eklme ödelver teslm mrsai"),
+            ["oturumunun", "kontrolu", "asenkron", "ekleme", "odevler", "teslim", "mesai"],
+        )
+        self.assertEqual(
+            folded_tokens("subbeleri Bguün pneldeki banksı etkinlkileri sınvaların dpsyalarını"),
+            ["subeleri", "bugun", "paneldeki", "bankasi", "etkinlikler", "sinavlarin", "dosyalarini"],
+        )
+        self.assertEqual(
+            folded_tokens("Öğüm ücrretini yoklamssını meünsü ekllemek yaynılamak mutfal hvuzunda havzua"),
+            ["ogun", "ucretini", "yoklamasini", "menusu", "eklemek", "yayinlamak", "mutfak", "havuzunda", "havuza"],
+        )
+
+    def test_ambiguous_neighbours_are_not_fuzzy_rewritten(self) -> None:
+        self.assertEqual(
+            folded_tokens("sorun demek öde bi dr el sona komusu"),
+            ["sorun", "demek", "ode", "bi", "dr", "el", "sona", "komusu"],
+        )
 
 
 class StemTests(unittest.TestCase):
