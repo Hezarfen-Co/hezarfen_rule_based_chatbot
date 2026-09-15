@@ -27,7 +27,7 @@
 #     frontend deploy'unun kullandığı üç isim;
 #   * sunucuda `loginctl enable-linger <user>` (kullanıcı unit'leri için);
 #   * sunucuda podman + bir compose sağlayıcı (deploy ikisini de kontrol eder);
-#   * operatörün ~/hezarfen_chatbot/hezarfen_chatbot.env (0600) dosyası;
+#   * operatörün ~/hezarfen_rule_based_chatbot/hezarfen_rule_based_chatbot.env (0600) dosyası;
 #   * BACKEND tarafı açık olmalı: hezarfen_backend.env içinde
 #     AI_QUIC_ADDR=0.0.0.0:8090 ve AI_SHARED_TOKEN bu köprününkiyle AYNI.
 #     (127.0.0.1 yazılıysa backend yalnız kendi loopback'ine bağlanır ve köprü
@@ -46,13 +46,13 @@ on:
 # VPS değişimine dokunmadan bayat Validate/Build'i iptal edebilmeli.
 
 env:
-  # systemd kullanıcı unit'i. Bkz. deploy/hezarfen_chatbot_compose.service.
-  SERVICE: hezarfen_chatbot_compose
+  # systemd kullanıcı unit'i. Bkz. deploy/hezarfen_rule_based_chatbot_compose.service.
+  SERVICE: hezarfen_rule_based_chatbot_compose
   # Deploy, SSH kullanıcısının home'u altındaki bu alt dizinde yaşar ($HOME
   # sunucuda çözülür, yani kullanıcı değişince yol da onunla gelir).
-  DEPLOY_SUBDIR: hezarfen_chatbot
+  DEPLOY_SUBDIR: hezarfen_rule_based_chatbot
   # Köprünün ayar dosyası; deploy yalnız varlığını kontrol eder, yazmaz.
-  ENV_FILE_NAME: hezarfen_chatbot.env
+  ENV_FILE_NAME: hezarfen_rule_based_chatbot.env
   # Sağlık kapısı: backend'in verdiği kayıt onayı logda bu satırdır.
   READY_MARKER: "kayıt başarılı"
   # Köprünün backend sertifikasını çektiği yol (HTTP, backend konteynerinin portu).
@@ -111,20 +111,20 @@ jobs:
       - name: Build the image
         run: |
           set -euo pipefail
-          docker build -f Containerfile -t localhost/hezarfen_chatbot:$GITHUB_SHA .
+          docker build -f Containerfile -t localhost/hezarfen_rule_based_chatbot:$GITHUB_SHA .
 
       - name: Stage the release bundle
         run: |
           set -euo pipefail
           mkdir -p stage
-          docker save localhost/hezarfen_chatbot:$GITHUB_SHA | gzip > stage/hezarfen_chatbot.tar.gz
-          cp compose.yaml deploy/hezarfen_chatbot_compose.service stage/
+          docker save localhost/hezarfen_rule_based_chatbot:$GITHUB_SHA | gzip > stage/hezarfen_rule_based_chatbot.tar.gz
+          cp compose.yaml deploy/hezarfen_rule_based_chatbot_compose.service stage/
           echo -n "$GITHUB_SHA" > stage/tag
           # Sunucuda kurulacak her şey burada olmalı; eksik parça burada,
           # sunucuda değil, patlar.
-          test -f stage/hezarfen_chatbot.tar.gz
+          test -f stage/hezarfen_rule_based_chatbot.tar.gz
           test -f stage/compose.yaml
-          test -f stage/hezarfen_chatbot_compose.service
+          test -f stage/hezarfen_rule_based_chatbot_compose.service
           test -f stage/tag
           ls -l stage
 
@@ -199,9 +199,9 @@ jobs:
       - name: Check the release is complete
         run: |
           set -euo pipefail
-          test -f stage/hezarfen_chatbot.tar.gz
+          test -f stage/hezarfen_rule_based_chatbot.tar.gz
           test -f stage/compose.yaml
-          test -f stage/hezarfen_chatbot_compose.service
+          test -f stage/hezarfen_rule_based_chatbot_compose.service
           test -f stage/tag
 
       - name: Install SSH keys
@@ -227,14 +227,14 @@ jobs:
               ;;
           esac
           deploy_path=$HOME/$1
-          # Bu dizin operatörün hezarfen_chatbot.env dosyasını, compose
+          # Bu dizin operatörün hezarfen_rule_based_chatbot.env dosyasını, compose
           # dosyalarını ve tag dosyalarını tutar; hiçbiri toptan silinmez.
           mkdir -p -- "$deploy_path"
           REMOTE
           # stdin paketi taşıyor, betik taşıyamaz; çıkarma yine bash -c ile
           # çünkü login shell bash değil ve $HOME'u genişletmez. Sunucuya
           # yalnız dört deploy dosyası kurulur.
-          tar -C stage -czf - hezarfen_chatbot.tar.gz compose.yaml hezarfen_chatbot_compose.service tag | ssh "$ssh_target" "bash -c 'exec tar -xzf - -C \"\$HOME/\$1\"' -- '$DEPLOY_SUBDIR'"
+          tar -C stage -czf - hezarfen_rule_based_chatbot.tar.gz compose.yaml hezarfen_rule_based_chatbot_compose.service tag | ssh "$ssh_target" "bash -c 'exec tar -xzf - -C \"\$HOME/\$1\"' -- '$DEPLOY_SUBDIR'"
 
       - name: Load the image and restart the bridge
         run: |
@@ -258,10 +258,10 @@ jobs:
 
           # Hiçbir şey oynamadan önce oku: ayar dosyası operatörün, sunucuda,
           # elle bir kez yazılır (anahtarlar için bkz.
-          # deploy/hezarfen_chatbot.env.example). Deploy onu asla oluşturmaz,
+          # deploy/hezarfen_rule_based_chatbot.env.example). Deploy onu asla oluşturmaz,
           # ezmez.
           if [ ! -f "$env_file" ]; then
-            echo "missing $env_file — create it (0600) from deploy/hezarfen_chatbot.env.example" >&2
+            echo "missing $env_file — create it (0600) from deploy/hezarfen_rule_based_chatbot.env.example" >&2
             exit 1
           fi
           chmod 0600 -- "$env_file"
@@ -290,7 +290,7 @@ jobs:
 
           # BU build'in imajını yükle ve build'in damgaladığı tag'i oku
           # (build zamanı ile deploy zamanı neyin gittiğinde anlaşmalı).
-          gunzip -c "$deploy_path/hezarfen_chatbot.tar.gz" | podman load
+          gunzip -c "$deploy_path/hezarfen_rule_based_chatbot.tar.gz" | podman load
           tag=$(cat -- "$deploy_path/tag")
 
           # Tag rotasyonu: previous_tag geri dönüş hedefidir (ilk deploy'da
@@ -305,9 +305,9 @@ jobs:
           # kazanan yapar.
           printf 'HEZARFEN_TAG=%s\n' "$tag" > "$deploy_path/stack.env"
 
-          chmod 0644 -- "$deploy_path/compose.yaml" "$deploy_path/hezarfen_chatbot_compose.service"
+          chmod 0644 -- "$deploy_path/compose.yaml" "$deploy_path/hezarfen_rule_based_chatbot_compose.service"
           # İmaj tarball'ı yalnız taşıyıcıydı; imaj artık podman deposunda.
-          rm -f -- "$deploy_path/hezarfen_chatbot.tar.gz"
+          rm -f -- "$deploy_path/hezarfen_rule_based_chatbot.tar.gz"
 
           compose_up() {
             podman compose --env-file "$env_file" --env-file "$deploy_path/stack.env" up -d --no-build
@@ -330,7 +330,7 @@ jobs:
           # Unit sürümle birlikte gelir: yeni kurulmuş bir kutuda ilk deploy'a
           # kadar unit yoktur ve değişen unit onu gerektiren compose ile iner.
           mkdir -p -- "$HOME/.config/systemd/user"
-          install -m 0644 -- "$deploy_path/hezarfen_chatbot_compose.service" "$HOME/.config/systemd/user/$service.service"
+          install -m 0644 -- "$deploy_path/hezarfen_rule_based_chatbot_compose.service" "$HOME/.config/systemd/user/$service.service"
           systemctl --user daemon-reload
 
           # Unit RemainAfterExit'li bir oneshot: aktif (exited) unit'te `start`
@@ -346,7 +346,7 @@ jobs:
           # yeniden bağlanma aralıkları zaman alır.
           ready_ok=0
           for _ in $(seq 1 60); do
-            if podman logs --tail 200 hezarfen_chatbot 2>&1 | grep -q "$ready_marker"; then
+            if podman logs --tail 200 hezarfen_rule_based_chatbot 2>&1 | grep -q "$ready_marker"; then
               ready_ok=1
               break
             fi
@@ -354,14 +354,14 @@ jobs:
           done
           if [ "$ready_ok" -ne 1 ]; then
             echo "the bridge never registered with the backend ('$ready_marker' missing); rolling back" >&2
-            podman logs --tail 30 hezarfen_chatbot 2>&1 >&2 || true
+            podman logs --tail 30 hezarfen_rule_based_chatbot 2>&1 >&2 || true
             rollback
             exit 1
           fi
 
           # Eski bir stack de cevap verebilir; çalışan konteyner BU build'in
           # imajı olmalı, yoksa geri dönülür.
-          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_chatbot)
+          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_rule_based_chatbot)
           case "$image" in
             *"$tag"*) ;;
             *)
@@ -370,7 +370,7 @@ jobs:
               exit 1
               ;;
           esac
-          echo 'hezarfen_chatbot_compose is up'
+          echo 'hezarfen_rule_based_chatbot_compose is up'
           REMOTE
 
       # Bağımsız son kontrol: cevap veren konteyner hâlâ güncel tag'in olmalı ve
@@ -386,7 +386,7 @@ jobs:
           export XDG_RUNTIME_DIR=/run/user/$(id -u)
           cd -- "$deploy_path"
           tag=$(cat -- "$deploy_path/current_tag")
-          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_chatbot)
+          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_rule_based_chatbot)
           case "$image" in
             *"$tag"*) ;;
             *)
@@ -394,9 +394,9 @@ jobs:
               exit 1
               ;;
           esac
-          status=$(podman inspect -f '{{.State.Status}}' hezarfen_chatbot)
+          status=$(podman inspect -f '{{.State.Status}}' hezarfen_rule_based_chatbot)
           [ "$status" = "running" ] || { echo "container status is '$status', not running" >&2; exit 1; }
-          podman logs --tail 200 hezarfen_chatbot 2>&1 | grep -q "$ready_marker" || {
+          podman logs --tail 200 hezarfen_rule_based_chatbot 2>&1 | grep -q "$ready_marker" || {
             echo "the bridge is not registered with the backend" >&2
             exit 1
           }

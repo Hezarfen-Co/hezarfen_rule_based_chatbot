@@ -135,7 +135,7 @@ podman compose up -d --build     # yalnız hezarfen-chatbot-bridge
 ```
 
 Ürün compose'u demo HTTP sunucusunu çalıştırmaz ve hostta `8000/8001` portu
-açmaz. Chatbot container'ı backend ağı içinde `hezarfen-backend:8090` hedefine
+açmaz. Chatbot container'ı backend ağı içinde `hezarfen_backend:8090` hedefine
 **QUIC/UDP** ile bağlanır; `8090` için TCP bağlantısı veya host port yayını yoktur.
 `src.web` yalnız yerel geliştirici aracıdır ve ürün yığınının parçası değildir.
 

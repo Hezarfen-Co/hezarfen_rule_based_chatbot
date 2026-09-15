@@ -20,15 +20,15 @@ RUN useradd --create-home --uid 10001 chatbot \
 USER chatbot
 
 # Dağıtım varsayılanları — TEK yazıldıkları yer. Sunucu bunları
-# hezarfen_chatbot.env (env_file) ile ezer; compose dosyası hiçbir anahtar
+# hezarfen_rule_based_chatbot.env (env_file) ile ezer; compose dosyası hiçbir anahtar
 # listelemez, böylece operatörün dosyası gölgelenemez.
 #
 # AI_BACKEND_URL köprünün sertifikayı çektiği HTTP kökü: backend konteynerinin
 # kendi portu (compose'da PORT=7656). Sertifika her (yeniden) bağlanmada
 # tazelenir.
-ENV AI_BRIDGE_HOST=hezarfen-backend \
+ENV AI_BRIDGE_HOST=hezarfen_backend \
     AI_BRIDGE_PORT=8090 \
-    AI_BACKEND_URL=http://hezarfen-backend:7656 \
+    AI_BACKEND_URL=http://hezarfen_backend:7656 \
     AI_SHARED_TOKEN=change-me \
     AI_TLS_SERVER_NAME=localhost \
     AI_SERVICE_NAME=celebi \

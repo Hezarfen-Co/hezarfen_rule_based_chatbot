@@ -1,7 +1,7 @@
 # systemd KULLANICI unit'i: Çelebi köprüsünü podman compose ile çalıştırır.
-# %h/hezarfen_chatbot içinde beklenen dosyalar:
+# %h/hezarfen_rule_based_chatbot içinde beklenen dosyalar:
 #   compose.yaml                     bu repodan (ya da deploy artefaktından)
-#   hezarfen_chatbot.env             0600, deploy/hezarfen_chatbot.env.example'dan
+#   hezarfen_rule_based_chatbot.env             0600, deploy/hezarfen_rule_based_chatbot.env.example'dan
 #                                    ELLE yazılır — otomasyon oluşturmaz/ezmez
 #   stack.env                        deploy sahipli; HEZARFEN_TAG taşır
 #
@@ -9,7 +9,7 @@
 #   podman compose build             # burada derle
 #   podman load -i image.tar         # ya da hazır imajı yükle
 #
-# hezarfen_chatbot.env içindeki anahtarlar (tam belge: deploy/hezarfen_chatbot.env.example).
+# hezarfen_rule_based_chatbot.env içindeki anahtarlar (tam belge: deploy/hezarfen_rule_based_chatbot.env.example).
 # Hepsinin varsayılanı imajın ENV bloğundadır (Containerfile) — bu dosya ezer:
 #   AI_BRIDGE_HOST / AI_BRIDGE_PORT   backend'in QUIC dinleyicisi (ağ içi ad)
 #   AI_BACKEND_URL                    sertifikanın çekildiği HTTP kökü
@@ -18,7 +18,7 @@
 #
 # Sadece ortam değişkeni değiştiğinde yeniden başlatma (ExecStart'ı yeniden
 # koşar, ortamı değişen konteynerı yeniden oluşturur):
-#   systemctl --user restart hezarfen_chatbot_compose
+#   systemctl --user restart hezarfen_rule_based_chatbot_compose
 
 [Unit]
 Description=Hezarfen Celebi QUIC bridge (rule-based chatbot)
@@ -28,10 +28,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=%h/hezarfen_chatbot
+WorkingDirectory=%h/hezarfen_rule_based_chatbot
 # Sonraki --env-file çakışan anahtarda kazanır: önce operatörün ayar dosyası,
 # sonra deploy sahipli stack.env (HEZARFEN_TAG).
-ExecStart=/usr/bin/podman compose --env-file %h/hezarfen_chatbot/hezarfen_chatbot.env --env-file %h/hezarfen_chatbot/stack.env up -d --no-build
+ExecStart=/usr/bin/podman compose --env-file %h/hezarfen_rule_based_chatbot/hezarfen_rule_based_chatbot.env --env-file %h/hezarfen_rule_based_chatbot/stack.env up -d --no-build
 # -v yok: isimli volume'lar stop'ta yaşamalı (köprü durumsuzdur ama şekil aynı).
 ExecStop=/usr/bin/podman compose down
 TimeoutStartSec=180

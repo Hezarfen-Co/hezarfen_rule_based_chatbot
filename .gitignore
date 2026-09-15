@@ -23,10 +23,10 @@ data/stress_benchmark_results.jsonl
 # Okunabilir Markdown raporu repoda tutulur; ham JSON tutulmaz.
 data/benchmark_results.json
 
-# Compose/sistem ortam dosyaları: operatörün ayarları (hezarfen_chatbot.env) ve
+# Compose/sistem ortam dosyaları: operatörün ayarları (hezarfen_rule_based_chatbot.env) ve
 # deploy sahipli tag taşıyıcısı (stack.env) makineye özeldir, git'e girmez.
-# Şablon: deploy/hezarfen_chatbot.env.example
-hezarfen_chatbot.env
+# Şablon: deploy/hezarfen_rule_based_chatbot.env.example
+hezarfen_rule_based_chatbot.env
 stack.env
 
 # CI deploy paketi (imaj tarball'ı + compose dosyaları + tag).
