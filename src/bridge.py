@@ -16,7 +16,9 @@ Akış (bkz. backend ``src/ai/mod.rs`` ve ``server.rs``):
    yaz, bir ``Greeting`` oku, akışı hayat boyu açık tut (kapanması = kayıttan
    düşme sinyali).
 4. Her istek backend'in açtığı *server-initiated* çift yönlü bir akıştır: tek
-   ``Request`` gelir, motoru çalıştırıp tek ``Response`` yazarız.
+   ``Request`` gelir, motoru çalıştırıp tek ``Response`` yazarız. hab/2'de
+   ``Request.school`` zorunludur ve ``Response`` onu yankılar; ikisi de eksikse
+   backend çerçeveyi reddeder.
 
 Çerçeveleme: 4 bayt big-endian uzunluk + o kadar bayt JSON.
 
@@ -201,21 +203,28 @@ class BridgeProtocol(QuicConnectionProtocol):
             return
 
         req_id = request.get("id", "")
+        # hab/2: her istek kendi OKULUNU adıyla taşır ve cevap onu yankılar.
+        # Bu alan eksikse backend çerçeveyi reddeder (mesaj error_code=protocol
+        # ile düşer) — sürüm dizesi tek başına yetmez.
+        school = request.get("school", "")
         capability = request.get("capability", "")
         payload = request.get("payload") or {}
         deadline_ms = request.get("deadline_ms")
         try:
             timeout = (deadline_ms / 1000.0) if isinstance(deadline_ms, (int, float)) else None
             text = await asyncio.wait_for(self._reply(capability, payload), timeout=timeout)
-            response: dict[str, Any] = {"status": "ok", "id": req_id, "payload": {"text": text}}
+            response: dict[str, Any] = {
+                "status": "ok", "id": req_id, "school": school, "payload": {"text": text},
+            }
         except CapabilityError as exc:
-            response = {"status": "err", "id": req_id, "code": exc.code, "message": str(exc)}
+            response = {"status": "err", "id": req_id, "school": school,
+                        "code": exc.code, "message": str(exc)}
         except asyncio.TimeoutError:
-            response = {"status": "err", "id": req_id, "code": "timed_out",
+            response = {"status": "err", "id": req_id, "school": school, "code": "timed_out",
                         "message": "motor süre içinde cevap veremedi"}
         except Exception as exc:  # pragma: no cover - beklenmeyen
             print(f"[bridge] istek {req_id} işlenemedi: {exc}", flush=True)
-            response = {"status": "err", "id": req_id, "code": "internal",
+            response = {"status": "err", "id": req_id, "school": school, "code": "internal",
                         "message": "beklenmeyen hata"}
 
         try:
