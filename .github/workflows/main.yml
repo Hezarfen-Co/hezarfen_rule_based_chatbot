@@ -1,0 +1,407 @@
+# VPS deploy, compose-style, frontend ile aynı şekil (hata toparlama ucuz olsun):
+#
+#   Validate        —  katalog doğrulaması + derleme kontrolü, kendi runner'ında.
+#   Build and test  —  unittest süiti (regresyon eşikleri içinde), sonra repo
+#                      Containerfile'ından imaj (ENV bloğu dağıtım
+#                      varsayılanlarının TEK kaynağıdır) ve imaj tarball'ı +
+#                      compose dosyaları koşunun artefaktı olarak yüklenir.
+#   Deploy          —  SSH: imajı yükle, deploy sahipli stack.env'in
+#                      HEZARFEN_TAG'ini ona çevir, compose.yaml + unit'i kur,
+#                      stack'i yeniden başlat, köprünün backend'e KAYIT
+#                      olduğunu loglardan doğrula, olmazsa önceki tag'e dön,
+#                      ardından bağımsız doğrulama.
+#
+# Validate ile Build and test paralel koşar; Deploy ikisi de yeşilse çalışır.
+# Yeni bir push aynı ref'teki Validate/Build'i iptal eder; uçuştaki Deploy'u
+# ASLA iptal etmez (iki deploy iç içe geçerse stack karışır).
+#
+# Bölünmenin amacı toparlama hikâyesi:
+#   * Deploy adımı düşen bir koşuda "Re-run failed jobs" SADECE ~1 dakikalık
+#     deploy işini yeniden koşar — imaj hâlâ koşunun artefaktında.
+#   * workflow_dispatch (Actions → Run workflow, ya da
+#     `gh workflow run main.yml --ref main`) süiti koşmadan en yeni yeşil
+#     build'in artefaktını deploy eder.
+#
+# Bir seferlik ön koşullar (workflow'un erişimi dışında):
+#   * repo secret'ları SSH_PRIVATE_KEY / SSH_HOST / SSH_USER — backend ve
+#     frontend deploy'unun kullandığı üç isim;
+#   * sunucuda `loginctl enable-linger <user>` (kullanıcı unit'leri için);
+#   * sunucuda podman + bir compose sağlayıcı (deploy ikisini de kontrol eder);
+#   * operatörün ~/hezarfen_chatbot/hezarfen_chatbot.env (0600) dosyası;
+#   * BACKEND tarafı açık olmalı: hezarfen_backend.env içinde
+#     AI_QUIC_ADDR=0.0.0.0:8090 ve AI_SHARED_TOKEN bu köprününkiyle AYNI.
+#     (127.0.0.1 yazılıysa backend yalnız kendi loopback'ine bağlanır ve köprü
+#     asla kayıt olamaz — deploy bunu logda görüp geri döner.)
+
+name: VPS deploy
+
+on:
+  push:
+    branches:
+      - main
+  # Elle yeniden deploy kapısı — yukarıdaki başlık yorumuna bakın.
+  workflow_dispatch:
+
+# Deploy serileştirmesi workflow'da değil deploy işinde: yeni bir push, uçuştaki
+# VPS değişimine dokunmadan bayat Validate/Build'i iptal edebilmeli.
+
+env:
+  # systemd kullanıcı unit'i. Bkz. deploy/hezarfen_chatbot_compose.service.
+  SERVICE: hezarfen_chatbot_compose
+  # Deploy, SSH kullanıcısının home'u altındaki bu alt dizinde yaşar ($HOME
+  # sunucuda çözülür, yani kullanıcı değişince yol da onunla gelir).
+  DEPLOY_SUBDIR: hezarfen_chatbot
+  # Köprünün ayar dosyası; deploy yalnız varlığını kontrol eder, yazmaz.
+  ENV_FILE_NAME: hezarfen_chatbot.env
+  # Sağlık kapısı: backend'in verdiği kayıt onayı logda bu satırdır.
+  READY_MARKER: "kayıt başarılı"
+  # Köprünün backend sertifikasını çektiği yol (HTTP, backend konteynerinin portu).
+  CERT_PATH: /ai/certificate
+
+jobs:
+  validate:
+    name: Validate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}-validate
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Containerfile ile aynı satır (python:3.13-slim).
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install --requirement requirements.txt
+      - name: Compile every module
+        run: python -m compileall -q src tests
+      - name: Validate the catalog
+        run: python -m src.main --validate
+
+  build:
+    name: Build and test
+    # Pushes only: elle yeniden deploy süiti tekrar ödemek yerine en yeni yeşil
+    # artefaktı kullanır.
+    if: github.event_name == 'push'
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}-build
+      cancel-in-progress: true
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install --requirement requirements.txt
+
+      # Bozuk bir build sunucuya ASLA ulaşmamalı: regresyon eşikleri
+      # (macro-F1 ≥ 0.80, OOS recall ≥ 0.70, kapsama ≥ 0.95, gizlilik recall
+      # = 1.0, kural precision = 1.0) bu süitin içinde yaşar.
+      - name: Test
+        run: python -m unittest discover -s tests -t . -v
+
+      # Laptop ve CI aynı Containerfile'ı kullanır: ENV bloğu ne diyorsa o
+      # gönderilir, ayrı bir CI ikizi yok.
+      - name: Build the image
+        run: |
+          set -euo pipefail
+          docker build -f Containerfile -t localhost/hezarfen_chatbot:$GITHUB_SHA .
+
+      - name: Stage the release bundle
+        run: |
+          set -euo pipefail
+          mkdir -p stage
+          docker save localhost/hezarfen_chatbot:$GITHUB_SHA | gzip > stage/hezarfen_chatbot.tar.gz
+          cp compose.yaml deploy/hezarfen_chatbot_compose.service stage/
+          echo -n "$GITHUB_SHA" > stage/tag
+          # Sunucuda kurulacak her şey burada olmalı; eksik parça burada,
+          # sunucuda değil, patlar.
+          test -f stage/hezarfen_chatbot.tar.gz
+          test -f stage/compose.yaml
+          test -f stage/hezarfen_chatbot_compose.service
+          test -f stage/tag
+          ls -l stage
+
+      # Deploy işi (ve elle yeniden deploy) bunu tüketir. 30 gün, dispatch
+      # kapısının geri uzanma penceresidir.
+      - name: Upload the release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: stage
+          retention-days: 30
+
+  deploy:
+    name: Deploy
+    needs: [validate, build]
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    # Push: yalnız validate VE build yeşilse — ikisi de sunucuyu kapılar.
+    # Dispatch: iki CI işi bilerek atlanır (if'lerine bakın) ve `always()`
+    # bu atlamanın bu kapıyı geçmesini engeller.
+    if: >-
+      always() &&
+      ((needs.validate.result == 'success' && needs.build.result == 'success') ||
+       (github.event_name == 'workflow_dispatch' &&
+        needs.validate.result == 'skipped' &&
+        needs.build.result == 'skipped'))
+    runs-on: ubuntu-24.04
+    steps:
+      # Push deploy'u bu koşunun ürettiği ve kapıladığı sürümü alır.
+      - name: Fetch this run's release
+        if: github.event_name == 'push'
+        uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: stage
+
+      # Elle yeniden deploy, BUILD işi yeşil olan en yeni koşuyu alır — en yeni
+      # tamamen yeşil koşuyu değil: bir koşu sağlık kapısında düşmüş olabilir
+      # ama build'i tam da geri almak istediğimiz sürümdür.
+      - name: Find the newest green build
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id=""
+          for rid in $(gh run list --workflow main.yml --branch main --event push --limit 15 --json databaseId --jq '.[].databaseId'); do
+            if [ "$(gh run view "$rid" --json jobs --jq '.jobs[] | select(.name=="Build and test") | .conclusion')" = "success" ]; then
+              run_id=$rid
+              break
+            fi
+          done
+          if [ -z "$run_id" ]; then
+            echo 'no run on main has a green Build-and-test job (or its artifact has expired)' >&2
+            exit 1
+          fi
+          echo "redeploying the release from run $run_id"
+          echo "run_id=$run_id" >> "$GITHUB_ENV"
+
+      - name: Fetch the green release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: stage
+          run-id: ${{ env.run_id }}
+          github-token: ${{ github.token }}
+
+      # Dispatch yolu günler öncesine ait bir artefakt indirebilir; sunucuya
+      # dokunmadan önce paketin bütün olduğunu yeniden kontrol et.
+      - name: Check the release is complete
+        run: |
+          set -euo pipefail
+          test -f stage/hezarfen_chatbot.tar.gz
+          test -f stage/compose.yaml
+          test -f stage/hezarfen_chatbot_compose.service
+          test -f stage/tag
+
+      - name: Install SSH keys
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+
+      - name: Upload the release
+        run: |
+          set -euo pipefail
+          ssh_target="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+
+          # Sunucunun login shell'i bash değil, ssh bu betiği ona verirdi;
+          # `bash -s` betiği stdin'den alır, login shell yalnız tek düz komut
+          # görür.
+          ssh "$ssh_target" "bash -se -- '$DEPLOY_SUBDIR'" <<'REMOTE'
+          set -euo pipefail
+          case "$1" in
+            ''|/*|*..*)
+              echo "Refusing a broad deploy subdirectory: '$1'" >&2
+              exit 1
+              ;;
+          esac
+          deploy_path=$HOME/$1
+          # Bu dizin operatörün hezarfen_chatbot.env dosyasını, compose
+          # dosyalarını ve tag dosyalarını tutar; hiçbiri toptan silinmez.
+          mkdir -p -- "$deploy_path"
+          REMOTE
+          # stdin paketi taşıyor, betik taşıyamaz; çıkarma yine bash -c ile
+          # çünkü login shell bash değil ve $HOME'u genişletmez. Sunucuya
+          # yalnız dört deploy dosyası kurulur.
+          tar -C stage -czf - hezarfen_chatbot.tar.gz compose.yaml hezarfen_chatbot_compose.service tag | ssh "$ssh_target" "bash -c 'exec tar -xzf - -C \"\$HOME/\$1\"' -- '$DEPLOY_SUBDIR'"
+
+      - name: Load the image and restart the bridge
+        run: |
+          set -euo pipefail
+          ssh_target="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+
+          # bash -s, yukarıdakiyle aynı sebeple: login shell bu betiği asla
+          # görmemeli.
+          ssh "$ssh_target" "bash -se -- '$DEPLOY_SUBDIR' '$SERVICE' '$ENV_FILE_NAME' '$CERT_PATH' '$READY_MARKER'" <<'REMOTE'
+          set -euo pipefail
+          deploy_path=$HOME/$1
+          service=$2
+          env_file=$deploy_path/$3
+          cert_path=$4
+          ready_marker=$5
+          export XDG_RUNTIME_DIR=/run/user/$(id -u)
+          # compose.yaml çalışma dizininden çözülür: unit'in ExecStart'ı
+          # WorkingDirectory taşır ama rollback'in compose up'ı ve ilk deploy'un
+          # down'ı tam buradan koşar.
+          cd -- "$deploy_path"
+
+          # Hiçbir şey oynamadan önce oku: ayar dosyası operatörün, sunucuda,
+          # elle bir kez yazılır (anahtarlar için bkz.
+          # deploy/hezarfen_chatbot.env.example). Deploy onu asla oluşturmaz,
+          # ezmez.
+          if [ ! -f "$env_file" ]; then
+            echo "missing $env_file — create it (0600) from deploy/hezarfen_chatbot.env.example" >&2
+            exit 1
+          fi
+          chmod 0600 -- "$env_file"
+
+          # Rootless podman + compose sağlayıcı; üç adım sonra çıplak
+          # command-not-found yerine çözümü söyle.
+          command -v podman >/dev/null || {
+            echo "podman not found — install podman and a compose provider (e.g. dnf install podman podman-compose)" >&2
+            exit 1
+          }
+          podman compose version >/dev/null 2>&1 || {
+            echo "'podman compose' unavailable — install a compose provider (podman-compose or docker-compose)" >&2
+            exit 1
+          }
+
+          # Ön koşul: backend köprüsü açık olmalı (AI_QUIC_ADDR=0.0.0.0:8090) —
+          # sertifika ucu bunun kanıtı ve köprü ona her bağlanmada ihtiyaç duyar.
+          served_cert=$(curl -fsS "http://127.0.0.1:7656$cert_path" 2>/dev/null) || true
+          case "$served_cert" in
+            *certificate_pem*) ;;
+            *)
+              echo "backend $cert_path did not answer with a certificate — is the AI bridge enabled (AI_QUIC_ADDR=0.0.0.0:8090)?" >&2
+              exit 1
+              ;;
+          esac
+
+          # BU build'in imajını yükle ve build'in damgaladığı tag'i oku
+          # (build zamanı ile deploy zamanı neyin gittiğinde anlaşmalı).
+          gunzip -c "$deploy_path/hezarfen_chatbot.tar.gz" | podman load
+          tag=$(cat -- "$deploy_path/tag")
+
+          # Tag rotasyonu: previous_tag geri dönüş hedefidir (ilk deploy'da
+          # yok); current_tag şu an çalışması gerekeni kaydeder.
+          if [ -f "$deploy_path/current_tag" ]; then
+            cp -- "$deploy_path/current_tag" "$deploy_path/previous_tag"
+          fi
+          printf '%s\n' "$tag" > "$deploy_path/current_tag"
+
+          # stack.env deploy sahipli (operatörün ayar dosyasından farklı):
+          # yalnız imaj tag'ini taşır ve --env-file sırası HEZARFEN_TAG'de onu
+          # kazanan yapar.
+          printf 'HEZARFEN_TAG=%s\n' "$tag" > "$deploy_path/stack.env"
+
+          chmod 0644 -- "$deploy_path/compose.yaml" "$deploy_path/hezarfen_chatbot_compose.service"
+          # İmaj tarball'ı yalnız taşıyıcıydı; imaj artık podman deposunda.
+          rm -f -- "$deploy_path/hezarfen_chatbot.tar.gz"
+
+          compose_up() {
+            podman compose --env-file "$env_file" --env-file "$deploy_path/stack.env" up -d --no-build
+          }
+          rollback() {
+            if [ -f "$deploy_path/previous_tag" ]; then
+              prev=$(cat -- "$deploy_path/previous_tag")
+              printf 'HEZARFEN_TAG=%s\n' "$prev" > "$deploy_path/stack.env"
+              printf '%s\n' "$prev" > "$deploy_path/current_tag"
+              compose_up
+              echo "rolled back to $prev" >&2
+            else
+              # İlk deploy: geri dönülecek bir şey yok, yarı ayakta stack'i
+              # durdur. Düz down — köprü durumsuzdur.
+              podman compose --env-file "$env_file" --env-file "$deploy_path/stack.env" down
+              echo 'first deploy failed; stack stopped' >&2
+            fi
+          }
+
+          # Unit sürümle birlikte gelir: yeni kurulmuş bir kutuda ilk deploy'a
+          # kadar unit yoktur ve değişen unit onu gerektiren compose ile iner.
+          mkdir -p -- "$HOME/.config/systemd/user"
+          install -m 0644 -- "$deploy_path/hezarfen_chatbot_compose.service" "$HOME/.config/systemd/user/$service.service"
+          systemctl --user daemon-reload
+
+          # Unit RemainAfterExit'li bir oneshot: aktif (exited) unit'te `start`
+          # no-op olurdu — her deploy ExecStart'ı yeniden koşmak için restart
+          # eder. Düşen bir restart (kötü interpolasyon, sağlayıcı aksaklığı)
+          # yine de aşağıdaki sağlık kapısına ulaşmalı: kararı o verir.
+          systemctl --user enable -- "$service"
+          systemctl --user restart "$service" || true
+
+          # Köprünün HAZIR olması = backend'in kaydı kabul etmesi. Portu yok,
+          # o yüzden kapı logdadır: backend'in greeting'i 'kayıt başarılı' satırını
+          # yazdırır. 60 deneme, çünkü sertifika + QUIC el sıkışması ve olası
+          # yeniden bağlanma aralıkları zaman alır.
+          ready_ok=0
+          for _ in $(seq 1 60); do
+            if podman logs --tail 200 hezarfen_chatbot 2>&1 | grep -q "$ready_marker"; then
+              ready_ok=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready_ok" -ne 1 ]; then
+            echo "the bridge never registered with the backend ('$ready_marker' missing); rolling back" >&2
+            podman logs --tail 30 hezarfen_chatbot 2>&1 >&2 || true
+            rollback
+            exit 1
+          fi
+
+          # Eski bir stack de cevap verebilir; çalışan konteyner BU build'in
+          # imajı olmalı, yoksa geri dönülür.
+          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_chatbot)
+          case "$image" in
+            *"$tag"*) ;;
+            *)
+              echo "the bridge registered, but the container runs '$image' — not this build ($tag); rolling back" >&2
+              rollback
+              exit 1
+              ;;
+          esac
+          echo 'hezarfen_chatbot_compose is up'
+          REMOTE
+
+      # Bağımsız son kontrol: cevap veren konteyner hâlâ güncel tag'in olmalı ve
+      # köprü kayıtlı kalmalı.
+      - name: Verify the bridge is registered
+        run: |
+          set -euo pipefail
+          ssh_target="${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          ssh "$ssh_target" "bash -se -- '$DEPLOY_SUBDIR' '$READY_MARKER'" <<'REMOTE'
+          set -euo pipefail
+          deploy_path=$HOME/$1
+          ready_marker=$2
+          export XDG_RUNTIME_DIR=/run/user/$(id -u)
+          cd -- "$deploy_path"
+          tag=$(cat -- "$deploy_path/current_tag")
+          image=$(podman inspect -f '{{.Config.Image}}' hezarfen_chatbot)
+          case "$image" in
+            *"$tag"*) ;;
+            *)
+              echo "container runs '$image', not the current tag '$tag'" >&2
+              exit 1
+              ;;
+          esac
+          status=$(podman inspect -f '{{.State.Status}}' hezarfen_chatbot)
+          [ "$status" = "running" ] || { echo "container status is '$status', not running" >&2; exit 1; }
+          podman logs --tail 200 hezarfen_chatbot 2>&1 | grep -q "$ready_marker" || {
+            echo "the bridge is not registered with the backend" >&2
+            exit 1
+          }
+          echo 'bridge registered, container is this build'
+          REMOTE
+
+      - name: Cleaning
+        run: rm -rf ~/.ssh

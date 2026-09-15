@@ -1,26 +1,31 @@
-# Çelebi ürün köprüsü — bu compose yalnızca TEK chatbot container'ı oluşturur.
-# Önce backend compose ayakta olmalı; backend ağına bağlanıp QUIC/UDP ile
-# hezarfen-backend:8090 adresine dial-in eder. Host portu veya demo web UI açmaz.
+# Çelebi QUIC köprüsü — bu compose yalnızca TEK chatbot container'ı oluşturur.
+# Backend compose ayakta olmalı; bu servis backend'in ağına katılır ve oradan
+# QUIC/UDP ile `hezarfen-backend:8090` adresine dial-in eder. Host portu veya
+# demo web arayüzü AÇMAZ (web.py yalnız geliştirici aracıdır).
+#
+# Varsayılanların TEK kaynağı Containerfile'ın ENV bloğudur; bu dosya hiçbir
+# `environment:` girdisi taşımaz, böylece hiçbir şey operatörün dosyasını
+# gölgeleyemez. Sunucuda ~/hezarfen_chatbot/hezarfen_chatbot.env ile ezilir.
 #
 #   podman compose up -d --build
+#
+# Ön koşul: backend'de AI köprüsü AÇIK olmalı — hezarfen_backend.env içinde
+# AI_QUIC_ADDR=0.0.0.0:8090 (127.0.0.1 DEĞİL: konteyner kendi loopback'ine
+# bağlanırsa dışarıdan hiçbir servis ulaşamaz) ve AI_SHARED_TOKEN buradaki
+# token ile AYNI olmalı.
 services:
-  bridge:
+  chatbot:
     build:
       context: .
       dockerfile: Containerfile
-    image: localhost/rule-based-chatbot:local
-    container_name: hezarfen-chatbot-bridge
+    # HEZARFEN_TAG deploy tarafından yazılan stack.env'den gelir (--env-file).
+    image: localhost/hezarfen_chatbot:${HEZARFEN_TAG:-latest}
+    container_name: hezarfen_chatbot
     init: true
-    command: ["python", "-m", "src.bridge"]
-    environment:
-      AI_BRIDGE_HOST: hezarfen-backend      # backend container'ının adı
-      # aioquic bu hedefe UDP ile bağlanır; burada TCP port yayını yoktur.
-      AI_BRIDGE_PORT: "8090"
-      AI_BACKEND_URL: http://hezarfen-backend:8080
-      AI_SHARED_TOKEN: change-me            # backend ile AYNI olmalı
-      AI_TLS_SERVER_NAME: localhost         # self-signed sertifikanın SAN'ı
-      AI_SERVICE_NAME: celebi
-      HEZARFEN_ASSISTANT_ROLE: ogrenci
+    env_file:
+      # Sunucuda elle yazılır (0600); laptopta yoktur.
+      - path: hezarfen_chatbot.env
+        required: false
     restart: unless-stopped
     networks:
       - backend_net

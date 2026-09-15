@@ -3,7 +3,7 @@
 Backend (``hezarfen_backend``) bir QUIC **sunucusudur**: AI servisleri ona
 *dial-in* eder, sundukları yetenekleri (`capabilities`) kaydeder ve backend her
 sohbet turunu bu bağlantı üzerinden bir isteğe çevirir. Bu modül o istemcinin
-Python tarafıdır; wire protokolü backend'deki ``src/ai/protocol.rs`` ("hab/1")
+Python tarafıdır; wire protokolü backend'deki ``src/ai/protocol.rs`` ("hab/2")
 ile birebir aynıdır.
 
 Akış (bkz. backend ``src/ai/mod.rs`` ve ``server.rs``):
@@ -11,7 +11,7 @@ Akış (bkz. backend ``src/ai/mod.rs`` ve ``server.rs``):
 1. Backend'in HTTP'sinden sertifikayı çek (``GET /ai/certificate``) ve pinle.
    Self-signed sertifika her açılışta yenilendiği için her (yeniden) bağlanmada
    tazelenir.
-2. QUIC ile ``AI_QUIC_ADDR``'e bağlan (ALPN ``hab/1``).
+2. QUIC ile ``AI_QUIC_ADDR``'e bağlan (ALPN ``hab/2``).
 3. İlk *client-initiated* çift yönlü akış = **kontrol akışı**: bir ``Hello``
    yaz, bir ``Greeting`` oku, akışı hayat boyu açık tut (kapanması = kayıttan
    düşme sinyali).
@@ -67,7 +67,10 @@ from .bridge_contract import resolve_session
 from .engine import Engine, RequestError, get_default_engine
 
 # --- Protokol sabitleri (backend src/constant.rs ile eşleşir) ---------------
-PROTOCOL = "hab/1"
+# AI_PROTOCOL/AI_ALPN backend'de "hab/2": sunucu hello.protocol'u bununla
+# karşılaştırır ve ALPN listesi de aynı dizedir. Sürüm burada geride kalırsa
+# backend kaydı reddeder ("this backend speaks hab/2, the service announced …").
+PROTOCOL = "hab/2"
 CHAT_CAPABILITY = "chat.reply"
 MAX_FRAME_BYTES = 8 * 1024 * 1024
 KEEPALIVE_SECS = 10  # backend AI_IDLE_TIMEOUT_SECS=30; altında tutulur

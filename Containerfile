@@ -14,9 +14,28 @@ COPY src ./src
 COPY tests ./tests
 COPY data ./data
 
-# Container'ı root olmayan kullanıcıyla çalıştır.
+# Konteynerı root olmayan kullanıcıyla çalıştır.
 RUN useradd --create-home --uid 10001 chatbot \
     && chown -R chatbot:chatbot /app
 USER chatbot
 
-CMD ["python", "-m", "src.main", "--validate"]
+# Dağıtım varsayılanları — TEK yazıldıkları yer. Sunucu bunları
+# hezarfen_chatbot.env (env_file) ile ezer; compose dosyası hiçbir anahtar
+# listelemez, böylece operatörün dosyası gölgelenemez.
+#
+# AI_BACKEND_URL köprünün sertifikayı çektiği HTTP kökü: backend konteynerinin
+# kendi portu (compose'da PORT=7656). Sertifika her (yeniden) bağlanmada
+# tazelenir.
+ENV AI_BRIDGE_HOST=hezarfen-backend \
+    AI_BRIDGE_PORT=8090 \
+    AI_BACKEND_URL=http://hezarfen-backend:7656 \
+    AI_SHARED_TOKEN=change-me \
+    AI_TLS_SERVER_NAME=localhost \
+    AI_SERVICE_NAME=celebi \
+    HEZARFEN_ASSISTANT_ROLE=ogrenci \
+    AI_MAX_CONCURRENT=8 \
+    AI_RECONNECT_SECS=3
+
+# Konteynerın işi köprüyü çalıştırmak. Katalog/benchmark komutları bu imajın
+# içinde elle koşulur: `podman run --rm IMAGE python -m src.main --validate`.
+CMD ["python", "-m", "src.bridge"]
