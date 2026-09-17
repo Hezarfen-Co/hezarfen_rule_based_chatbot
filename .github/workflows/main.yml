@@ -45,6 +45,12 @@ on:
 # Deploy serileştirmesi workflow'da değil deploy işinde: yeni bir push, uçuştaki
 # VPS değişimine dokunmadan bayat Validate/Build'i iptal edebilmeli.
 
+permissions:
+  contents: read
+  # workflow_dispatch yolu `gh run list/view` ile en yeni yeşil koşuyu arar ve o
+  # koşunun artefaktini indirir; ikisi de Actions API'sidir ve YAZMA GEREKMEZ.
+  actions: read
+
 env:
   # systemd kullanıcı unit'i. Bkz. deploy/hezarfen_rule_based_chatbot_compose.service.
   SERVICE: hezarfen_rule_based_chatbot_compose
