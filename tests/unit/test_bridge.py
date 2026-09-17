@@ -94,7 +94,8 @@ def _config(**env: str) -> bridge.BridgeConfig:
     """Ortamdan bağımsız yapılandırma: testler operatörün env'ini okumaz."""
     base = {
         "AI_BRIDGE_HOST": "127.0.0.1",
-        "AI_BACKEND_URL": "http://127.0.0.1:8080",
+        "AI_BACKEND_URL": "http://127.0.0.1:7656",
+        "AI_SHARED_TOKEN": "test-token",
         "AI_TLS_FINGERPRINT": "",
         "AI_RECONNECT_SECS": "3",
         "AI_RECONNECT_MAX_SECS": "120",
@@ -102,6 +103,20 @@ def _config(**env: str) -> bridge.BridgeConfig:
     base.update(env)
     with mock.patch.dict(os.environ, base):
         return bridge.BridgeConfig()
+
+
+class TokenRefusalTests(unittest.TestCase):
+    """Boş ya da yer tutucu sırla köprü AÇILMAZ: backend ile aynı sır zorunlu."""
+
+    def test_missing_token_is_refused_at_config(self) -> None:
+        with mock.patch.dict(os.environ, {"AI_SHARED_TOKEN": ""}):
+            with self.assertRaises(ValueError):
+                bridge.BridgeConfig()
+
+    def test_placeholder_token_is_refused_at_config(self) -> None:
+        with mock.patch.dict(os.environ, {"AI_SHARED_TOKEN": "change-me"}):
+            with self.assertRaises(ValueError):
+                bridge.BridgeConfig()
 
 
 class _FakeHttp:

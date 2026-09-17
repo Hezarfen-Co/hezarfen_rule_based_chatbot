@@ -19,7 +19,7 @@ sayılır) → `netavark ... nftables/bridge/tap` hataları:
 
 Ayrıca **rootful** podman machine'de yayınlanan portlar Windows host'a güvenilir
 iletilmez (netavark DNAT'ın dinleyen socket'i yok). **Rootless** machine
-(`rootlessport` gerçek socket açar) ile `localhost:5173/8080` **stabil** çalışır.
+(`rootlessport` gerçek socket açar) ile `localhost:5173/7656` **stabil** çalışır.
 
 ## Ön koşullar
 1. **Podman Desktop** kurulu + **bir podman machine** oluşturulmuş ve çalışır
@@ -41,7 +41,7 @@ pwsh -File deploy/setup-podman-wsl.ps1
 # 2) Her seferinde: base'leri pre-pull + stack'i ayağa kaldır
 pwsh -File deploy/run-stack.ps1
 ```
-Bitince: **http://localhost:5173** (giriş `admin` / `admin123`) · backend **http://localhost:8080**.
+Bitince: **http://localhost:5173** (giriş `admin` / `admin123`) · backend **http://localhost:7656**.
 
 ---
 
@@ -82,7 +82,7 @@ pwsh -File deploy/run-stack.ps1
 ```
 Ya da elle (her repo kendi compose'uyla; sıra önemli — backend ağı yaratır):
 ```powershell
-cd ..\hezarfen_backend            ; & $P compose up -d --build   # surrealdb + backend (:8080,:8090)
+cd ..\hezarfen_backend            ; & $P compose up -d --build   # postgres + backend (:7656,:8090)
 cd ..\hezarfen_frontend           ; & $P compose up -d --build   # frontend (:5173)
 cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose up -d --build   # yalnız chatbot köprüsü
 ```
@@ -97,7 +97,7 @@ cd ..\Hezarfen-Rule-Based-Chatbot ; & $P compose up -d --build   # yalnız chatb
 | `netavark ... "nft" ... while applying ruleset` | Kernel'de `NFT_FIB` yok → özel kernel'i kur (yukarıda). |
 | `create bridge: Operation not supported` | `BRIDGE`/`VETH` modül → kernel'i yeniden derle (=y). |
 | `Failed to set up tap device` (rootless) | `/dev/net/tun` yok (`TUN=m`) → kernel'i yeniden derle. |
-| `localhost:5173/8080` aralıklı/erişilemez | Machine **rootful** → `podman machine set --rootful=false` + restart. |
+| `localhost:5173/7656` aralıklı/erişilemez | Machine **rootful** → `podman machine set --rootful=false` + restart. |
 | build: `unable to retrieve auth token ... unauthorized` | docker.io anonim-pull dalgalanması → base imajları önce `podman pull` ile çek, sonra build. |
 | `Cgroups v1 not supported` | `.wslconfig`'e `kernelCommandLine = cgroup_no_v1=all` + `wsl --shutdown`. |
 
@@ -113,5 +113,5 @@ cd ..\hezarfen_backend            ; & $P compose down -v     # volume'ları da s
 - Kernel sürümü (`6.6.123.2`) WSL kernel'inle eşleşmek zorunda değil; sadece geçerli
   bir WSL2 kernel'i olması yeter. Farklı bir sürüm istersen `deploy/wsl-kernel/Containerfile`
   içindeki `--branch` etiketini değiştir (bkz. microsoft/WSL2-Linux-Kernel tag'leri).
-- `AI_SHARED_TOKEN` yerel geliştirmede `change-me`; paylaşımlı/üretim ortamında
-  compose'a gerçek bir değer ver (`$env:AI_SHARED_TOKEN`).
+- `AI_SHARED_TOKEN` ZORUNLUDUR: boş ya da `change-me` bırakılırsa köprü
+  açılışta yapılandırma hatasıyla durur. Gerçek bir değer ver (`$env:AI_SHARED_TOKEN`).

@@ -19,7 +19,7 @@ services:
       context: .
       dockerfile: Containerfile
     # HEZARFEN_TAG deploy tarafından yazılan stack.env'den gelir (--env-file).
-    image: localhost/hezarfen_rule_based_chatbot:${HEZARFEN_TAG:-latest}
+    image: localhost/hezarfen_rule_based_chatbot:${HEZARFEN_TAG:-current}
     container_name: hezarfen_rule_based_chatbot
     init: true
     env_file:
@@ -34,4 +34,4 @@ services:
 networks:
   backend_net:
     external: true
-    name: hezarfen_backend_default
+    name: ${HEZARFEN_NET:-hezarfen_backend_default}

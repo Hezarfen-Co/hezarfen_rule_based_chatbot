@@ -35,7 +35,7 @@ USER chatbot
 ENV AI_BRIDGE_HOST=hezarfen_backend \
     AI_BRIDGE_PORT=8090 \
     AI_BACKEND_URL=http://hezarfen_backend:7656 \
-    AI_SHARED_TOKEN=change-me \
+    AI_SHARED_TOKEN= \
     AI_TLS_SERVER_NAME=localhost \
     AI_SERVICE_NAME=celebi \
     HEZARFEN_ASSISTANT_ROLE=ogrenci \

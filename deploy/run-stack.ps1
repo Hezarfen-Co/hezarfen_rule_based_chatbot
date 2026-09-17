@@ -52,7 +52,7 @@ Compose-Up $chatbot  @()                                  # yalnız bridge; back
 Write-Host "`n[3/3] Doğrulama..."
 Start-Sleep -Seconds 6
 & $PODMAN ps --format "{{.Names}} {{.Status}}"
-foreach ($p in 8080,5173) {
+foreach ($p in 7656,5173) {
   try {
     $code = (Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$p/" -TimeoutSec 6).StatusCode
     Write-Host "    localhost:$p -> HTTP $code"

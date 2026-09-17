@@ -42,8 +42,8 @@ Ortam değişkenleri (hepsinin makul varsayılanı vardır)::
 
     AI_BRIDGE_HOST         QUIC ile bağlanılacak host   (vars. 127.0.0.1)
     AI_BRIDGE_PORT         QUIC portu (UDP)             (vars. 8090)
-    AI_BACKEND_URL         Sertifika için HTTP kökü     (vars. http://127.0.0.1:8080)
-    AI_SHARED_TOKEN        Hello'daki paylaşılan sır    (vars. change-me)
+    AI_BACKEND_URL         Sertifika için HTTP kökü     (vars. http://127.0.0.1:7656)
+    AI_SHARED_TOKEN        Hello'daki paylaşılan sır    (ZORUNLU; bos/change-me reddedilir)
     AI_TLS_SERVER_NAME     TLS doğrulaması için ad      (vars. localhost)
     AI_SERVICE_NAME        Loglarda görünen servis adı  (vars. celebi)
     HEZARFEN_ASSISTANT_ROLE  Eski backend için yedek rol (vars. ogrenci)
@@ -355,8 +355,13 @@ class BridgeConfig:
     def __init__(self) -> None:
         self.host = _env("AI_BRIDGE_HOST", "127.0.0.1")
         self.port = int(_env("AI_BRIDGE_PORT", "8090"))
-        self.backend_url = _env("AI_BACKEND_URL", "http://127.0.0.1:8080").rstrip("/")
-        self.token = _env("AI_SHARED_TOKEN", "change-me")
+        self.backend_url = _env("AI_BACKEND_URL", "http://127.0.0.1:7656").rstrip("/")
+        self.token = _env("AI_SHARED_TOKEN", "")
+        if not self.token or self.token == "change-me":
+            raise ValueError(
+                "AI_SHARED_TOKEN tanımlı değil ya da yer tutucu (change-me); "
+                "backend ile aynı sır olmadan kayıt yapılamaz"
+            )
         self.server_name = _env("AI_TLS_SERVER_NAME", "localhost")
         # Parmak izi karşılaştırması için iki nokta ayraçları ve büyük/küçük
         # harf farkı normalize edilir: `openssl ... | xxd` çıktısını yapıştırmak
