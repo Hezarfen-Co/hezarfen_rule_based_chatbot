@@ -272,6 +272,27 @@ jobs:
           fi
           chmod 0600 -- "$env_file"
 
+          # OPERATÖR ORTAMI SÜRECE ALINIR. podman-compose interpolasyonu ORTAM
+          # DEĞİŞKENLERİNE bakar ve `--env-file` YALNIZ SON dosyayı çözer
+          # (podman_compose.py:2941-2946, :2559): iki dosyalı çağrı operatör
+          # dosyasını tamamen düşürürdü, yani `${HEZARFEN_NET:-...}`
+          # interpolasyonu sessizce compose varsayılanına düşerdi. Bu yüzden
+          # dosya satır satır okunur -- kabuk genişletmesi YOK (değer içindeki
+          # `$` olduğu gibi kalır), biçim düz KEY=value olduğu için tırnak/
+          # `export` aranmaz. systemd `EnvironmentFile=` ile AYNI kurallar.
+          while IFS= read -r satir || [ -n "$satir" ]; do
+            case "$satir" in ''|'#'*) continue ;; esac
+            anahtar=${satir%%=*}
+            deger=${satir#*=}
+            case "$anahtar" in
+              ''|*[!A-Za-z0-9_]*)
+                echo "operator env: geçersiz anahtar adı -- harf/rakam/alt çizgi beklenirdi" >&2
+                exit 1
+                ;;
+            esac
+            export "$anahtar=$deger"
+          done < "$env_file"
+
           # Rootless podman + compose sağlayıcı; üç adım sonra çıplak
           # command-not-found yerine çözümü söyle.
           command -v podman >/dev/null || {
@@ -307,16 +328,29 @@ jobs:
           printf '%s\n' "$tag" > "$deploy_path/current_tag"
 
           # stack.env deploy sahipli (operatörün ayar dosyasından farklı):
-          # yalnız imaj tag'ini taşır ve --env-file sırası HEZARFEN_TAG'de onu
-          # kazanan yapar.
+          # yalnız imaj tag'ini taşır ve compose'a giden TEK `--env-file` odur
+          # -- operatör değerleri yukarıda sürece alındı (systemd
+          # `EnvironmentFile=` ile aynı iki-kanal deseni). İki dosyalı çağrı bu
+          # sağlayıcıda operatör dosyasını düşürür (podman_compose.py:2941-2946,
+          # :2559); ortam değişkeni --env-file değerlerini ezer (:2562).
           printf 'HEZARFEN_TAG=%s\n' "$tag" > "$deploy_path/stack.env"
+
+          # Konteynere DOKUNMADAN önce compose modeli çözülebiliyor mu: iki
+          # `--env-file`ı tek değer sanan sağlayıcılar (podman-compose 1.6) ya da
+          # okunamayan bir compose dosyası, unit restart edildikten SONRA değil
+          # burada, eski konteyner hâlâ ayaktayken patlasın. Çözülen model
+          # aşağıdaki kapı için saklanır.
+          rendered=$(podman compose --env-file "$deploy_path/stack.env" config) || {
+            echo "the compose model does not resolve — check the env files and the provider, nothing was changed" >&2
+            exit 1
+          }
 
           chmod 0644 -- "$deploy_path/compose.yaml" "$deploy_path/hezarfen_rule_based_chatbot_compose.service"
           # İmaj tarball'ı yalnız taşıyıcıydı; imaj artık podman deposunda.
           rm -f -- "$deploy_path/hezarfen_rule_based_chatbot.tar.gz"
 
           compose_up() {
-            podman compose --env-file "$env_file" --env-file "$deploy_path/stack.env" up -d --no-build
+            podman compose --env-file "$deploy_path/stack.env" up -d --no-build
           }
           rollback() {
             if [ -f "$deploy_path/previous_tag" ]; then
@@ -327,8 +361,9 @@ jobs:
               echo "rolled back to $prev" >&2
             else
               # İlk deploy: geri dönülecek bir şey yok, yarı ayakta stack'i
-              # durdur. Düz down — köprü durumsuzdur.
-              podman compose --env-file "$env_file" --env-file "$deploy_path/stack.env" down
+              # durdur. Düz down — köprü durumsuzdur. Geri dönüş de AYNI kanalı
+              # kullanır: aynı şekilde ölen bir rollback eski tag'i bırakırdı.
+              podman compose --env-file "$deploy_path/stack.env" down
               echo 'first deploy failed; stack stopped' >&2
             fi
           }
@@ -376,6 +411,34 @@ jobs:
               exit 1
               ;;
           esac
+
+          # KAPI 3 — OPERATÖR DEĞİŞKENLERİ GEÇERLİ Mİ. Bu iddia olmadan iki
+          # dosyalı `--env-file` sınıfı sessizce geri gelebilir: `up` ya
+          # reddeder ya da (varsayılanı olan anahtarlarda) konteyneri SESSİZCE
+          # compose varsayılanıyla ayağa kaldırırdı. İki kanal, iki iddia:
+          #   AI_SHARED_TOKEN konteynerde -> operatör dosyası konteynere ulaştı
+          #                                 (`env_file:` kanalı)
+          #   çözülen model operatörün ağ adını taşıyor -> `HEZARFEN_NET`
+          #                                 İNTERPOLASYONA girdi (iki dosyalı
+          #                                 çağrı tam olarak bunu düşürürdü)
+          # Sır DEĞERLERİ loglanmaz: yalnız varlık ve interpolasyon ölçülür.
+          eksik=0
+          if ! podman inspect -f '{{range .Config.Env}}{{println .}}{{end}}' hezarfen_rule_based_chatbot \
+               | grep -qE '^AI_SHARED_TOKEN=.'; then
+            echo "container env: AI_SHARED_TOKEN yok ya da BOŞ — operatör dosyası compose'a ulaşmamış" >&2
+            eksik=1
+          fi
+          op_net=$(sed -n 's/^HEZARFEN_NET=//p' "$env_file" | tail -1)
+          [ -n "$op_net" ] || op_net='hezarfen_backend_default'
+          if ! printf '%s\n' "$rendered" | grep -qF -- "$op_net"; then
+            echo "compose modeli operatörün ağ adını ($op_net) taşımıyor — HEZARFEN_NET interpolasyona girmemiş" >&2
+            eksik=1
+          fi
+          if [ "$eksik" -ne 0 ]; then
+            echo "operator env did not reach the compose model — check $env_file; rolling back" >&2
+            rollback
+            exit 1
+          fi
           echo 'hezarfen_rule_based_chatbot_compose is up'
           REMOTE
 

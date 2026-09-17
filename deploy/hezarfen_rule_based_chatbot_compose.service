@@ -29,11 +29,18 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=%h/hezarfen_rule_based_chatbot
-# Sonraki --env-file çakışan anahtarda kazanır: önce operatörün ayar dosyası,
-# sonra deploy sahipli stack.env (HEZARFEN_TAG).
-ExecStart=/usr/bin/podman compose --env-file %h/hezarfen_rule_based_chatbot/hezarfen_rule_based_chatbot.env --env-file %h/hezarfen_rule_based_chatbot/stack.env up -d --no-build
+# İKİ `--env-file` YASAK. podman-compose 1.6.0 `--env-file`ı TEK DEĞER sayar
+# (podman_compose.py:2941-2946) ve verildiğinde YALNIZCA SONUNCUSUNU okur: iki
+# bayrak operatörün ayar dosyasını sessizce düşürür, yani `${HEZARFEN_NET:-...}`
+# interpolasyonu compose varsayılanına kayar. Operatör değerleri ORTAMDAN gelir
+# (`EnvironmentFile=`), compose'a giden TEK `--env-file` deploy sahipli
+# stack.env'dir (HEZARFEN_TAG). Ortam değişkeni --env-file değerlerini EZER
+# (:2562), yani iki kanal çakışmaz. Docker Compose v2'nin "sonraki dosya
+# çakışan anahtarda kazanır" davranışı bu sağlayıcı için GEÇERLİ DEĞİL.
+EnvironmentFile=%h/hezarfen_rule_based_chatbot/hezarfen_rule_based_chatbot.env
+ExecStart=/usr/bin/podman compose --env-file %h/hezarfen_rule_based_chatbot/stack.env up -d --no-build
 # -v yok: isimli volume'lar stop'ta yaşamalı (köprü durumsuzdur ama şekil aynı).
-ExecStop=/usr/bin/podman compose down
+ExecStop=/usr/bin/podman compose --env-file %h/hezarfen_rule_based_chatbot/stack.env down
 TimeoutStartSec=180
 
 [Install]
