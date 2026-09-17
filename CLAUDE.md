@@ -29,6 +29,10 @@ Frontend'ler: `cli.py` (terminal), `web.py` (geliştirici web arayüzü, stdlib 
 - `python -m src.main --chat` — etkileşimli terminal
 - `python -m src.web` — geliştirici web arayüzü (http://127.0.0.1:8000)
 - `python -m unittest discover -s tests -t .` — tüm testler
+  (kök `src.bridge`'i import eden `tests/unit/test_bridge.py` **aioquic ister**:
+  `pip install -r requirements.txt`; venv yoksa `python3 -m venv
+  --system-site-packages` ile geçici bir venv kurun, eksikse o tek test dosyası
+  `ModuleNotFoundError` ile ERROR verir)
 - `python -m tests.e2e.test_conversation --transcript` — 212 konuşmayı bot
   cevaplarıyla konsola basar; `--markdown` aynısını `KONUSMALAR.md`'ye yazar
   (KONUSMALAR.md üretilmiş dosyadır, elle düzenlenmez)
@@ -61,6 +65,22 @@ Frontend'ler: `cli.py` (terminal), `web.py` (geliştirici web arayüzü, stdlib 
   rehberde YOKLAR — rehber güncellenince metinler teyit edilmeli.
 
 ## Önemli tasarım kararları (tekrar keşfetme)
+- **Köprü wire'ı `hab/2`** (`bridge.PROTOCOL` = backend `constant.AI_PROTOCOL`).
+  hab/2'de `Request.school` ZORUNLU ve her `Response` onu **yankılamak** zorunda:
+  eksikse backend çerçeveyi `malformed` sayar ve mesaj `error_code=protocol` ile
+  düşer — kayıt başarılı olsa bile. Bu yüzden cevaplar `ok_response`/`err_response`
+  ile kurulur; dal başına elle dict yazmak (bir dalın okulu unutması) tam bu
+  hatayı üretir.
+- **Kalıcı red köprüyü ÇIKARMAZ** (`unsupported_protocol`/`unauthorized`):
+  unit `restart: unless-stopped` ile döngü sonsuz crash-loop olur ve backend
+  düzeltildiğinde servis kendiliğinden dönmez. Bunun yerine geri çekilme tavana
+  çekilir + jitter, log durum değişiminde BİR kez atılır. "Reddedilince çık"
+  davranışını geri EKLEME.
+- **Sertifika her (yeniden) bağlanmada `GET /ai/certificate`'ten çekilir**
+  (backend her boot'ta yeniler) ve parmak izi PEM'den yeniden hesaplanır:
+  sunucunun bildirdiği `fingerprint_sha256` yalnız çapraz denetlenir, doğrulama
+  kaynağı değildir. `AI_TLS_FINGERPRINT` boşsa TOFU (loglanır); yarım/bozuk bir
+  değer sessizce TOFU'ya düşmez, yapılandırma hatası verir.
 - **Kural katmanı stem KULLANMAZ**; `folded_tokens` + önek eşleşmesi kullanır.
   Stemmer 'yapamıyor'→'yap' gibi çökertip kesinliği bozuyordu. Stemmer yalnızca
   `roots()` (log/teşhis) içindir.

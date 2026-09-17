@@ -13,6 +13,13 @@ Bilgi kaynağı: [`docs/hezarfen-site-rehberi.md`](docs/hezarfen-site-rehberi.md
 > `chat.reply` yeteneğini sunar, backend'in doğrulanmış oturum rolünü
 > `asker_role` alanından alır. Çalıştırma ve ortam değişkenleri dosya başındaki
 > docstring'de.
+>
+> Sertifika her (yeniden) bağlanmada `GET /ai/certificate`'ten tazelenir ve
+> parmak izi PEM'den yeniden hesaplanır; `AI_TLS_FINGERPRINT` boşsa TOFU
+> (loglanır), doluysa uyuşmayan sertifikaya bağlanılmaz. Kayıt kalıcı olarak
+> reddedilirse (`unsupported_protocol`/`unauthorized`) köprü **çıkmaz**: üstel
+> geri çekilmeyle bekler, durum değişiminde bir kez loglar ve yapılandırma
+> düzelince kendiliğinden kaydolur.
 
 ## Proje haritası — ne nerede
 
